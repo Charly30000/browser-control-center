@@ -1,0 +1,57 @@
+:root {
+  color-scheme: light dark;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+  color: var(--vscode-foreground);
+  background: var(--vscode-sideBar-background);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button { font: inherit; }
+
+.sidebar-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  gap: 14px;
+}
+
+.page-navigation { display: grid; gap: 6px; }
+
+.page-button {
+  width: 100%;
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 2px;
+  color: var(--vscode-disabledForeground);
+  background: var(--vscode-button-secondaryBackground);
+  cursor: default;
+  text-align: left;
+}
+
+.page-button.active {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  cursor: pointer;
+}
+
+.page-button.active:hover { background: var(--vscode-button-hoverBackground); }
+.page-button:focus-visible { outline: 1px solid var(--vscode-focusBorder); outline-offset: 2px; }
+.page-button small { font-size: 10px; opacity: .8; }
+
+.browser-status {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--vscode-sideBarSectionHeader-border, var(--vscode-panel-border));
+}
+
+.browser-status h2 { margin: 0 0 7px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.browser-status p { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--vscode-descriptionForeground); }
+.status-dot { width: 9px; height: 9px; border: 1px solid currentColor; border-radius: 50%; }
