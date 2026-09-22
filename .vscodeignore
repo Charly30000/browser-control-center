@@ -3,6 +3,7 @@ src/**
 test/**
 docs/decisions/**
 node_modules/**
+!node_modules/playwright-core/**
 coverage/**
 *.vsix
 *.map

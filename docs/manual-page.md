@@ -1,29 +1,35 @@
 # Página Manual
 
-## Perfiles
+## Sesión y pestañas
 
-Un perfil agrupa URL base, query params, headers, cookies, ambos storages, request overrides, bindings de generadores y un viewport futuro. **Nuevo** crea un draft con nombre `untitled`; los sufijos usan siempre la serie plana `untitled-1`, `untitled-2`, etc. **Guardar** persiste el archivo, **Eliminar** pide confirmación mediante un diálogo nativo de VS Code y también permite descartar un borrador sin guardar, e **Importar/Exportar** usan JSON versionado.
+**Iniciar** crea una sesión limpia. **Detener** intenta un cierre normal, **Forzar cierre** termina el proceso y **Reinicio limpio** descarta el contexto actual y crea otro. Las pestañas se identifican internamente por ID y se actualizan cuando navegan, cambian de título, se abren como popup o se cierran.
 
-## URL y query params
+**Abrir** compone la URL con los query params activos, inicia Chromium si es necesario y navega la pestaña seleccionada.
 
-La URL base se procesa con `URL`; las entradas activas se añaden con `URLSearchParams`. Se permiten claves repetidas. Una URL inválida se muestra antes de enviarla al caso de uso.
+## Viewport
 
-## Storage
+Incluye Desktop 1920×1080, Laptop 1366×768, tablet y móvil en ambas orientaciones, además de ancho, alto, escala, touch y modo móvil personalizados. Como son opciones del contexto, se aplican mediante un reinicio limpio.
 
-Los tipos admitidos son `string`, `number`, `boolean`, `JSON` y `null`. La UI valida el texto y `BrowserActionsService` repite la validación antes de alcanzar el bridge.
+## Headers, cookies y storage
+
+Los headers se aplican al contexto y afectan a las solicitudes posteriores. Las cookies admiten nombre, valor, dominio, path, expiración, `Secure`, `HttpOnly` y `SameSite`. Si el dominio queda vacío se usa la URL de la pestaña activa; `path: /` cubre todas las rutas de ese dominio.
+
+Local Storage y Session Storage aceptan `string`, `number`, `boolean`, JSON y `null`; el valor se valida antes de escribirlo en la página activa.
 
 ## Overrides
 
-Los matchers pueden ser URL exacta, glob o regex. El modelo incluye método, acción, estado, headers, body y content type. Las regex y estados HTTP se validan antes de aplicar.
+Los matchers pueden ser URL exacta, glob o regex y filtrarse por método. Las acciones son:
 
-## Generadores
+- `fulfill`: responde con status, headers, body y content type configurados;
+- `abort`: cancela la solicitud;
+- `continue-modified`: continúa con headers y body modificados.
 
-Nombre, apellido, email, teléfono, número, DNI, NIE y CIF funcionan como lógica pura. La precisión numérica es el máximo número de decimales textuales entre mínimo y máximo. Fórmula y array muestran los recursos globales existentes y guardan la selección mediante `resourceId`.
+Los Service Workers se bloquean en el contexto para que las rutas sean observables por Playwright.
 
-Los arrays permiten generar una muestra local mediante `ArrayValueGenerator`. Un array vacío produce “Sin resultado”. Las fórmulas no se ejecutan todavía: muestran que la ejecución aislada estará disponible al integrar el navegador.
+## Inputs y selector visual
 
-Cada binding separa el selector CSS de la propiedad destino. Se admiten `value`, `textContent`, `innerText`, `checked`, atributo y propiedad personalizada. **Seleccionar elemento** y **Aplicar** llegan al bridge stub; **Generar muestra** permite verificar únicamente la generación local.
+Los bindings pueden escribir `value`, `checked`, `textContent`, `innerText`, atributos o propiedades. El modo instantáneo usa `fill`; el secuencial simula teclas con retraso configurable.
 
-## Estado runtime
+El picker resalta el elemento bajo el puntero, captura el click y genera un selector CSS estable priorizando ID y atributos de testing. Los selectores CSS atraviesan Shadow DOM abierto; no se intenta acceder a raíces cerradas y XPath no es la opción principal. `Escape` cancela la selección.
 
-Ninguna acción de navegador se presenta como exitosa en esta fase. El bridge stub responde que el navegador no está configurado. Esto mantiene separadas la edición del perfil, su persistencia y su aplicación runtime.
+Las fórmulas, arrays y generadores básicos se resuelven en la capa de aplicación. **Resetear** restaura los valores capturados antes de aplicar bindings durante la sesión actual.

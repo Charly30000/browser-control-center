@@ -1,83 +1,52 @@
 # Arquitectura
 
-## Objetivos
-
-La arquitectura separa la interfaz, los casos de uso, el dominio, la persistencia y el futuro controlador de navegador. La lógica compartible no conoce Lit ni la API de VS Code.
-
-```text
-Webviews (Lit)
-      │ mensajes discriminados
-Extension adapters
-      │
-Application services
-      │
-Domain ◄──── Infrastructure adapters
-```
-
 ## Capas
 
-### `src/domain`
-
-Contiene los modelos Manual, reglas de nombres, composición de URLs, validación de storage y overrides, dirty state, generadores y el contrato `BrowserBridge`. Es TypeScript puro y puede reutilizarse en automatizaciones futuras.
-
-### `src/application`
-
-Orquesta casos de uso sin decidir detalles visuales. `ManualProfileService` administra el ciclo de vida de los perfiles; `BrowserActionsService` valida y delega acciones en el bridge.
-
-### `src/infrastructure`
-
-Implementa puertos externos. `FileProfileRepository` usa `globalStorageUri`, `ProfileMetadataStore` limita `globalState` a metadatos y `StubBrowserBridge` declara el navegador como no disponible.
-
-### `src/extension`
-
-Es el adaptador de VS Code: activación, composición de dependencias, sidebar, panel, diálogos de importación/exportación y HTML seguro para webviews. `ManualPanelManager` conserva una única instancia del panel.
-
-### `src/webviews`
-
-Contiene UI Lit. Las páginas se centralizan en:
-
 ```text
-pages/
-├─ Manual/
-├─ Formulas/
-├─ Arrays/
-└─ Automatizaciones/
+Webviews Lit
+    │ mensajes discriminados y validados
+Adaptadores de VS Code
+    │
+Servicios de aplicación
+    │
+Dominio ◄──── Adaptadores de infraestructura
+                  ├─ persistencia
+                  └─ Playwright / Chromium
 ```
 
-`Manual`, `Fórmulas` y `Arrays` tienen implementación. `Automatizaciones` publica exclusivamente metadatos para el sidebar y delimita dónde vivirá su vista futura.
+- `src/domain`: modelos, contratos, validación y lógica pura. No conoce VS Code, Lit ni Playwright.
+- `src/application`: casos de uso de perfiles, recursos, generadores y acciones de navegador.
+- `src/infrastructure`: persistencia, instalación de Chromium, ciclo de vida, pestañas, red, picker y sandbox.
+- `src/extension`: composición, comandos, paneles, diálogos y logging de VS Code.
+- `src/webviews`: páginas Lit. Cada vista central vive en `pages/<Vista>` y los componentes reutilizables en `components`.
 
-Los componentes reutilizables entre páginas viven en `webviews/components`. Los componentes exclusivos de una página viven en `pages/<Página>/components`.
+## Navegador
 
-## Mensajería
+`PlaywrightBrowserBridge` es la fachada que consume la aplicación. Delega responsabilidades en:
 
-Cada dirección utiliza una unión discriminada. Los adaptadores validan los mensajes recibidos antes de ejecutar casos de uso. Los objetos de perfil se vuelven a validar con el serializador versionado, evitando `any` y dependencias implícitas entre UI y extensión.
+- `BrowserBinaryManager`: instalación, detección, verificación y borrado seguro;
+- `BrowserLifecycleManager`: estados y sesiones limpias;
+- `BrowserPageRegistry`: IDs estables, pestaña activa y sincronización de URL/título;
+- `RequestOverrideRouter`: matching y acciones de red;
+- `ElementPickerService`: selección visual;
+- `ChromiumFormulaExecutionService`: proceso headless desechable para código de usuario.
 
-## Seguridad de webviews
+La webview nunca importa ni llama a Playwright. Solo envía mensajes tipados al Extension Host.
 
-- `default-src 'none'`.
-- Scripts permitidos únicamente mediante un nonce criptográfico.
-- Estilos servidos desde recursos locales de la extensión.
-- `localResourceRoots` restringido a `dist`.
-- No se inyectan datos del usuario en el HTML inicial.
+## Sesiones y estado
+
+El navegador visible usa `launchServer` para conservar una referencia capaz de realizar cierre normal o forzado. Cada inicio crea un `BrowserContext` no persistente nuevo y un directorio temporal de descargas. Al detener o reiniciar se cierra el contexto, se termina el proceso y se elimina ese directorio.
+
+Los estados son `stopped`, `starting`, `running`, `stopping` y `crashed`. Las operaciones se serializan para impedir carreras entre iniciar, detener y reiniciar.
 
 ## Persistencia
 
-El esquema actual es `schemaVersion: 1`. Cada perfil se serializa en `profiles/<uuid>.json`. La escritura utiliza un temporal y un rename para reducir el riesgo de archivos parciales. Los imports pasan por la misma validación del esquema y reciben ID y fechas nuevos.
+Los perfiles Manual usan `schemaVersion: 2`. Al cargar, los perfiles v1 se migran en memoria añadiendo el viewport completo y el modo de escritura de los generadores. Fórmulas y arrays mantienen sus documentos versionados independientes.
 
-Un perfil distingue tres conceptos:
+Los binarios no forman parte de la persistencia funcional: viven en `globalStorageUri/browser` y pueden eliminarse sin afectar perfiles o recursos.
 
-- **draft**: copia editable en la webview;
-- **saved**: última copia confirmada por persistencia;
-- **enabled**: bandera runtime de cada entrada, independiente de que el perfil esté guardado.
+## Empaquetado
 
-`viewport` continúa como punto de extensión. Las referencias `resourceId` de fórmula/array ya resuelven catálogos globales por ID; una referencia cuyo recurso se haya eliminado se conserva y se muestra como no disponible.
+esbuild genera el Extension Host y las webviews `manual`, `formulas`, `arrays`, `browserManagement` y `sidebar`. `playwright-core` queda externo al bundle porque carga módulos y recursos propios dinámicamente; `.vscodeignore` incluye ese paquete y excluye el resto de `node_modules`.
 
-## Build
-
-esbuild produce un bundle CommonJS para el Extension Host y cuatro bundles de navegador: `manual`, `formulas`, `arrays` y `sidebar`. Lit queda dentro de los bundles de webview; `vscode` permanece externo al bundle de extensión. El VSIX no incluirá Chromium.
-
-`.vscodeignore` limita el paquete publicable a los bundles, manifiesto, licencia, README y recursos necesarios. Código fuente, pruebas, configuración de desarrollo, sourcemaps y `node_modules` quedan fuera del VSIX.
-
-## Extensión futura
-
-La integración Playwright debe añadir otro adaptador de `BrowserBridge` y una implementación segura de `FormulaExecutionService`, sin modificar componentes Lit ni reglas del dominio. Automatizaciones podrán reutilizar fórmulas, arrays, modelos de selector, generadores y bridge sin importar código de Manual.
+El VSIX no incluye `globalStorageUri`, Chromium ni datos de sesión.

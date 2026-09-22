@@ -22,7 +22,9 @@ export class ManualPanelManager implements vscode.Disposable {
     private readonly browserActions: BrowserActionsService,
     private readonly formulaService: FormulaService,
     private readonly arrayService: ArrayResourceService
-  ) {}
+  ) {
+    this.disposables.push(this.browserActions.onDidChange((browser) => { void this.post({ type: "browser.state", browser }); }));
+  }
 
   public open(): void {
     if (this.panel !== null) {
@@ -101,9 +103,39 @@ export class ManualPanelManager implements vscode.Disposable {
           await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "URL abierta." : result.error);
           break;
         }
+        case "browser.start": {
+          const result = await this.browserActions.start(message.profile);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Chromium iniciado con una sesión limpia." : result.error);
+          break;
+        }
+        case "browser.restart": {
+          const result = await this.browserActions.restart(message.profile);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Chromium reiniciado con una sesión limpia." : result.error);
+          break;
+        }
+        case "browser.stop": {
+          const result = await this.browserActions.stop(message.force);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Chromium detenido." : result.error);
+          break;
+        }
+        case "browser.selectPage": {
+          const result = await this.browserActions.selectPage(message.pageId);
+          if (!result.ok) await this.sendNotice("warning", result.error);
+          break;
+        }
+        case "browser.closePage": {
+          const result = await this.browserActions.closePage(message.pageId);
+          if (!result.ok) await this.sendNotice("warning", result.error);
+          break;
+        }
         case "browser.apply": {
           const result = await this.browserActions.apply(message.profile, message.target, message.rowId);
           await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Configuración aplicada." : result.error);
+          break;
+        }
+        case "browser.syncOverrides": {
+          const result = await this.browserActions.syncOverrides(message.profile);
+          if (!result.ok) await this.sendNotice("warning", result.error);
           break;
         }
         case "browser.resetGenerators": {
@@ -118,6 +150,14 @@ export class ManualPanelManager implements vscode.Disposable {
           } else {
             await this.sendNotice("warning", result.error);
           }
+          break;
+        }
+        case "browser.previewGenerator": {
+          const binding = message.profile.generatorBindings.find(({ id }) => id === message.bindingId);
+          if (binding === undefined) { await this.sendNotice("warning", "El generador ya no existe."); break; }
+          const result = await this.browserActions.previewGenerator(binding);
+          if (result.ok) await this.post({ type: "browser.generatorPreview", bindingId: binding.id, value: result.value });
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Muestra generada." : result.error);
           break;
         }
       }
@@ -158,7 +198,7 @@ export class ManualPanelManager implements vscode.Disposable {
   private async sendState(state: ManualProfileState): Promise<void> {
     await this.post({
       type: "manual.state",
-      state: { ...state, browserStatus: "unconfigured", resources: await this.loadResourceCatalogs() }
+      state: { ...state, browser: this.browserActions.getSnapshot(), resources: await this.loadResourceCatalogs() }
     });
   }
 

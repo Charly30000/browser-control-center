@@ -7,7 +7,8 @@ import {
   type QueryParamEntry,
   type RequestOverrideEntry,
   type StorageEntry,
-  type ViewportPreset
+  type ViewportConfiguration,
+  defaultViewport
 } from "../../domain/manual/manualProfile";
 import { failure, success, type Result } from "../../shared/result";
 
@@ -70,14 +71,33 @@ const isGeneratorBinding = (value: unknown): value is GeneratorBinding =>
   isString(value.min) &&
   isString(value.max) &&
   isStringOrNull(value.resourceId) &&
+  isOneOf(value.inputMode, ["instant", "sequential"] as const) &&
+  typeof value.delayMs === "number" && Number.isFinite(value.delayMs) && value.delayMs >= 0 &&
   isBoolean(value.enabled);
 
-const isViewport = (value: unknown): value is ViewportPreset | null =>
-  value === null || (
-    isRecord(value) &&
-    typeof value.width === "number" && Number.isInteger(value.width) && value.width > 0 &&
-    typeof value.height === "number" && Number.isInteger(value.height) && value.height > 0
-  );
+const isViewport = (value: unknown): value is ViewportConfiguration =>
+  isRecord(value) &&
+  isOneOf(value.preset, ["desktop", "laptop", "tabletPortrait", "tabletLandscape", "mobilePortrait", "mobileLandscape", "custom"] as const) &&
+  typeof value.width === "number" && Number.isInteger(value.width) && value.width > 0 &&
+  typeof value.height === "number" && Number.isInteger(value.height) && value.height > 0 &&
+  typeof value.deviceScaleFactor === "number" && Number.isFinite(value.deviceScaleFactor) && value.deviceScaleFactor > 0 &&
+  isBoolean(value.hasTouch) && isBoolean(value.isMobile);
+
+const migrateVersionOne = (value: UnknownRecord): unknown => {
+  if (value.schemaVersion !== 1 || !Array.isArray(value.generatorBindings)) return value;
+  const legacyViewport = isRecord(value.viewport) &&
+    typeof value.viewport.width === "number" && typeof value.viewport.height === "number"
+    ? { ...defaultViewport(), preset: "custom" as const, width: value.viewport.width, height: value.viewport.height }
+    : defaultViewport();
+  return {
+    ...value,
+    schemaVersion: MANUAL_PROFILE_SCHEMA_VERSION,
+    viewport: legacyViewport,
+    generatorBindings: value.generatorBindings.map((binding): unknown => isRecord(binding)
+      ? { ...binding, inputMode: "instant", delayMs: 0 }
+      : null)
+  };
+};
 
 export const isManualProfile = (value: unknown): value is ManualProfile =>
   isRecord(value) &&
@@ -108,6 +128,8 @@ export const deserializeProfile = (serialized: string): Result<ManualProfile> =>
   if (!isRecord(parsed)) {
     return failure("El perfil debe ser un objeto JSON.");
   }
+  parsed = migrateVersionOne(parsed);
+  if (!isRecord(parsed)) return failure("El perfil debe ser un objeto JSON.");
   if (parsed.schemaVersion !== MANUAL_PROFILE_SCHEMA_VERSION) {
     return failure(`Versión de perfil no compatible. Se esperaba ${MANUAL_PROFILE_SCHEMA_VERSION}.`);
   }

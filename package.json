@@ -2,7 +2,7 @@
   "name": "browser-control-center",
   "displayName": "Browser Control Center",
   "description": "Panel de control para testing manual asistido y automatización web desde VS Code.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "andres",
   "license": "MIT",
   "engines": {
@@ -23,7 +23,8 @@
     "onView:browserControl.sidebar",
     "onCommand:browserControl.openManual",
     "onCommand:browserControl.openFormulas",
-    "onCommand:browserControl.openArrays"
+    "onCommand:browserControl.openArrays",
+    "onCommand:browserControl.manageBrowser"
   ],
   "contributes": {
     "commands": [
@@ -38,6 +39,10 @@
       {
         "command": "browserControl.openArrays",
         "title": "Browser Control: Abrir Arrays"
+      },
+      {
+        "command": "browserControl.manageBrowser",
+        "title": "Browser Control: Gestionar Chromium"
       }
     ],
     "viewsContainers": {
@@ -67,7 +72,8 @@
     "lint": "eslint src test"
   },
   "dependencies": {
-    "lit": "^3.2.1"
+    "lit": "^3.2.1",
+    "playwright-core": "1.62.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

@@ -51,6 +51,15 @@ label > span:not(.sr-only) { display: block; margin-bottom: 4px; color: var(--vs
 .page-header p { margin: 0; color: var(--vscode-descriptionForeground); }
 .browser-badge { flex: none; display: inline-flex; align-items: center; gap: 7px; padding: 5px 8px; border: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); }
 .browser-badge span { width: 8px; height: 8px; border: 1px solid currentColor; border-radius: 50%; }
+.browser-badge.running { color: var(--vscode-testing-iconPassed); }
+.browser-badge.crashed { color: var(--vscode-errorForeground); }
+.browser-toolbar { display: grid; gap: 8px; margin-bottom: 10px; padding: 9px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); }
+.tabs { display: flex; gap: 4px; overflow-x: auto; padding-top: 7px; border-top: 1px solid var(--vscode-panel-border); }
+.browser-tab { display: flex; min-width: 120px; max-width: 260px; border: 1px solid var(--vscode-panel-border); }
+.browser-tab.active { border-color: var(--vscode-focusBorder); }
+.browser-tab > button:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 0; text-align: left; }
+.browser-tab .tab-close { min-width: 28px; padding: 2px 7px; border: 0; }
+.no-tabs { color: var(--vscode-descriptionForeground); font-size: 11px; }
 
 .profile-toolbar {
   display: grid;
@@ -111,6 +120,7 @@ empty-state::part(message) { margin: 3px 0; color: var(--vscode-descriptionForeg
 .disabled-mark { color: var(--vscode-disabledForeground); }
 .details-grid { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 8px; padding: 9px; border-top: 1px solid var(--vscode-panel-border); }
 .details-grid .wide { grid-column: 1 / -1; }
+.viewport-grid { padding: 0; border-top: 0; }
 .row-details > .row-actions { padding: 0 9px 9px; }
 .nested-section { margin: 0 9px 9px; padding: 8px; border: 1px solid var(--vscode-panel-border); }
 .nested-section h4 { margin-top: 0; }

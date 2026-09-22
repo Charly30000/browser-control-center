@@ -1,8 +1,7 @@
 import { LitElement, html, nothing } from "lit";
 import type { BrowserActionTarget } from "../../../application/manual/browserActionsService";
-import { ArrayValueGenerator } from "../../../domain/arrays/arrayValueGenerator";
 import type { ArrayResource } from "../../../domain/arrays/arrayResource";
-import { generateValue } from "../../../domain/generators/generator";
+import type { BrowserSessionSnapshot } from "../../../domain/browser/browserBridge";
 import {
   createCookie,
   createGeneratorBinding,
@@ -17,7 +16,9 @@ import {
   type ProfileSummary,
   type RequestOverrideEntry,
   type StorageEntry,
-  type StorageValueType
+  type StorageValueType,
+  type ViewportPresetId,
+  VIEWPORT_PRESETS
 } from "../../../domain/manual/manualProfile";
 import { isProfileDirty } from "../../../domain/manual/dirtyState";
 import { buildUrlWithQueryParams } from "../../../domain/manual/queryParams";
@@ -61,7 +62,7 @@ class ManualApp extends LitElement {
   private previews: Readonly<Record<string, string>> = {};
   private formulas: readonly GlobalResourceSummary[] = [];
   private arrays: readonly ArrayResource[] = [];
-  private readonly arrayGenerator = new ArrayValueGenerator();
+  private browser: BrowserSessionSnapshot = { lifecycle: "stopped", pages: [], activePageId: null };
 
   public override createRenderRoot(): this { return this; }
 
@@ -88,10 +89,26 @@ class ManualApp extends LitElement {
         <header class="page-header">
           <div>
             <h1>Manual Browser</h1>
-            <p>Prepara el estado de una sesión web. El navegador se conectará en una fase posterior.</p>
+            <p>Prepara y modifica una sesión aislada de Chromium controlada por Playwright.</p>
           </div>
-          <span class="browser-badge"><span aria-hidden="true"></span>Navegador no configurado</span>
+          <span class=${`browser-badge ${this.browser.lifecycle}`}><span aria-hidden="true"></span>${this.browser.lifecycle}</span>
         </header>
+
+        <section class="browser-toolbar" aria-label="Control de Chromium">
+          <div class="toolbar-actions">
+            <button class="primary" ?disabled=${this.browser.lifecycle === "running" || this.browser.lifecycle === "starting"} @click=${this.startBrowser}>Iniciar</button>
+            <button ?disabled=${this.browser.lifecycle !== "running"} @click=${() => this.post({ type: "browser.stop", force: false })}>Detener</button>
+            <button class="danger" ?disabled=${this.browser.lifecycle === "stopped"} @click=${() => this.post({ type: "browser.stop", force: true })}>Forzar cierre</button>
+            <button ?disabled=${this.browser.lifecycle === "starting" || this.browser.lifecycle === "stopping"} @click=${this.restartBrowser}>Reinicio limpio</button>
+          </div>
+          <div class="tabs" role="tablist">
+            ${this.browser.pages.map((page) => html`<div class=${page.active ? "browser-tab active" : "browser-tab"}>
+              <button role="tab" title=${page.url} @click=${() => this.post({ type: "browser.selectPage", pageId: page.id })}>${page.title || page.url || "Nueva pestaña"}</button>
+              <button class="tab-close" title="Cerrar pestaña" @click=${() => this.post({ type: "browser.closePage", pageId: page.id })}>×</button>
+            </div>`)}
+            ${this.browser.pages.length === 0 ? html`<span class="no-tabs">Sin pestañas abiertas</span>` : nothing}
+          </div>
+        </section>
 
         <section class="profile-toolbar" aria-label="Gestión del perfil">
           <label>Perfil
@@ -144,6 +161,7 @@ class ManualApp extends LitElement {
           ${this.renderStorage("localStorage", "Local Storage")}
           ${this.renderStorage("sessionStorage", "Session Storage")}
           ${this.renderOverrides()}
+          ${this.renderViewport()}
           ${this.renderGenerators()}
         </div>
       </main>
@@ -258,7 +276,7 @@ class ManualApp extends LitElement {
                 <label class="wide"><span>Body</span><textarea rows="5" .value=${override.body} @input=${(event: Event) => this.updateOverride(override.id, (item) => { item.body = inputValue(event); })}></textarea></label>
               </div>
               <div class="nested-section"><h4>Headers de respuesta</h4>${this.renderOverrideHeaders(override)}</div>
-              <div class="row-actions">${this.enabledToggle(override.enabled, (enabled) => this.updateOverride(override.id, (item) => { item.enabled = enabled; }))}<button @click=${() => this.apply("overrides", override.id)}>Aplicar</button><button class="danger" @click=${() => this.mutate((draft) => { draft.requestOverrides = draft.requestOverrides.filter(({ id }) => id !== override.id); })}>Eliminar</button></div>
+              <div class="row-actions">${this.enabledToggle(override.enabled, (enabled) => this.updateOverride(override.id, (item) => { item.enabled = enabled; }))}<button @click=${() => this.apply("overrides", override.id)}>Aplicar</button><button class="danger" @click=${() => this.deleteOverride(override.id)}>Eliminar</button></div>
             </details>
           `)}
           ${profile.requestOverrides.length === 0 ? html`<empty-state message="No hay overrides."></empty-state>` : nothing}
@@ -277,6 +295,28 @@ class ManualApp extends LitElement {
     `;
   }
 
+  private renderViewport() {
+    const profile = this.profile;
+    if (profile === null) return nothing;
+    const viewport = profile.viewport;
+    return html`
+      <section-card heading="Viewport" description="Los cambios se aplican en el siguiente inicio o reinicio limpio.">
+        <div class="details-grid viewport-grid">
+          <label><span>Preset</span><select .value=${viewport.preset} @change=${(event: Event) => this.changeViewportPreset(inputValue(event) as ViewportPresetId)}>
+            <option value="desktop">Desktop 1920×1080</option><option value="laptop">Laptop 1366×768</option>
+            <option value="tabletPortrait">Tablet vertical</option><option value="tabletLandscape">Tablet horizontal</option>
+            <option value="mobilePortrait">Móvil vertical</option><option value="mobileLandscape">Móvil horizontal</option><option value="custom">Personalizado</option>
+          </select></label>
+          ${this.numberField("Ancho", viewport.width, (value) => this.updateViewport("width", value))}
+          ${this.numberField("Alto", viewport.height, (value) => this.updateViewport("height", value))}
+          ${this.numberField("Escala", viewport.deviceScaleFactor, (value) => this.updateViewport("deviceScaleFactor", value), "0.1")}
+          ${this.enabledToggle(viewport.hasTouch, (value) => this.mutate((draft) => { draft.viewport.hasTouch = value; draft.viewport.preset = "custom"; }), "Touch")}
+          ${this.enabledToggle(viewport.isMobile, (value) => this.mutate((draft) => { draft.viewport.isMobile = value; draft.viewport.preset = "custom"; }), "Modo móvil")}
+        </div>
+        <button slot="actions" @click=${this.restartBrowser}>Aplicar con reinicio limpio</button>
+      </section-card>`;
+  }
+
   private renderGenerators() {
     const profile = this.profile;
     if (profile === null) return nothing;
@@ -293,6 +333,8 @@ class ManualApp extends LitElement {
                 ${this.renderResourceSelector(binding)}
                 ${binding.propertyKind === "attribute" || binding.propertyKind === "property" ? this.textField("Nombre de propiedad", binding.propertyName, (value) => this.updateBinding(binding.id, (item) => { item.propertyName = value; })) : nothing}
                 ${binding.generatorType === "number" ? html`${this.textField("Mínimo", binding.min, (value) => this.updateBinding(binding.id, (item) => { item.min = value; }), "number")}${this.textField("Máximo", binding.max, (value) => this.updateBinding(binding.id, (item) => { item.max = value; }), "number")}` : nothing}
+                <label><span>Escritura</span><select .value=${binding.inputMode} @change=${(event: Event) => this.updateBinding(binding.id, (item) => { item.inputMode = inputValue(event) as GeneratorBinding["inputMode"]; })}><option value="instant">Instantánea</option><option value="sequential">Secuencial</option></select></label>
+                ${binding.inputMode === "sequential" ? this.numberField("Retraso por tecla (ms)", binding.delayMs, (value) => this.updateBinding(binding.id, (item) => { item.delayMs = Math.max(0, value); })) : nothing}
               </div>
               ${this.previews[binding.id] ? html`<output class="generator-preview">Muestra: ${this.previews[binding.id]}</output>` : nothing}
               <div class="row-actions">${this.enabledToggle(binding.enabled, (enabled) => this.updateBinding(binding.id, (item) => { item.enabled = enabled; }))}<button @click=${() => this.post({ type: "browser.selectElement", bindingId: binding.id })}>Seleccionar elemento</button><button @click=${() => this.preview(binding)}>Generar muestra</button><button @click=${() => this.apply("generators", binding.id)}>Aplicar</button><button class="danger" @click=${() => this.mutate((draft) => { draft.generatorBindings = draft.generatorBindings.filter(({ id }) => id !== binding.id); })}>Eliminar</button></div>
@@ -313,6 +355,7 @@ class ManualApp extends LitElement {
       this.profiles = message.state.profiles;
       this.formulas = message.state.resources.formulas;
       this.arrays = message.state.resources.arrays;
+      this.browser = message.state.browser;
       this.previews = {};
     } else if (message.type === "manual.resources") {
       this.formulas = message.resources.formulas;
@@ -321,6 +364,10 @@ class ManualApp extends LitElement {
       this.notice = { tone: message.tone, message: message.message };
     } else if (message.type === "browser.elementSelected") {
       this.updateBinding(message.bindingId, (binding) => { binding.selector = message.selector; });
+    } else if (message.type === "browser.generatorPreview") {
+      this.previews = { ...this.previews, [message.bindingId]: message.value };
+    } else if (message.type === "browser.state") {
+      this.browser = message.browser;
     }
     this.requestUpdate();
   };
@@ -357,44 +404,40 @@ class ManualApp extends LitElement {
     if (this.profile) this.post({ type: "manual.delete", id: this.profile.id, name: this.profile.name });
   };
   private readonly openBrowser = (): void => { if (this.profile) this.post({ type: "browser.open", profile: this.profile }); };
+  private readonly startBrowser = (): void => { if (this.profile) this.post({ type: "browser.start", profile: this.profile }); };
+  private readonly restartBrowser = (): void => { if (this.profile) this.post({ type: "browser.restart", profile: this.profile }); };
 
   private apply(target: BrowserActionTarget, rowId: string | null): void {
     if (this.profile) this.post({ type: "browser.apply", target, rowId, profile: this.profile });
   }
 
   private preview(binding: GeneratorBinding): void {
-    if (binding.generatorType === "formula") {
-      this.notice = { tone: "info", message: "Ejecución aislada disponible al integrar el navegador." };
-      this.requestUpdate();
-      return;
-    }
-    if (binding.generatorType === "array") {
-      const resource = this.arrays.find(({ id }) => id === binding.resourceId);
-      if (resource === undefined) {
-        this.notice = { tone: "warning", message: "Selecciona un array disponible." };
-      } else {
-        const value = this.arrayGenerator.pick(resource.items);
-        this.notice = value === undefined
-          ? { tone: "info", message: "El array está vacío; no se ha generado ningún resultado." }
-          : { tone: "success", message: "Valor de muestra generado desde el array." };
-        this.previews = { ...this.previews, [binding.id]: value === undefined ? "Sin resultado" : JSON.stringify(value) ?? "Sin resultado" };
-      }
-      this.requestUpdate();
-      return;
-    }
-    const result = generateValue(binding.generatorType, binding);
-    if (result.ok) {
-      this.previews = { ...this.previews, [binding.id]: result.value };
-      this.notice = { tone: "success", message: "Valor de muestra generado localmente." };
-    } else {
-      this.notice = { tone: "info", message: result.error };
-    }
-    this.requestUpdate();
+    if (this.profile) this.post({ type: "browser.previewGenerator", bindingId: binding.id, profile: this.profile });
+  }
+
+  private changeViewportPreset(preset: ViewportPresetId): void {
+    this.mutate((profile) => {
+      if (preset === "custom") { profile.viewport.preset = preset; return; }
+      profile.viewport = { preset, ...VIEWPORT_PRESETS[preset] };
+    });
+  }
+
+  private updateViewport(field: "width" | "height" | "deviceScaleFactor", value: number): void {
+    if (!Number.isFinite(value)) return;
+    this.mutate((profile) => { profile.viewport[field] = Math.max(field === "deviceScaleFactor" ? 0.1 : 1, value); profile.viewport.preset = "custom"; });
   }
 
   private updateCookie(id: string, change: (entry: ManualProfile["cookies"][number]) => void): void { this.mutate((profile) => { const item = profile.cookies.find((entry) => entry.id === id); if (item) change(item); }); }
   private updateStorage(scope: "localStorage" | "sessionStorage", id: string, change: (entry: StorageEntry) => void): void { this.mutate((profile) => { const item = profile[scope].find((entry) => entry.id === id); if (item) change(item); }); }
   private updateOverride(id: string, change: (entry: RequestOverrideEntry) => void): void { this.mutate((profile) => { const item = profile.requestOverrides.find((entry) => entry.id === id); if (item) change(item); }); }
+  private deleteOverride(id: string): void {
+    if (this.profile === null) return;
+    const draft = structuredClone(this.profile);
+    draft.requestOverrides = draft.requestOverrides.filter((entry) => entry.id !== id);
+    this.profile = draft;
+    this.post({ type: "browser.syncOverrides", profile: draft });
+    this.requestUpdate();
+  }
   private updateOverrideHeader(overrideId: string, headerId: string, change: (entry: HeaderEntry) => void): void { this.updateOverride(overrideId, (override) => { const header = override.headers.find((entry) => entry.id === headerId); if (header) change(header); }); }
   private updateBinding(id: string, change: (entry: GeneratorBinding) => void): void { this.mutate((profile) => { const item = profile.generatorBindings.find((entry) => entry.id === id); if (item) change(item); }); }
 
@@ -420,6 +463,10 @@ class ManualApp extends LitElement {
 
   private textField(label: string, value: string, change: (value: string) => void, type = "text") {
     return html`<label><span>${label}</span><input type=${type} .value=${value} @input=${(event: Event) => change(inputValue(event))}></label>`;
+  }
+
+  private numberField(label: string, value: number, change: (value: number) => void, step = "1") {
+    return html`<label><span>${label}</span><input type="number" min=${step === "1" ? "1" : "0.1"} step=${step} .value=${String(value)} @input=${(event: Event) => change(Number(inputValue(event)))}></label>`;
   }
 
   private post(message: ManualToExtensionMessage): void { vscodeApi.postMessage(message); }

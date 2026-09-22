@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isManualToExtensionMessage } from "../src/shared/messages/manualMessages";
+import { createEmptyManualProfile } from "../src/domain/manual/manualProfile";
 
 describe("mensajes de la página Manual", () => {
   it("acepta una solicitud de borrado completa", () => {
@@ -8,5 +9,10 @@ describe("mensajes de la página Manual", () => {
 
   it("rechaza una solicitud de borrado sin nombre", () => {
     expect(isManualToExtensionMessage({ type: "manual.delete", id: "profile-1" })).toBe(false);
+  });
+
+  it("valida la sincronización de overrides con el perfil completo", () => {
+    expect(isManualToExtensionMessage({ type: "browser.syncOverrides", profile: createEmptyManualProfile("profile-1", "QA") })).toBe(true);
+    expect(isManualToExtensionMessage({ type: "browser.syncOverrides", profile: {} })).toBe(false);
   });
 });

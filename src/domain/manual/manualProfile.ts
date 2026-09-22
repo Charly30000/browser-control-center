@@ -1,36 +1,17 @@
-export const MANUAL_PROFILE_SCHEMA_VERSION = 1 as const;
+export const MANUAL_PROFILE_SCHEMA_VERSION = 2 as const;
 
 export type StorageValueType = "string" | "number" | "boolean" | "json" | "null";
 export type MatcherType = "exact" | "glob" | "regex";
 export type HttpMethod = "ANY" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 export type OverrideAction = "fulfill" | "abort" | "continue-modified";
 export type SameSite = "Strict" | "Lax" | "None";
-export type GeneratorType =
-  | "firstName"
-  | "lastName"
-  | "email"
-  | "phone"
-  | "number"
-  | "dni"
-  | "nie"
-  | "cif"
-  | "formula"
-  | "array";
+export type GeneratorType = "firstName" | "lastName" | "email" | "phone" | "number" | "dni" | "nie" | "cif" | "formula" | "array";
 export type TargetPropertyKind = "value" | "textContent" | "innerText" | "checked" | "attribute" | "property";
+export type InputMode = "instant" | "sequential";
+export type ViewportPresetId = "desktop" | "laptop" | "tabletPortrait" | "tabletLandscape" | "mobilePortrait" | "mobileLandscape" | "custom";
 
-export interface QueryParamEntry {
-  readonly id: string;
-  key: string;
-  value: string;
-  enabled: boolean;
-}
-
-export interface HeaderEntry {
-  readonly id: string;
-  key: string;
-  value: string;
-  enabled: boolean;
-}
+export interface QueryParamEntry { readonly id: string; key: string; value: string; enabled: boolean; }
+export interface HeaderEntry { readonly id: string; key: string; value: string; enabled: boolean; }
 
 export interface CookieEntry {
   readonly id: string;
@@ -45,13 +26,7 @@ export interface CookieEntry {
   enabled: boolean;
 }
 
-export interface StorageEntry {
-  readonly id: string;
-  key: string;
-  value: string;
-  valueType: StorageValueType;
-  enabled: boolean;
-}
+export interface StorageEntry { readonly id: string; key: string; value: string; valueType: StorageValueType; enabled: boolean; }
 
 export interface RequestOverrideEntry {
   readonly id: string;
@@ -75,12 +50,18 @@ export interface GeneratorBinding {
   min: string;
   max: string;
   resourceId: string | null;
+  inputMode: InputMode;
+  delayMs: number;
   enabled: boolean;
 }
 
-export interface ViewportPreset {
+export interface ViewportConfiguration {
+  preset: ViewportPresetId;
   width: number;
   height: number;
+  deviceScaleFactor: number;
+  hasTouch: boolean;
+  isMobile: boolean;
 }
 
 export interface ManualProfile {
@@ -95,22 +76,25 @@ export interface ManualProfile {
   sessionStorage: StorageEntry[];
   requestOverrides: RequestOverrideEntry[];
   generatorBindings: GeneratorBinding[];
-  viewport: ViewportPreset | null;
+  viewport: ViewportConfiguration;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface ProfileSummary {
-  readonly id: string;
-  readonly name: string;
-  readonly updatedAt: string;
-}
+export interface ProfileSummary { readonly id: string; readonly name: string; readonly updatedAt: string; }
 
-export const createEmptyManualProfile = (
-  id: string,
-  name: string,
-  now = new Date().toISOString()
-): ManualProfile => ({
+export const VIEWPORT_PRESETS: Readonly<Record<Exclude<ViewportPresetId, "custom">, Omit<ViewportConfiguration, "preset">>> = {
+  desktop: { width: 1920, height: 1080, deviceScaleFactor: 1, hasTouch: false, isMobile: false },
+  laptop: { width: 1366, height: 768, deviceScaleFactor: 1, hasTouch: false, isMobile: false },
+  tabletPortrait: { width: 768, height: 1024, deviceScaleFactor: 2, hasTouch: true, isMobile: true },
+  tabletLandscape: { width: 1024, height: 768, deviceScaleFactor: 2, hasTouch: true, isMobile: true },
+  mobilePortrait: { width: 390, height: 844, deviceScaleFactor: 3, hasTouch: true, isMobile: true },
+  mobileLandscape: { width: 844, height: 390, deviceScaleFactor: 3, hasTouch: true, isMobile: true }
+};
+
+export const defaultViewport = (): ViewportConfiguration => ({ preset: "laptop", ...VIEWPORT_PRESETS.laptop });
+
+export const createEmptyManualProfile = (id: string, name: string, now = new Date().toISOString()): ManualProfile => ({
   schemaVersion: MANUAL_PROFILE_SCHEMA_VERSION,
   id,
   name,
@@ -122,52 +106,14 @@ export const createEmptyManualProfile = (
   sessionStorage: [],
   requestOverrides: [],
   generatorBindings: [],
-  viewport: null,
+  viewport: defaultViewport(),
   createdAt: now,
   updatedAt: now
 });
 
 export const createQueryParam = (id: string): QueryParamEntry => ({ id, key: "", value: "", enabled: true });
 export const createHeader = (id: string): HeaderEntry => ({ id, key: "", value: "", enabled: true });
-export const createCookie = (id: string): CookieEntry => ({
-  id,
-  name: "",
-  value: "",
-  domain: "",
-  path: "/",
-  expires: null,
-  secure: false,
-  httpOnly: false,
-  sameSite: "Lax",
-  enabled: true
-});
-export const createStorageEntry = (id: string): StorageEntry => ({
-  id,
-  key: "",
-  value: "",
-  valueType: "string",
-  enabled: true
-});
-export const createRequestOverride = (id: string): RequestOverrideEntry => ({
-  id,
-  matcherType: "exact",
-  matcher: "",
-  method: "ANY",
-  action: "fulfill",
-  status: 200,
-  headers: [],
-  body: "",
-  contentType: "application/json",
-  enabled: true
-});
-export const createGeneratorBinding = (id: string): GeneratorBinding => ({
-  id,
-  generatorType: "firstName",
-  selector: "",
-  propertyKind: "value",
-  propertyName: "",
-  min: "0",
-  max: "100",
-  resourceId: null,
-  enabled: true
-});
+export const createCookie = (id: string): CookieEntry => ({ id, name: "", value: "", domain: "", path: "/", expires: null, secure: false, httpOnly: false, sameSite: "Lax", enabled: true });
+export const createStorageEntry = (id: string): StorageEntry => ({ id, key: "", value: "", valueType: "string", enabled: true });
+export const createRequestOverride = (id: string): RequestOverrideEntry => ({ id, matcherType: "exact", matcher: "", method: "ANY", action: "fulfill", status: 200, headers: [], body: "", contentType: "application/json", enabled: true });
+export const createGeneratorBinding = (id: string): GeneratorBinding => ({ id, generatorType: "firstName", selector: "", propertyKind: "value", propertyName: "", min: "0", max: "100", resourceId: null, inputMode: "instant", delayMs: 0, enabled: true });

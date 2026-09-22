@@ -2,13 +2,13 @@
 
 ## Requisitos
 
-- Node.js 20.19+, 22.13+ o una versión posterior soportada por las herramientas de desarrollo. Node 22.7 ejecuta actualmente las comprobaciones, pero npm avisa de que una dependencia transitiva de ESLint no declara soporte para ese minor.
+- Node.js 20.19+, 22.13+ o una versión compatible posterior.
 - npm.
 - Visual Studio Code 1.90 o posterior.
 
-## Preparación
+Node 22.7 permite ejecutar el proyecto, pero npm avisa de que una dependencia transitiva de ESLint no declara soporte para ese minor. Se recomienda actualizar Node dentro de la rama 22.
 
-Desde la raíz del proyecto:
+## Preparación
 
 ```powershell
 npm install
@@ -18,33 +18,35 @@ npm run lint
 npm run build
 ```
 
-Solo existe un `package.json` y un `package-lock.json`, ambos en la raíz. No se utilizan workspaces ni gestores de monorepos.
-
-## Extension Development Host (F5)
+## Ver la extensión
 
 1. Abre la raíz del proyecto en VS Code.
-2. Ejecuta `npm install` si todavía no existe `node_modules`.
-3. Pulsa `F5` y selecciona **Ejecutar extensión** si VS Code lo solicita.
-4. La tarea previa crea los bundles en `dist/`.
-5. En la nueva ventana, abre el icono **Browser Control** de la Activity Bar.
-6. Pulsa **Manual**, **Fórmulas** o **Arrays** para abrir el panel central correspondiente.
+2. Pulsa `F5` y selecciona **Ejecutar extensión**.
+3. En la nueva ventana, abre **Browser Control** en la Activity Bar.
+4. Pulsa **Gestionar Chromium**.
+5. Pulsa **Instalar** y espera a la verificación.
+6. Abre **Manual**, elige un viewport y pulsa **Iniciar** o introduce una URL y pulsa **Abrir**.
 
-Durante el desarrollo se puede ejecutar `npm run dev`. esbuild observará el bundle de la extensión y las cuatro webviews. Tras un cambio en la extensión hay que recargar el Extension Development Host; los cambios de webview se ven al reabrir o recargar la vista.
+La primera descarga puede ocupar varios cientos de MB. No se utiliza Chrome o Edge del sistema.
 
-## Scripts
-
-- `npm run dev`: observa y reconstruye los cinco puntos de entrada.
-- `npm run build`: crea bundles de producción con sourcemaps.
-- `npm run typecheck`: valida todo el TypeScript sin emitir archivos.
-- `npm test`: ejecuta las pruebas unitarias una vez.
-- `npm run lint`: aplica el análisis estático a `src` y `test`.
-
-No se ejecuta ningún navegador en esta fase. Los botones de navegador alcanzan el `StubBrowserBridge` y muestran de forma explícita que Playwright aún no está configurado.
+`npm run dev` observa los seis puntos de entrada. Los cambios del Extension Host requieren recargar la ventana de desarrollo; para cambios de webview basta con reabrir su panel después de reconstruir.
 
 ## Datos locales
 
-Los perfiles se guardan bajo `ExtensionContext.globalStorageUri/profiles`, las fórmulas bajo `formulas` y los arrays bajo `arrays`. Los catálogos y recursos seleccionados se guardan en `globalState` bajo claves versionadas. Para probar una instalación limpia, utiliza las herramientas de VS Code destinadas a limpiar el almacenamiento de la extensión; no borres rutas globales de forma manual.
+Dentro de `ExtensionContext.globalStorageUri` se crean:
+
+```text
+profiles/
+formulas/
+arrays/
+browser/
+  binaries/
+  runtime/
+  install.json
+```
+
+Usa la pantalla **Gestionar Chromium** para borrar o reinstalar el navegador. No borres manualmente carpetas globales.
 
 ## Publicación
 
-Antes de publicar, sustituye el campo `publisher` de `package.json` si `andres` no coincide exactamente con el identificador de tu publisher en Visual Studio Marketplace. El paquete excluye fuentes, pruebas, sourcemaps y `node_modules` mediante `.vscodeignore`; Chromium no forma parte del artefacto.
+Antes de publicar, comprueba el `publisher` de `package.json`. El paquete debe incluir `dist`, manifiesto, recursos, documentación, licencia y `node_modules/playwright-core`; nunca debe incluir `globalStorageUri` ni binarios de Chromium.

@@ -64,7 +64,9 @@ export class FormulasPanelManager implements vscode.Disposable {
         }
         case "formula.test": {
           const result = await this.execution.execute(message.resource);
-          await this.notice(result.ok ? "success" : "info", result.ok ? `Resultado (${result.value.valueType}): ${JSON.stringify(result.value.value)}` : result.error);
+          await this.notice(result.ok ? "success" : "warning", result.ok
+            ? `Resultado (${result.value.valueType}, ${result.value.durationMs.toFixed(1)} ms): ${result.value.value === undefined ? "undefined" : JSON.stringify(result.value.value)}`
+            : result.error);
           break;
         }
       }

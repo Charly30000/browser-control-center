@@ -1,24 +1,20 @@
 # Estrategia de pruebas
 
-Las pruebas unitarias se concentran en reglas puras para ser rápidas y no requerir un Extension Development Host.
+La suite no descarga ni abre un navegador real. Usa adaptadores y dobles deterministas para cubrir:
 
-| Área | Comportamiento cubierto |
+| Área | Cobertura |
 |---|---|
-| Nombres | Secuencia plana de `untitled` y conflictos al importar |
-| Serialización | Round-trip, estructura y versión de esquema |
-| Query params | Entradas activas, claves repetidas, encoding y URLs inválidas |
-| Storage | Primitivos, JSON, `null` y errores de tipo |
-| Overrides | Regex, matcher y rango de estado |
-| Generadores | Precisión, datos básicos y dígitos de control |
-| Dirty state | Draft nuevo, contenido modificado y fechas técnicas |
-| Fórmulas | Contrato `generate`, nombres únicos y CRUD |
-| Arrays | JSON, raíz array, valores aleatorios y colección vacía |
-| Recursos globales | Serialización, envelopes versionados y conflictos de ID |
-| Referencias Manual | Conservación de `resourceId` en perfiles |
+| Binarios | ausencia, versión requerida y borrado limitado a rutas administradas |
+| Ciclo de vida | transiciones, contextos nuevos y limpieza de sesiones |
+| Pestañas | registro por ID, selección, navegación, título y cierre |
+| Configuración | headers, cookies y storage tipado |
+| Overrides | exacto, glob, regex y método |
+| Picker | prioridad de selectores estables y fallback CSS |
+| Fórmulas | bloqueo de red y WebSocket, timeout y cierre forzado |
+| Viewports | presets y migración v1 → v2 |
+| Fases previas | perfiles, recursos, arrays, generadores y validaciones |
 
-La persistencia de archivos y los diálogos quedan detrás de adaptadores de VS Code. Se verifican manualmente en F5 porque dependen del Extension Host. Cuando exista integración de navegador se añadirá una suite propia contra una implementación real de `BrowserBridge`; no se convertirán los stubs actuales en falsos positivos.
-
-## Comprobación completa
+Comprobación completa:
 
 ```powershell
 npm run typecheck
@@ -27,4 +23,16 @@ npm run lint
 npm run build
 ```
 
-El orden permite detectar primero errores estructurales, luego reglas de negocio, análisis estático y finalmente problemas de bundle.
+## Prueba manual de integración
+
+Después de instalar Chromium desde la extensión:
+
+1. abre `https://example.com` desde Manual;
+2. comprueba inicio, parada, reinicio y pestañas emergentes;
+3. aplica headers, cookies y storage sobre un entorno de pruebas controlado;
+4. crea un override para una URL conocida;
+5. usa **Seleccionar elemento** y aplica un generador;
+6. ejecuta una fórmula normal y otra con `while (true) {}`;
+7. confirma que la segunda termina por timeout y que el canal `Browser Automation` registra el evento.
+
+No se hacen capturas de pantalla automáticas.

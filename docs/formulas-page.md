@@ -1,21 +1,19 @@
 # Página Fórmulas
 
-## Modelo
+Cada fórmula declara `function generate()` sin parámetros y debe devolver JSON serializable o `undefined`.
 
-Cada fórmula global contiene ID estable, nombre único, código, fechas y versión de esquema. El editor mantiene una copia draft y la compara con la última versión guardada para mostrar el dirty state.
+## Ejecución
 
-El contrato estructural exige una declaración `function generate()` sin parámetros. `undefined` representará “sin resultado” cuando exista ejecución y cualquier otro resultado deberá ser JSON serializable.
+**Probar** crea un `BrowserServer` headless dedicado, un navegador y un contexto no persistente. Antes de insertar el código:
 
-## Seguridad
+- activa modo offline;
+- aborta solicitudes HTTP;
+- intercepta WebSockets sin conectarlos;
+- bloquea Service Workers;
+- mantiene fuera las APIs de Node y VS Code.
 
-La Fase 2 no ejecuta el código. `Generar ejemplo` carga una plantilla editable que cumple el contrato, pero no obtiene un resultado. `Probar` delega en `FormulaExecutionService`; su implementación actual responde:
+El código se inserta como script en la página. No se usa `eval`, `new Function` ni `node:vm`. Un timeout de dos segundos mata el proceso completo, por lo que un bucle infinito no bloquea permanentemente el Extension Host.
 
-> Ejecución aislada disponible al integrar el navegador.
+El resultado muestra valor, tipo y duración. La sesión se destruye siempre, también después de errores o timeouts. Para probar fórmulas es necesario instalar Chromium primero.
 
-No se utilizan `eval`, `new Function` ni `node:vm`. La implementación futura deberá sustituir únicamente el adaptador del servicio y aplicar aislamiento y timeout.
-
-## Persistencia y acciones
-
-Las fórmulas se guardan individualmente en `globalStorageUri/formulas`. `globalState` contiene únicamente catálogo y selección. La lista permite selección múltiple y el borrado usa confirmación nativa de VS Code. Los paneles se reutilizan y nunca se duplican.
-
-Importar y exportar utiliza documentos JSON versionados con `format`, `schemaVersion`, `extensionVersion` y `data`.
+Manual utiliza el mismo `FormulaExecutionService`, evitando diferencias entre la muestra y el valor aplicado.

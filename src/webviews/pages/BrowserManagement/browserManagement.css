@@ -1,0 +1,14 @@
+@import "../../components/resourceEditor.css";
+.manager-shell { width: min(850px, 100%); margin: 0 auto; padding: 18px; }
+header h1 { margin: 0 0 5px; font-size: 21px; }
+header p, .help { color: var(--vscode-descriptionForeground); }
+.status-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 16px 0; border: 1px solid var(--vscode-panel-border); background: var(--vscode-panel-border); }
+.status-card > div, .status-card > p { margin: 0; padding: 10px; background: var(--vscode-editor-background); }
+.status-card span { display: block; margin-bottom: 4px; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.status-card code { overflow-wrap: anywhere; }
+.status-card .wide { grid-column: 1 / -1; }
+.status-card .ready { color: var(--vscode-testing-iconPassed); }
+.status-card .corrupted, .status-card .incompatible { color: var(--vscode-errorForeground); }
+.progress { color: var(--vscode-progressBar-background); }
+.actions { display: flex; flex-wrap: wrap; gap: 7px; }
+@media (max-width: 600px) { .status-card { grid-template-columns: 1fr; } .status-card .wide { grid-column: auto; } }

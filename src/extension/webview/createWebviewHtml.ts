@@ -4,7 +4,7 @@ import { createNonce } from "./nonce";
 export const createWebviewHtml = (
   webview: vscode.Webview,
   extensionUri: vscode.Uri,
-  entryName: "manual" | "sidebar" | "formulas" | "arrays",
+  entryName: "manual" | "sidebar" | "formulas" | "arrays" | "browserManagement",
   title: string
 ): string => {
   const nonce = createNonce();

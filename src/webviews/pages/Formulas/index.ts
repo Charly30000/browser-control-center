@@ -30,7 +30,7 @@ class FormulasApp extends LitElement {
     return html`
       <main class="resource-shell">
         <header class="page-header">
-          <div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables. La ejecución permanece aislada y deshabilitada en esta fase.</p></div>
+          <div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en un Chromium headless aislado.</p></div>
           <div class="toolbar">
             <button @click=${() => this.post({ type: "formula.new" })}>Agregar</button>
             <button class="danger" @click=${() => this.post({ type: "formula.deleteSelected", ids: [...this.selectedIds] })}>Eliminar seleccionadas</button>
@@ -54,7 +54,7 @@ class FormulasApp extends LitElement {
             <div class="editor-content">
               <label><span>Nombre</span><input .value=${this.resource.name} @input=${(event: Event) => this.change((resource) => { resource.name = fieldValue(event); })}></label>
               <label><span>Código — contrato: function generate() sin parámetros</span><textarea class="code-editor" spellcheck="false" .value=${this.resource.code} @input=${(event: Event) => this.change((resource) => { resource.code = fieldValue(event); })}></textarea></label>
-              <p class="execution-note">Generar ejemplo carga una plantilla. Probar no ejecutará código hasta disponer de aislamiento seguro.</p>
+              <p class="execution-note">Probar ejecuta la fórmula sin red ni acceso a Node/VS Code y aplica un timeout duro de 2 segundos.</p>
               <div class="editor-actions">
                 <button @click=${() => this.post({ type: "formula.test", resource: this.resource! })}>Probar</button>
                 <button class="primary" @click=${() => this.post({ type: "formula.save", resource: this.resource! })}>Guardar</button>
