@@ -14,7 +14,7 @@ Cada fórmula declara `function generate()` sin parámetros y debe devolver JSON
 
 El código se inserta como script en la página. No se usa `eval`, `new Function` ni `node:vm`. Un timeout de dos segundos mata el proceso completo, por lo que un bucle infinito no bloquea permanentemente el Extension Host.
 
-El resultado muestra valor, tipo y duración. La sesión se destruye siempre, también después de errores o timeouts. Para probar fórmulas es necesario instalar Chromium primero.
+El resultado muestra valor, tipo y duración. La sesión se destruye siempre, también después de errores o timeouts. Para probar fórmulas debe haber un navegador disponible en **Gestionar navegador**.
 
 Manual utiliza el mismo `FormulaExecutionService`, evitando diferencias entre la muestra y el valor aplicado.
 

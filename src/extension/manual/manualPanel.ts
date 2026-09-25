@@ -118,17 +118,17 @@ export class ManualPanelManager implements vscode.Disposable {
         }
         case "browser.start": {
           const result = await this.browserActions.start(message.profile);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Chromium iniciado con una sesión limpia." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Navegador iniciado con una sesión limpia." : result.error);
           break;
         }
         case "browser.restart": {
           const result = await this.browserActions.restart(message.profile);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Chromium reiniciado con una sesión limpia." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Navegador reiniciado con una sesión limpia." : result.error);
           break;
         }
         case "browser.stop": {
           const result = await this.browserActions.stop(message.force);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Chromium detenido." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Navegador detenido." : result.error);
           break;
         }
         case "browser.selectPage": {

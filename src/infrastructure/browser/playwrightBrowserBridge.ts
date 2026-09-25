@@ -1,4 +1,5 @@
 import type { BrowserContext, Page } from "playwright-core";
+import type { BrowserLaunchConfigurationProvider } from "../../application/browser/browserProvider";
 import type { Logger } from "../../application/logging/logger";
 import type {
   BrowserBridge,
@@ -13,7 +14,6 @@ import type {
   StorageScope
 } from "../../domain/browser/browserBridge";
 import type { CookieEntry, HeaderEntry, RequestOverrideEntry, StorageEntry } from "../../domain/manual/manualProfile";
-import type { BrowserBinaryManager } from "./browserBinaryManager";
 import type { BrowserLifecycleManager, BrowserRuntimeSession } from "./browserLifecycleManager";
 import { BrowserPageRegistry } from "./browserPageRegistry";
 import { ElementPickerService } from "./elementPickerService";
@@ -37,7 +37,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
   private readonly picker = new ElementPickerService();
 
   public constructor(
-    private readonly binaries: BrowserBinaryManager,
+    private readonly browserSelection: BrowserLaunchConfigurationProvider,
     private readonly lifecycle: BrowserLifecycleManager,
     private readonly logger: Logger
   ) {
@@ -46,8 +46,8 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
 
   public async start(options: BrowserLaunchOptions): Promise<BrowserSessionSnapshot> {
     if (this.lifecycle.getState() === "running" && this.registry !== null) return this.getSnapshot();
-    const executablePath = await this.binaries.requireExecutablePath();
-    const session = await this.lifecycle.start(executablePath, options.viewport);
+    const configuration = await this.browserSelection.resolveLaunchConfiguration();
+    const session = await this.lifecycle.start(configuration, options.viewport);
     await this.configureSession(session);
     return this.getSnapshot();
   }
@@ -61,8 +61,8 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
   }
 
   public async restart(options: BrowserLaunchOptions): Promise<BrowserSessionSnapshot> {
-    const executablePath = await this.binaries.requireExecutablePath();
-    const session = await this.lifecycle.restart(executablePath, options.viewport);
+    const configuration = await this.browserSelection.resolveLaunchConfiguration();
+    const session = await this.lifecycle.restart(configuration, options.viewport);
     await this.configureSession(session);
     return this.getSnapshot();
   }
@@ -185,7 +185,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
 
   private requireContext(): BrowserContext {
     const context = this.lifecycle.getSession()?.context;
-    if (context === undefined) throw new Error("Abre Chromium antes de aplicar la configuración.");
+    if (context === undefined) throw new Error("Abre el navegador antes de aplicar la configuración.");
     return context;
   }
 

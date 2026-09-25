@@ -92,12 +92,12 @@ class ManualApp extends LitElement {
         <header class="page-header">
           <div>
             <h1>Manual Browser</h1>
-            <p>Prepara y modifica una sesión aislada de Chromium controlada por Playwright.</p>
+            <p>Prepara y modifica una sesión aislada del navegador seleccionado, controlada por Playwright.</p>
           </div>
           <span class=${`browser-badge ${this.browser.lifecycle}`}><span aria-hidden="true"></span>${this.browser.lifecycle}</span>
         </header>
 
-        <section class="browser-toolbar" aria-label="Control de Chromium">
+        <section class="browser-toolbar" aria-label="Control del navegador">
           <div class="toolbar-actions">
             <button class="primary" ?disabled=${this.browser.lifecycle === "running" || this.browser.lifecycle === "starting"} @click=${this.startBrowser}>Iniciar</button>
             <button ?disabled=${this.browser.lifecycle !== "running"} @click=${() => this.post({ type: "browser.stop", force: false })}>Detener</button>

@@ -64,13 +64,13 @@ class AutomationsApp extends LitElement {
       moveProcess: (source, processId, target) => this.moveProcess(source, processId, target), removeProcess: (groupId, processId) => { void this.removeProcess(groupId, processId); }
     };
     return html`<main class="automations-shell">
-      <header class="automation-header"><div><h1>Automatizaciones</h1><p>Procesos visuales ejecutados en sesiones limpias e independientes de Chromium.</p></div><div class="toolbar">
+      <header class="automation-header"><div><h1>Automatizaciones</h1><p>Procesos visuales ejecutados en sesiones limpias e independientes del navegador seleccionado.</p></div><div class="toolbar">
         <button class="primary" @click=${this.addExample}>Añadir ejemplo</button><button @click=${this.newGroup}>Nuevo grupo</button><button @click=${() => this.post({ type: "automation.import" })}>Importar</button><button @click=${() => this.post({ type: "automation.export", document })}>Exportar</button>
         ${this.copiedProcess !== null && group !== null ? html`<button @click=${() => this.pasteProcess(group.id)}>Pegar proceso</button>` : nothing}
         <button class="primary" @click=${() => this.post({ type: "automation.save", document })}>Guardar</button><span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
       </div></header>
       <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
-      ${waitingNode === undefined ? nothing : html`<section class="waiting-banner"><strong>Esperando acción del usuario</strong><span>Completa CAPTCHA, 2FA u OAuth en Chromium.</span><button class="primary" @click=${() => this.post({ type: "automation.continueUser", nodeId: waitingNode.nodeId })}>Continuar</button><button @click=${() => this.post({ type: "automation.retryUser", nodeId: waitingNode.nodeId })}>Reintentar</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: false })}>Detener</button></section>`}
+      ${waitingNode === undefined ? nothing : html`<section class="waiting-banner"><strong>Esperando acción del usuario</strong><span>Completa CAPTCHA, 2FA u OAuth en el navegador.</span><button class="primary" @click=${() => this.post({ type: "automation.continueUser", nodeId: waitingNode.nodeId })}>Continuar</button><button @click=${() => this.post({ type: "automation.retryUser", nodeId: waitingNode.nodeId })}>Reintentar</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: false })}>Detener</button></section>`}
       <div class="automation-layout">
         ${renderAutomationTree(document, this.selectedGroupId, this.selectedProcessId, this.processStates, this.groupStates, callbacks)}
         <section class="workspace">
@@ -124,7 +124,7 @@ class AutomationsApp extends LitElement {
     else if (message.type === "automation.nodeValidation") { if (message.requestId === this.validationRequestId && this.selectedNodeIds.includes(message.nodeId)) this.nodeValidationError = message.error; }
     else if (message.type === "automation.elementSelected") {
       this.updateNode(message.nodeId, (node) => { node.config[message.fieldKey] = message.selector; });
-      this.notice = { tone: "success", message: "Selector capturado desde Chromium." };
+      this.notice = { tone: "success", message: "Selector capturado desde el navegador." };
     }
     else if (message.type === "automation.notice") this.notice = { tone: message.tone, message: message.message };
     else if (message.type === "automation.processState") {

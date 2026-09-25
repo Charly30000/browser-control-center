@@ -16,7 +16,7 @@ const steps: readonly { readonly node: string; readonly explanation: string }[] 
   { node: "Validate Data", explanation: "Valida body y header de la request, JSON de la response, cookie, localStorage y sessionStorage." },
   { node: "Extract Value", explanation: "Lee el resultado JSON mostrado en #api-result y lo guarda en apiResult." },
   { node: "Set Variable", explanation: "Combina demoName y apiResult en la variable exampleSummary." },
-  { node: "Pause / Wait User", explanation: "Mantiene Chromium abierto para inspeccionar el resultado; pulsa Continuar para finalizar." }
+  { node: "Pause / Wait User", explanation: "Mantiene el navegador abierto para inspeccionar el resultado; pulsa Continuar para finalizar." }
 ];
 
 export const renderExampleGuide = (processName: string): TemplateResult => {

@@ -1,10 +1,10 @@
 import type { BrowserContext, Page, Response } from "playwright-core";
 import { randomUUID } from "node:crypto";
 import type { Logger } from "../../application/logging/logger";
+import type { BrowserLaunchConfigurationProvider } from "../../application/browser/browserProvider";
 import type { AssertionKind, AutomationBrowserSession, AutomationBrowserSessionFactory, BrowserUserAction, ExtractProperty, WaitKind } from "../../application/automations/automationBrowserSession";
 import type { CookieEntry, HeaderEntry, InputMode, RequestOverrideEntry, StorageEntry, ViewportConfiguration } from "../../domain/manual/manualProfile";
 import type { JsonValue } from "../../domain/manual/storageValue";
-import type { BrowserBinaryManager } from "../browser/browserBinaryManager";
 import { BrowserLifecycleManager } from "../browser/browserLifecycleManager";
 import type { PlaywrightRuntimeProvider } from "../browser/playwrightRuntime";
 import { RequestOverrideRouter } from "../browser/requestOverrideRouter";
@@ -16,11 +16,11 @@ const optionText = (options: Readonly<Record<string, JsonValue>>, key: string, f
 const optionNumber = (options: Readonly<Record<string, JsonValue>>, key: string, fallback = 0): number => typeof options[key] === "number" ? options[key] : fallback;
 
 export class PlaywrightAutomationSessionFactory implements AutomationBrowserSessionFactory {
-  public constructor(private readonly binaries: BrowserBinaryManager, private readonly runtime: PlaywrightRuntimeProvider, private readonly runtimeRoot: string, private readonly logger: Logger) {}
+  public constructor(private readonly browserSelection: BrowserLaunchConfigurationProvider, private readonly runtime: PlaywrightRuntimeProvider, private readonly runtimeRoot: string, private readonly logger: Logger) {}
   public async create(viewport: ViewportConfiguration): Promise<AutomationBrowserSession> {
     const lifecycle = new BrowserLifecycleManager(this.runtime, this.runtimeRoot, this.logger);
-    const executablePath = await this.binaries.requireExecutablePath();
-    const runtime = await lifecycle.start(executablePath, viewport);
+    const configuration = await this.browserSelection.resolveLaunchConfiguration();
+    const runtime = await lifecycle.start(configuration, viewport);
     const router = new RequestOverrideRouter();
     await router.attach(runtime.context);
     const page = await runtime.context.newPage();

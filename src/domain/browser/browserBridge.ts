@@ -59,7 +59,7 @@ export interface BrowserBridge {
 }
 
 export class BrowserUnavailableError extends Error {
-  public constructor(message = "Chromium no está instalado o no está disponible.") {
+  public constructor(message = "El navegador seleccionado no está instalado o no está disponible.") {
     super(message);
     this.name = "BrowserUnavailableError";
   }

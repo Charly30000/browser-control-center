@@ -11,12 +11,12 @@ Servicios de aplicación / motor de automatización
     │
 Dominio ◄──── Adaptadores de infraestructura
                   ├─ persistencia
-                  └─ Playwright / Chromium
+                  └─ Playwright / proveedores de navegador
 ```
 
 - `src/domain`: modelos, contratos, validación y lógica pura. No conoce VS Code, Lit ni Playwright.
 - `src/application`: casos de uso de perfiles, recursos, generadores y acciones de navegador.
-- `src/infrastructure`: persistencia, instalación de Chromium, ciclo de vida, pestañas, red, picker y sandbox.
+- `src/infrastructure`: persistencia, proveedores de navegador, instalación de Chromium, ciclo de vida, pestañas, red, picker y sandbox.
 - `src/extension`: composición, comandos, paneles, diálogos y logging de VS Code.
 - `src/webviews`: páginas Lit. Cada vista central vive en `pages/<Vista>` y los componentes reutilizables en `components`.
 
@@ -32,18 +32,21 @@ Los snapshots de ejecución emitidos por el Extension Host mantienen sincronizad
 
 `PlaywrightBrowserBridge` es la fachada que consume la aplicación. Delega responsabilidades en:
 
-- `BrowserBinaryManager`: instalación, detección, verificación y borrado seguro;
+- `BrowserSelectionService`: selección persistente y resolución del proveedor activo;
+- `providers/ManagedChromiumProvider`: adaptador del Chromium administrado;
+- `providers/SystemChromeProvider`: detección de Google Chrome por su canal estable;
+- `providers/BrowserBinaryManager`: instalación, detección, verificación y borrado seguro del Chromium administrado;
 - `BrowserLifecycleManager`: estados y sesiones limpias;
 - `BrowserPageRegistry`: IDs estables, pestaña activa y sincronización de URL/título;
 - `RequestOverrideRouter`: matching y acciones de red;
 - `ElementPickerService`: selección visual;
-- `ChromiumFormulaExecutionService`: proceso headless desechable para código de usuario.
+- `PlaywrightFormulaExecutionService`: proceso headless desechable para código de usuario.
 
 La webview nunca importa ni llama a Playwright. Solo envía mensajes tipados al Extension Host.
 
 ## Sesiones y estado
 
-El navegador visible usa `launchServer` para conservar una referencia capaz de realizar cierre normal o forzado. Cada inicio crea un `BrowserContext` no persistente nuevo y un directorio temporal de descargas. Al detener o reiniciar se cierra el contexto, se termina el proceso y se elimina ese directorio.
+El navegador visible usa `launchServer` para conservar una referencia capaz de realizar cierre normal o forzado. Cada inicio crea un `BrowserContext` no persistente nuevo y un directorio temporal de descargas. Nunca se pasa un perfil personal ni un `userDataDir`. Al detener o reiniciar se cierra el contexto, se termina el proceso y se elimina ese directorio.
 
 Los estados son `stopped`, `starting`, `running`, `stopping` y `crashed`. Las operaciones se serializan para impedir carreras entre iniciar, detener y reiniciar.
 

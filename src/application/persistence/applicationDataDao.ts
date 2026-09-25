@@ -1,5 +1,6 @@
 import type { ArrayResource } from "../../domain/arrays/arrayResource";
 import type { AutomationDocument } from "../../domain/automations/automation";
+import type { BrowserPreferences } from "../../domain/browser/browserProvider";
 import type { FormulaResource } from "../../domain/formulas/formula";
 import type { ManualProfile, ProfileSummary } from "../../domain/manual/manualProfile";
 import type { GlobalResource, GlobalResourceSummary } from "../../domain/resources/globalResource";
@@ -46,6 +47,7 @@ export interface ApplicationDataDao {
   readonly arrays: EntityDataDao<ArrayResource>;
   readonly arrayMetadata: StateDataDao<ResourceMetadata>;
   readonly automations: SingletonDataDao<AutomationDocument>;
+  readonly browserPreferences: StateDataDao<BrowserPreferences>;
   initialize(): Promise<void>;
 }
 

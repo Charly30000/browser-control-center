@@ -44,7 +44,7 @@ export class ExecutionContext {
       if (action === "continue") this.control.continueUser(nodeId);
       else if (action === "retry") this.control.retryUser(nodeId);
       else if (action === "stop") this.control.stop(false);
-    }).catch((error: unknown) => this.info("Pause / Wait User", `No se pudo mostrar el control en Chromium: ${error instanceof Error ? error.message : String(error)}`));
+    }).catch((error: unknown) => this.info("Pause / Wait User", `No se pudo mostrar el control en el navegador: ${error instanceof Error ? error.message : String(error)}`));
     try { return await controlAction; }
     finally { await this.browser.hideUserPrompt().catch(() => undefined); this.options.onWaitingUser(nodeId, false); }
   }

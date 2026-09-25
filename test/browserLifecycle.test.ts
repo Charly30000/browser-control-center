@@ -22,11 +22,12 @@ describe("BrowserLifecycleManager", () => {
       once: vi.fn()
     });
     const server = () => ({ wsEndpoint: () => "ws://test", close: vi.fn(() => Promise.resolve()), kill: vi.fn(() => Promise.resolve()) });
-    const chromium = { launchServer: vi.fn(() => Promise.resolve(server())), connect: vi.fn(() => Promise.resolve(browser())) };
+    const chromium = { launchServer: vi.fn((_options: unknown) => Promise.resolve(server())), connect: vi.fn(() => Promise.resolve(browser())) };
     const runtime: PlaywrightRuntimeProvider = { load: () => Promise.resolve({ chromium } as unknown as PlaywrightRuntime) };
     const lifecycle = new BrowserLifecycleManager(runtime, root, silentLogger);
 
-    await lifecycle.start("C:\\managed\\chrome.exe", defaultViewport());
+    const configuration = { providerId: "managed-chromium" as const, displayName: "Chromium administrado", engine: "chromium" as const, executablePath: "C:\\managed\\chrome.exe", channel: null };
+    await lifecycle.start(configuration, defaultViewport());
     expect(lifecycle.getState()).toBe("running");
     expect(contexts).toBe(1);
     expect(newContext).toHaveBeenCalledWith(expect.objectContaining({
@@ -35,8 +36,10 @@ describe("BrowserLifecycleManager", () => {
     }));
     expect(await readdir(root)).toHaveLength(1);
 
-    await lifecycle.restart("C:\\managed\\chrome.exe", defaultViewport());
+    await lifecycle.restart({ providerId: "system-chrome", displayName: "Google Chrome instalado", engine: "chromium", executablePath: null, channel: "chrome" }, defaultViewport());
     expect(contexts).toBe(2);
+    expect(chromium.launchServer).toHaveBeenLastCalledWith(expect.objectContaining({ channel: "chrome" }));
+    expect(chromium.launchServer.mock.calls.at(-1)?.[0]).not.toHaveProperty("executablePath");
     expect(await readdir(root)).toHaveLength(1);
 
     await lifecycle.stop("force");

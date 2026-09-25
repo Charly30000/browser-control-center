@@ -1,6 +1,6 @@
 import type * as PlaywrightModule from "playwright-core";
 
-export type PlaywrightRuntime = Pick<typeof PlaywrightModule, "chromium">;
+export type PlaywrightRuntime = Pick<typeof PlaywrightModule, "chromium" | "firefox" | "webkit">;
 
 export interface PlaywrightRuntimeProvider { load(): Promise<PlaywrightRuntime>; }
 

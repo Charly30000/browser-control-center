@@ -1,9 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { randomUUID } from "node:crypto";
 import type { Browser, BrowserContext, BrowserServer } from "playwright-core";
 import type { Logger } from "../../application/logging/logger";
 import type { BrowserLifecycleState, BrowserStopMode } from "../../domain/browser/browserBridge";
+import type { BrowserLaunchConfiguration } from "../../domain/browser/browserProvider";
 import type { ViewportConfiguration } from "../../domain/manual/manualProfile";
 import type { PlaywrightRuntimeProvider } from "./playwrightRuntime";
 
@@ -34,52 +35,10 @@ export class BrowserLifecycleManager {
     return { dispose: () => this.listeners.delete(listener) };
   }
 
-  public start(executablePath: string, viewport: ViewportConfiguration): Promise<BrowserRuntimeSession> {
+  public start(configuration: BrowserLaunchConfiguration, viewport: ViewportConfiguration): Promise<BrowserRuntimeSession> {
     return this.enqueue(async () => {
       if (this.session !== null && this.state === "running") return this.session;
-      this.setState("starting");
-      const sessionPath = join(this.runtimeRoot, randomUUID());
-      await mkdir(join(sessionPath, "downloads"), { recursive: true });
-      this.sessionPath = sessionPath;
-      try {
-        const { chromium } = await this.runtime.load();
-        const server = await chromium.launchServer({
-          executablePath,
-          headless: false,
-          downloadsPath: join(sessionPath, "downloads")
-        });
-        const browser = await chromium.connect(server.wsEndpoint());
-        const context = await browser.newContext({
-          viewport: { width: viewport.width, height: viewport.height },
-          screen: { width: viewport.width, height: viewport.height },
-          deviceScaleFactor: viewport.deviceScaleFactor,
-          hasTouch: viewport.hasTouch,
-          isMobile: viewport.isMobile,
-          serviceWorkers: "block"
-        });
-        this.server = server;
-        this.session = { browser, context };
-        browser.once("disconnected", () => {
-          if (this.state === "running") {
-            this.session = null;
-            this.server = null;
-            this.setState("crashed");
-            void this.cleanSessionPath();
-            this.logger.error("Chromium se ha cerrado de forma inesperada.");
-          }
-        });
-        this.setState("running");
-        this.logger.info("Sesión limpia de Chromium iniciada.");
-        return this.session;
-      } catch (error: unknown) {
-        this.session = null;
-        if (this.server !== null) await this.server.kill().catch(() => undefined);
-        this.server = null;
-        await this.cleanSessionPath();
-        this.setState("crashed");
-        this.logger.error("No se pudo iniciar Chromium.", error);
-        throw error;
-      }
+      return this.performStart(configuration, viewport);
     });
   }
 
@@ -87,22 +46,28 @@ export class BrowserLifecycleManager {
     return this.enqueue(() => this.performStop(mode));
   }
 
-  public restart(executablePath: string, viewport: ViewportConfiguration): Promise<BrowserRuntimeSession> {
+  public restart(configuration: BrowserLaunchConfiguration, viewport: ViewportConfiguration): Promise<BrowserRuntimeSession> {
     return this.enqueue(async () => {
       await this.performStop("graceful");
-      return this.performStart(executablePath, viewport);
+      return this.performStart(configuration, viewport);
     });
   }
 
-  private async performStart(executablePath: string, viewport: ViewportConfiguration): Promise<BrowserRuntimeSession> {
+  private async performStart(configuration: BrowserLaunchConfiguration, viewport: ViewportConfiguration): Promise<BrowserRuntimeSession> {
     this.setState("starting");
     const sessionPath = join(this.runtimeRoot, randomUUID());
     await mkdir(join(sessionPath, "downloads"), { recursive: true });
     this.sessionPath = sessionPath;
     try {
-      const { chromium } = await this.runtime.load();
-      const server = await chromium.launchServer({ executablePath, headless: false, downloadsPath: join(sessionPath, "downloads") });
-      const browser = await chromium.connect(server.wsEndpoint());
+      const playwright = await this.runtime.load();
+      const browserType = playwright[configuration.engine];
+      const server = await browserType.launchServer({
+        ...(configuration.executablePath === null ? {} : { executablePath: configuration.executablePath }),
+        ...(configuration.channel === null ? {} : { channel: configuration.channel }),
+        headless: false,
+        downloadsPath: join(sessionPath, "downloads")
+      });
+      const browser = await browserType.connect(server.wsEndpoint());
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
         screen: { width: viewport.width, height: viewport.height },
@@ -114,9 +79,15 @@ export class BrowserLifecycleManager {
       this.server = server;
       this.session = { browser, context };
       browser.once("disconnected", () => {
-        if (this.state === "running") { this.session = null; this.server = null; this.setState("crashed"); void this.cleanSessionPath(); }
+        if (this.state !== "running") return;
+        this.session = null;
+        this.server = null;
+        this.setState("crashed");
+        void this.cleanSessionPath();
+        this.logger.error(`${configuration.displayName} se ha cerrado de forma inesperada.`);
       });
       this.setState("running");
+      this.logger.info(`Sesión limpia y aislada de ${configuration.displayName} iniciada.`);
       return this.session;
     } catch (error: unknown) {
       if (this.server !== null) await this.server.kill().catch(() => undefined);
@@ -124,6 +95,7 @@ export class BrowserLifecycleManager {
       this.session = null;
       await this.cleanSessionPath();
       this.setState("crashed");
+      this.logger.error(`No se pudo iniciar ${configuration.displayName}.`, error);
       throw error;
     }
   }
@@ -144,7 +116,7 @@ export class BrowserLifecycleManager {
     } finally {
       await this.cleanSessionPath();
       this.setState("stopped");
-      this.logger.info(mode === "force" ? "Chromium detenido a la fuerza." : "Chromium detenido.");
+      this.logger.info(mode === "force" ? "Navegador detenido a la fuerza." : "Navegador detenido.");
     }
   }
 

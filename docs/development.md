@@ -23,11 +23,11 @@ npm run build
 1. Abre la raíz del proyecto en VS Code.
 2. Pulsa `F5` y selecciona **Ejecutar extensión**.
 3. En la nueva ventana, abre **Browser Control** en la Activity Bar.
-4. Pulsa **Gestionar Chromium**.
-5. Pulsa **Instalar** y espera a la verificación.
+4. Pulsa **Gestionar navegador**.
+5. Selecciona **Google Chrome instalado** o instala **Chromium administrado** y espera a la verificación.
 6. Abre **Manual**, elige un viewport y pulsa **Iniciar** o introduce una URL y pulsa **Abrir**.
 
-La primera descarga puede ocupar varios cientos de MB. No se utiliza Chrome o Edge del sistema.
+La primera descarga de Chromium puede ocupar varios cientos de MB. Si se selecciona Chrome instalado, se usa su ejecutable con un contexto temporal y aislado, nunca con el perfil personal.
 
 `npm run dev` observa los siete puntos de entrada. Los cambios del Extension Host requieren recargar la ventana de desarrollo; para cambios de webview basta con reabrir su panel después de reconstruir.
 
@@ -46,7 +46,7 @@ browser/
   install.json
 ```
 
-Usa la pantalla **Gestionar Chromium** para borrar o reinstalar el navegador. No borres manualmente carpetas globales.
+Usa la pantalla **Gestionar navegador** para borrar o reinstalar Chromium o para seleccionar Chrome. No borres manualmente carpetas globales.
 
 ## Publicación
 

@@ -6,7 +6,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   const services = createApplicationServices(context);
   await services.dataDao.initialize();
   await services.automationService.initialize();
-  const sidebar = new SidebarProvider(context.extensionUri, services.browserBinaries, services.browserActions, () => services.browserManagement.open());
+  const sidebar = new SidebarProvider(context.extensionUri, services.browserSelection, services.browserActions, () => services.browserManagement.open());
   context.subscriptions.push(
     services.manualPanel,
     services.formulasPanel,

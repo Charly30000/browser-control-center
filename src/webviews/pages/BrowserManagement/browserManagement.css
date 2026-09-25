@@ -11,4 +11,12 @@ header p, .help { color: var(--vscode-descriptionForeground); }
 .status-card .corrupted, .status-card .incompatible { color: var(--vscode-errorForeground); }
 .progress { color: var(--vscode-progressBar-background); }
 .actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.browser-selector { display: flex; align-items: end; gap: 8px; margin: 16px 0; padding: 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBar-background); }
+.browser-selector label { min-width: 260px; flex: 1; }
+.browser-selector span { display: block; margin-bottom: 5px; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.browser-selector select { width: 100%; min-height: 30px; padding: 4px 7px; color: var(--vscode-dropdown-foreground); background: var(--vscode-dropdown-background); border: 1px solid var(--vscode-dropdown-border); }
+.isolation-note { padding: 10px 12px; border-left: 3px solid var(--vscode-testing-iconPassed); background: var(--vscode-textBlockQuote-background); }
+.managed-section { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--vscode-panel-border); }
+.managed-section h2 { margin: 0 0 4px; font-size: 16px; }
+.managed-section > p { color: var(--vscode-descriptionForeground); }
 @media (max-width: 600px) { .status-card { grid-template-columns: 1fr; } .status-card .wide { grid-column: auto; } }

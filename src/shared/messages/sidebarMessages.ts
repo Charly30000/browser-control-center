@@ -1,5 +1,5 @@
 import type { BrowserLifecycleState } from "../../domain/browser/browserBridge";
-import type { BrowserInstallationState } from "../../infrastructure/browser/browserBinaryManager";
+import type { BrowserProviderId, BrowserProviderState } from "../../domain/browser/browserProvider";
 import type { PageDefinition } from "../../webviews/pages/pageDefinition";
 
 export type SidebarToExtensionMessage =
@@ -7,7 +7,13 @@ export type SidebarToExtensionMessage =
   | { readonly type: "sidebar.openPage"; readonly pageId: PageDefinition["id"] }
   | { readonly type: "sidebar.manageBrowser" };
 
-export type ExtensionToSidebarMessage = { readonly type: "sidebar.state"; readonly installation: BrowserInstallationState; readonly lifecycle: BrowserLifecycleState; };
+export type ExtensionToSidebarMessage = {
+  readonly type: "sidebar.state";
+  readonly providerId: BrowserProviderId;
+  readonly providerName: string;
+  readonly providerState: BrowserProviderState;
+  readonly lifecycle: BrowserLifecycleState;
+};
 
 export const isSidebarToExtensionMessage = (value: unknown): value is SidebarToExtensionMessage => {
   if (typeof value !== "object" || value === null || !("type" in value)) return false;

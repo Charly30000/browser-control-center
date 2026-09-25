@@ -1,16 +1,16 @@
 import { performance } from "node:perf_hooks";
 import type { Browser, BrowserContext, BrowserServer } from "playwright-core";
 import type { FormulaExecutionResult, FormulaExecutionService } from "../../application/formulas/formulaExecutionService";
+import type { BrowserLaunchConfigurationProvider } from "../../application/browser/browserProvider";
 import type { Logger } from "../../application/logging/logger";
 import type { FormulaResource } from "../../domain/formulas/formula";
 import { isJsonValue } from "../../domain/manual/storageValue";
-import type { BrowserExecutableProvider } from "../browser/browserBinaryManager";
 import type { PlaywrightRuntimeProvider } from "../browser/playwrightRuntime";
 import { failure, success, type Result } from "../../shared/result";
 
-export class ChromiumFormulaExecutionService implements FormulaExecutionService {
+export class PlaywrightFormulaExecutionService implements FormulaExecutionService {
   public constructor(
-    private readonly binaries: BrowserExecutableProvider,
+    private readonly browserSelection: BrowserLaunchConfigurationProvider,
     private readonly runtime: PlaywrightRuntimeProvider,
     private readonly logger: Logger,
     private readonly timeoutMs = 2_000
@@ -23,11 +23,16 @@ export class ChromiumFormulaExecutionService implements FormulaExecutionService 
     let context: BrowserContext | null = null;
     let timer: NodeJS.Timeout | undefined;
     try {
-      const executablePath = await this.binaries.requireExecutablePath();
-      const { chromium } = await this.runtime.load();
-      const activeServer = await chromium.launchServer({ executablePath, headless: true });
+      const configuration = await this.browserSelection.resolveLaunchConfiguration();
+      const playwright = await this.runtime.load();
+      const browserType = playwright[configuration.engine];
+      const activeServer = await browserType.launchServer({
+        ...(configuration.executablePath === null ? {} : { executablePath: configuration.executablePath }),
+        ...(configuration.channel === null ? {} : { channel: configuration.channel }),
+        headless: true
+      });
       server = activeServer;
-      const activeBrowser = await chromium.connect(activeServer.wsEndpoint());
+      const activeBrowser = await browserType.connect(activeServer.wsEndpoint());
       browser = activeBrowser;
       context = await activeBrowser.newContext({ serviceWorkers: "block" });
       await context.setOffline(true);

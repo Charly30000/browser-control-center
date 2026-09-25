@@ -30,7 +30,7 @@ class FormulasApp extends LitElement {
     return html`
       <main class="resource-shell">
         <header class="page-header">
-          <div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en un Chromium headless aislado.</p></div>
+          <div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en el navegador seleccionado, en modo headless y aislado.</p></div>
           <div class="toolbar">
             <button @click=${() => this.post({ type: "formula.new" })}>Agregar</button>
             <button class="danger" @click=${() => this.post({ type: "formula.deleteSelected", ids: [...this.selectedIds] })}>Eliminar seleccionadas</button>

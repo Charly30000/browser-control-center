@@ -5,6 +5,7 @@ La suite no descarga ni abre un navegador real. Usa adaptadores y dobles determi
 | Área | Cobertura |
 |---|---|
 | Binarios | ausencia, versión requerida y borrado limitado a rutas administradas |
+| Proveedores | selección persistente, canal de Chrome, motor elegido y ausencia de perfil personal |
 | Ciclo de vida | transiciones, contextos nuevos y limpieza de sesiones |
 | Pestañas | registro por ID, selección, navegación, título y cierre |
 | Configuración | headers, cookies y storage tipado |
@@ -32,7 +33,7 @@ npm run build
 
 ## Prueba manual de integración
 
-Después de instalar Chromium desde la extensión:
+Después de elegir un navegador disponible desde **Gestionar navegador**:
 
 1. abre `https://example.com` desde Manual;
 2. comprueba inicio, parada, reinicio y pestañas emergentes;
@@ -51,5 +52,7 @@ Después de instalar Chromium desde la extensión:
 15. repite el guardado con los desplegables, recursos, campos de texto, JSON y checkboxes de los demás tipos de nodo y comprueba que el inspector muestra la configuración guardada.
 16. intenta eliminar un grupo, proceso y una fila de Manual; cancela el diálogo modal de VS Code y confirma que nada cambia, después acepta y comprueba la eliminación.
 17. selecciona un nodo y elimínalo con su botón `×`; elimina también un nodo con `Supr` y una conexión con su `×`. Estas acciones no deben pedir confirmación y deben poder recuperarse con **Deshacer**.
+18. ejecuta Manual, una fórmula y una automatización con Chromium administrado; repite con Chrome instalado y comprueba que el reinicio parte sin cookies ni storage previos.
+19. abre simultáneamente tu Chrome personal y confirma que sus pestañas, perfil, cookies y sesión no cambian al iniciar, reiniciar o detener la extensión.
 
 La suite unitaria no abre VS Code ni hace capturas. Para regresiones de Pointer Events se usa una instancia aislada de `Extension Development Host` y se verifican posiciones, SVG, zoom, selección y errores de consola desde el protocolo de depuración de Chromium.

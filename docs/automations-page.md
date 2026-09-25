@@ -2,7 +2,7 @@
 
 ## Modelo
 
-Una automatización contiene grupos; cada grupo contiene procesos. Un proceso posee viewport, variables iniciales, nodos y conexiones. Al ejecutar un grupo, sus procesos se recorren en orden y cada uno abre una sesión limpia e independiente de Chromium que siempre se cierra al terminar.
+Una automatización contiene grupos; cada grupo contiene procesos. Un proceso posee viewport, variables iniciales, nodos y conexiones. Al ejecutar un grupo, sus procesos se recorren en orden y cada uno abre una sesión limpia e independiente del navegador seleccionado que siempre se cierra al terminar.
 
 El documento usa `schemaVersion: 1` y se guarda en `globalStorageUri/automations/automation.json`. La exportación usa el envelope JSON común y versionado. La importación añade los grupos al documento actual en vez de reemplazarlo. Si un grupo o proceso coincide por ID o nombre, regenera ambos; los IDs de nodos y conexiones que colisionen también se regeneran y las conexiones se reparan para apuntar a los nodos importados correctos. Los archivos históricos con el documento directo siguen siendo compatibles.
 
@@ -16,7 +16,7 @@ El documento usa `schemaVersion: 1` y se guarda en `globalStorageUri/automations
 - Los nodos y conexiones del canvas se eliminan directamente porque forman parte del historial de edición y pueden recuperarse con **Deshacer**. Una conexión seleccionada muestra su `×`; cada nodo seleccionado muestra también un botón `×`. `Supr` y `Backspace` continúan eliminando la selección completa.
 - El inspector inferior edita nombre, timeout y configuración. Los campos JSON conservan el último valor válido si el texto todavía no se puede parsear.
 - Los controles del inspector están vinculados al documento como valores controlados: al seleccionar otro nodo o guardar, inputs, checkboxes y desplegables vuelven a reflejar explícitamente la configuración persistida. El guardado conserva el grupo, proceso y nodo seleccionados mientras sigan existiendo.
-- Los campos `Selector` incluyen el botón **Seleccionar**. Usa el Chromium visible compartido con Manual: el navegador debe estar abierto, se pulsa el botón, se hace clic sobre el elemento de la página y el selector CSS resultante se guarda en el nodo.
+- Los campos `Selector` incluyen el botón **Seleccionar**. Usa el navegador visible compartido con Manual: debe estar abierto, se pulsa el botón, se hace clic sobre el elemento de la página y el selector CSS resultante se guarda en el nodo.
 - `Request Override` utiliza el mismo editor estructurado que Manual. Permite añadir varias reglas y configurar coincidencia exacta, glob o regex, método, acción, status, content type, body, headers y activación. Al ejecutar el nodo, sus reglas se instalan en la sesión independiente del proceso.
 
 El viewport acepta presets o valores personalizados de ancho, alto, escala, modo táctil y modo móvil. Las variables iniciales son un objeto JSON.
@@ -52,11 +52,11 @@ Al finalizar un grupo se informa cuántos procesos terminaron, cuántos fallaron
 
 La línea de inicio de cada proceso incluye también ancho, alto, escala, modo móvil y soporte táctil del viewport que recibió el ejecutor. Esto permite distinguir un problema de configuración del proceso de una discrepancia producida dentro de Chromium.
 
-Cada nodo tiene un timeout por defecto configurable. Superarlo fuerza el cierre de Chromium. **Stop** cancela y solicita cierre normal; **Force stop** fuerza el cierre. **Pausar** actúa entre nodos. `Pause / Wait User` mantiene el nodo esperando para completar CAPTCHA, 2FA u OAuth y ofrece continuar, reintentar o detener.
+Cada nodo tiene un timeout por defecto configurable. Superarlo fuerza el cierre del navegador. **Stop** cancela y solicita cierre normal; **Force stop** fuerza el cierre. **Pausar** actúa entre nodos. `Pause / Wait User` mantiene el nodo esperando para completar CAPTCHA, 2FA u OAuth y ofrece continuar, reintentar o detener.
 
 Al ejecutar un proceso desde el árbol, el editor selecciona inmediatamente ese proceso y muestra su canvas. Durante la ejecución de un grupo, la selección cambia automáticamente cada vez que comienza el siguiente proceso, incluyendo los estados de preparación, ejecución, pausa y espera del usuario. Los estados de los nodos continúan resaltándose sobre el canvas activo.
 
-Cuando se alcanza `Pause / Wait User`, los controles siguen apareciendo en el banner de VS Code y, adicionalmente, se inyecta una barra aislada en la parte superior de Chromium. Ambas ubicaciones controlan la misma espera y ofrecen **Continuar**, **Reintentar** y **Detener**. La barra de Chromium usa Shadow DOM para no heredar estilos de la página, vuelve a aparecer si el documento navega mientras espera y se elimina al resolver o cancelar la pausa.
+Cuando se alcanza `Pause / Wait User`, los controles siguen apareciendo en el banner de VS Code y, adicionalmente, se inyecta una barra aislada en la parte superior del navegador. Ambas ubicaciones controlan la misma espera y ofrecen **Continuar**, **Reintentar** y **Detener**. La barra usa Shadow DOM para no heredar estilos de la página, vuelve a aparecer si el documento navega mientras espera y se elimina al resolver o cancelar la pausa.
 
 ## Nodos iniciales
 

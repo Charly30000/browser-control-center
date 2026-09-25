@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
+import type { BrowserSelectionService } from "../../application/browser/browserSelectionService";
 import type { BrowserActionsService } from "../../application/manual/browserActionsService";
-import type { BrowserBinaryManager } from "../../infrastructure/browser/browserBinaryManager";
 import { isSidebarToExtensionMessage, type ExtensionToSidebarMessage } from "../../shared/messages/sidebarMessages";
 import { createWebviewHtml } from "../webview/createWebviewHtml";
 
@@ -9,8 +9,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, vscode.Dispo
   private view: vscode.WebviewView | null = null;
   private readonly disposables: vscode.Disposable[] = [];
 
-  public constructor(private readonly extensionUri: vscode.Uri, private readonly binaries: BrowserBinaryManager, private readonly browser: BrowserActionsService, private readonly openBrowserManagement: () => void) {
-    this.disposables.push(this.binaries.onDidChange(() => { void this.sendState(); }), this.browser.onDidChange(() => { void this.sendState(); }));
+  public constructor(private readonly extensionUri: vscode.Uri, private readonly selection: BrowserSelectionService, private readonly browser: BrowserActionsService, private readonly openBrowserManagement: () => void) {
+    this.disposables.push(this.selection.onDidChange(() => { void this.sendState(); }), this.browser.onDidChange(() => { void this.sendState(); }));
   }
 
   public resolveWebviewView(view: vscode.WebviewView): void {
@@ -31,7 +31,15 @@ export class SidebarProvider implements vscode.WebviewViewProvider, vscode.Dispo
 
   public dispose(): void { for (const disposable of this.disposables) disposable.dispose(); }
   private async sendState(): Promise<void> {
-    const response: ExtensionToSidebarMessage = { type: "sidebar.state", installation: (await this.binaries.inspect()).state, lifecycle: this.browser.getSnapshot().lifecycle };
+    const providerId = this.selection.getSelectedProviderId();
+    const selected = (await this.selection.inspectProviders()).find(({ id }) => id === providerId);
+    const response: ExtensionToSidebarMessage = {
+      type: "sidebar.state",
+      providerId,
+      providerName: selected?.displayName ?? "Navegador",
+      providerState: selected?.state ?? "missing",
+      lifecycle: this.browser.getSnapshot().lifecycle
+    };
     await this.view?.webview.postMessage(response);
   }
 }

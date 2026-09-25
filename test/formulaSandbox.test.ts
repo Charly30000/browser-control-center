@@ -2,7 +2,7 @@ import type { PlaywrightRuntime } from "../src/infrastructure/browser/playwright
 import { describe, expect, it, vi } from "vitest";
 import { silentLogger } from "../src/application/logging/logger";
 import { createFormula } from "../src/domain/formulas/formula";
-import { ChromiumFormulaExecutionService } from "../src/infrastructure/formulas/chromiumFormulaExecutionService";
+import { PlaywrightFormulaExecutionService } from "../src/infrastructure/formulas/playwrightFormulaExecutionService";
 import type { PlaywrightRuntimeProvider } from "../src/infrastructure/browser/playwrightRuntime";
 
 describe("sandbox de fórmulas", () => {
@@ -23,8 +23,8 @@ describe("sandbox de fórmulas", () => {
     const browser = { newContext: vi.fn(() => Promise.resolve(context)), close: vi.fn(() => Promise.resolve()) };
     const chromium = { launchServer: vi.fn(() => Promise.resolve(server)), connect: vi.fn(() => Promise.resolve(browser)) };
     const runtime: PlaywrightRuntimeProvider = { load: () => Promise.resolve({ chromium } as unknown as PlaywrightRuntime) };
-    const binaries = { requireExecutablePath: () => Promise.resolve("C:\\managed\\chrome.exe") };
-    const service = new ChromiumFormulaExecutionService(binaries, runtime, silentLogger, 10);
+    const browserSelection = { resolveLaunchConfiguration: () => Promise.resolve({ providerId: "managed-chromium" as const, displayName: "Chromium administrado", engine: "chromium" as const, executablePath: "C:\\managed\\chrome.exe", channel: null }) };
+    const service = new PlaywrightFormulaExecutionService(browserSelection, runtime, silentLogger, 10);
     const formula = { ...createFormula("formula", "Bloqueo"), code: "function generate() { while (true) {} }" };
 
     const result = await service.execute(formula);

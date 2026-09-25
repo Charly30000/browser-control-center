@@ -10,6 +10,7 @@ import type {
 } from "../../application/persistence/applicationDataDao";
 import type { ArrayResource } from "../../domain/arrays/arrayResource";
 import type { AutomationDocument } from "../../domain/automations/automation";
+import { DEFAULT_BROWSER_PREFERENCES, type BrowserPreferences } from "../../domain/browser/browserProvider";
 import type { FormulaResource } from "../../domain/formulas/formula";
 import type { ManualProfile, ProfileSummary } from "../../domain/manual/manualProfile";
 import type { GlobalResourceSummary } from "../../domain/resources/globalResource";
@@ -22,6 +23,7 @@ const SAFE_ID = /^[a-zA-Z0-9-]+$/;
 const PROFILE_METADATA_KEY = "manual.profileMetadata.v1";
 const FORMULA_METADATA_KEY = "formulas.resourceMetadata.v1";
 const ARRAY_METADATA_KEY = "arrays.resourceMetadata.v1";
+const BROWSER_PREFERENCES_KEY = "browser.preferences.v1";
 const EMPTY_PROFILE_METADATA: ProfileMetadata = { version: 1, selectedProfileId: null, profiles: [] };
 const EMPTY_RESOURCE_METADATA: ResourceMetadata = { version: 1, selectedResourceId: null, resources: [] };
 
@@ -43,6 +45,10 @@ const isResourceMetadata = (value: unknown): value is ResourceMetadata =>
   isRecord(value) && value.version === 1 &&
   (value.selectedResourceId === null || typeof value.selectedResourceId === "string") &&
   Array.isArray(value.resources) && value.resources.every(isResourceSummary);
+
+const isBrowserPreferences = (value: unknown): value is BrowserPreferences =>
+  isRecord(value) && value.version === 1 &&
+  (value.selectedProviderId === "managed-chromium" || value.selectedProviderId === "system-chrome");
 
 const isNotFound = (error: unknown): boolean =>
   error instanceof vscode.FileSystemError && error.code === "FileNotFound";
@@ -136,6 +142,7 @@ export class VsCodeApplicationDataDao implements ApplicationDataDao {
   public readonly arrays: EntityDataDao<ArrayResource>;
   public readonly arrayMetadata: StateDataDao<ResourceMetadata>;
   public readonly automations: SingletonDataDao<AutomationDocument>;
+  public readonly browserPreferences: StateDataDao<BrowserPreferences>;
 
   public constructor(storageUri: vscode.Uri, state: vscode.Memento) {
     const profilesDirectory = vscode.Uri.joinPath(storageUri, "profiles");
@@ -153,6 +160,7 @@ export class VsCodeApplicationDataDao implements ApplicationDataDao {
       serialize: serializeAutomation,
       deserialize: deserializeAutomation
     });
+    this.browserPreferences = new MementoStateDataDao(state, BROWSER_PREFERENCES_KEY, isBrowserPreferences, DEFAULT_BROWSER_PREFERENCES);
   }
 
   public async initialize(): Promise<void> {

@@ -47,7 +47,7 @@
       },
       {
         "command": "browserControl.manageBrowser",
-        "title": "Browser Control: Gestionar Chromium"
+        "title": "Browser Control: Gestionar navegador"
       }
     ],
     "viewsContainers": {

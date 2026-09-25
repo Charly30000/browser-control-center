@@ -39,11 +39,11 @@ export class ProcessRunner {
     try {
       browser = await this.sessions.create(process.viewport);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "No se pudo iniciar la sesión de Chromium.";
+      const message = error instanceof Error ? error.message : "No se pudo iniciar la sesión de navegador.";
       processState = "failed"; processError = message;
       for (const [id, state] of states) if (state.state === "queued") states.set(id, this.nodeState(id, "skipped"));
       emit();
-      this.logger.error(`${processPrefix} [ERROR] No se pudo preparar Chromium: ${message}`, error);
+      this.logger.error(`${processPrefix} [ERROR] No se pudo preparar el navegador: ${message}`, error);
       throw error;
     }
     const context = new ExecutionContext({
@@ -112,7 +112,7 @@ export class ProcessRunner {
       this.logger.warn(`${processPrefix} [CANCELADO] ${error.message}`);
       return { success: false, cancelled: true, variables: context.variables };
     } finally {
-      await browser.close(forceClose || control.forceRequested).catch((error: unknown) => this.logger.error(`[${groupName}] [${process.name}] Error al cerrar Chromium.`, error));
+      await browser.close(forceClose || control.forceRequested).catch((error: unknown) => this.logger.error(`[${groupName}] [${process.name}] Error al cerrar el navegador.`, error));
     }
   }
 

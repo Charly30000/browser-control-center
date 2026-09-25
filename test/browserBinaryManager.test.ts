@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { silentLogger } from "../src/application/logging/logger";
-import { BrowserBinaryManager } from "../src/infrastructure/browser/browserBinaryManager";
+import { BrowserBinaryManager } from "../src/infrastructure/browser/providers/browserBinaryManager";
 import type { PlaywrightRuntimeProvider } from "../src/infrastructure/browser/playwrightRuntime";
 
 describe("BrowserBinaryManager", () => {

@@ -6,7 +6,7 @@ Las eliminaciones siempre requieren confirmación. Se aplica a perfiles, query p
 
 **Iniciar** crea una sesión limpia. **Detener** intenta un cierre normal, **Forzar cierre** termina el proceso y **Reinicio limpio** descarta el contexto actual y crea otro. Las pestañas se identifican internamente por ID y se actualizan cuando navegan, cambian de título, se abren como popup o se cierran.
 
-**Abrir** compone la URL con los query params activos, inicia Chromium si es necesario y navega la pestaña seleccionada.
+**Abrir** compone la URL con los query params activos, inicia el navegador seleccionado si es necesario y navega la pestaña seleccionada.
 
 ## Viewport
 

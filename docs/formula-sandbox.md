@@ -1,6 +1,6 @@
 # Modelo de seguridad de fórmulas
 
-El código del usuario nunca se ejecuta en el Extension Host. Cada ejecución usa un proceso Chromium headless nuevo y desechable.
+El código del usuario nunca se ejecuta en el Extension Host. Cada ejecución usa un proceso headless nuevo y desechable del navegador seleccionado.
 
 Controles aplicados:
 
@@ -14,6 +14,6 @@ Controles aplicados:
 8. timeout duro de 2 segundos;
 9. destrucción del proceso incluso ante error o bloqueo.
 
-El código se carga mediante una etiqueta de script dentro de Chromium. No se usa `eval`, `new Function` ni `node:vm` como aislamiento.
+El código se carga mediante una etiqueta de script dentro del navegador. No se usa `eval`, `new Function` ni `node:vm` como aislamiento.
 
 Este límite protege el proceso de la extensión y bloquea red, pero la fórmula sí dispone de las APIs normales del entorno JavaScript del navegador durante su breve ejecución. No debe usarse para conservar secretos.

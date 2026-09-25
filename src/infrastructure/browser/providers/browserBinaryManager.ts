@@ -2,8 +2,8 @@ import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import type { Logger } from "../../application/logging/logger";
-import type { PlaywrightRuntimeProvider } from "./playwrightRuntime";
+import type { Logger } from "../../../application/logging/logger";
+import type { PlaywrightRuntimeProvider } from "../playwrightRuntime";
 
 export type BrowserInstallationState = "missing" | "installing" | "ready" | "corrupted" | "incompatible";
 
@@ -37,8 +37,6 @@ interface BrowserDescriptorFile {
 export interface BrowserProcessRunner {
   run(cliPath: string, args: readonly string[], environment: NodeJS.ProcessEnv, onOutput: (text: string) => void): Promise<void>;
 }
-
-export interface BrowserExecutableProvider { requireExecutablePath(): Promise<string>; }
 
 export class NodeBrowserProcessRunner implements BrowserProcessRunner {
   public run(cliPath: string, args: readonly string[], environment: NodeJS.ProcessEnv, onOutput: (text: string) => void): Promise<void> {
