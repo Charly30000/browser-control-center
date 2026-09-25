@@ -4,6 +4,8 @@ import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToFormulaMessage, FormulaToExtensionMessage } from "../../../shared/messages/formulaMessages";
 import type { NoticeTone } from "../../components/statusNotice";
+import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
+import "../../components/jsonDocumentEditor";
 import { vscodeApi } from "../../vscodeApi";
 import "../../components";
 import "./formulas.css";
@@ -19,6 +21,7 @@ class FormulasApp extends LitElement {
   private resources: readonly GlobalResourceSummary[] = [];
   private selectedIds = new Set<string>();
   private notice: { tone: NoticeTone; message: string } = { tone: "info", message: "" };
+  private jsonDocument: string | null = null;
 
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "formula.ready" }); }
@@ -59,6 +62,7 @@ class FormulasApp extends LitElement {
                 <button @click=${() => this.post({ type: "formula.test", resource: this.resource! })}>Probar</button>
                 <button class="primary" @click=${() => this.post({ type: "formula.save", resource: this.resource! })}>Guardar</button>
                 <button @click=${() => this.post({ type: "formula.export", resource: this.resource! })}>Exportar</button>
+                <button @click=${() => this.post({ type: "formula.viewJson", resource: this.resource! })}>Ver JSON</button>
                 <span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
@@ -66,6 +70,14 @@ class FormulasApp extends LitElement {
           </section>
         </div>
       </main>
+      ${this.jsonDocument === null ? nothing : html`<json-document-editor
+        .value=${this.jsonDocument}
+        .heading=${`JSON de ${this.resource.name}`}
+        .errorMessage=${this.notice.tone === "error" ? this.notice.message : ""}
+        @json-editor-change=${this.changeJson}
+        @json-editor-close=${this.closeJsonEditor}
+        @json-editor-apply=${this.applyJson}
+      ></json-document-editor>`}
     `;
   }
 
@@ -75,10 +87,24 @@ class FormulasApp extends LitElement {
       this.savedResource = event.data.state.savedResource === null ? null : structuredClone(event.data.state.savedResource);
       this.resources = event.data.state.resources;
       this.selectedIds = new Set([...this.selectedIds].filter((id) => this.resources.some((resource) => resource.id === id)));
+    } else if (event.data.type === "formula.jsonDocument") {
+      this.jsonDocument = event.data.serialized;
+      this.notice = { tone: "info", message: "" };
+    } else if (event.data.type === "formula.jsonApplied") {
+      this.resource = structuredClone(event.data.resource);
+      this.jsonDocument = null;
     } else {
       this.notice = { tone: event.data.tone, message: event.data.message };
     }
     this.requestUpdate();
+  };
+
+  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.requestUpdate(); };
+  private readonly changeJson = (event: CustomEvent<JsonEditorApplyDetail>): void => { this.jsonDocument = event.detail.serialized; };
+
+  private readonly applyJson = (event: CustomEvent<JsonEditorApplyDetail>): void => {
+    if (this.resource === null) return;
+    this.post({ type: "formula.applyJson", serialized: event.detail.serialized, currentId: this.resource.id });
   };
 
   private change(change: (resource: FormulaResource) => void): void {

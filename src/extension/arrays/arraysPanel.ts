@@ -38,6 +38,7 @@ export class ArraysPanelManager implements vscode.Disposable {
   }
 
   public dispose(): void { this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }
+  public async refreshState(): Promise<void> { if (this.panel !== null) await this.state(await this.service.getInitialState()); }
 
   private async handle(message: ArrayToExtensionMessage): Promise<void> {
     try {
@@ -53,6 +54,18 @@ export class ArraysPanelManager implements vscode.Disposable {
         case "array.deleteSelected": await this.deleteSelected(message.ids); break;
         case "array.import": await this.importResources(); break;
         case "array.export": await this.exportResource(message.resource); break;
+        case "array.viewJson": await this.post({ type: "array.jsonDocument", serialized: this.documents.serialize([message.resource]) }); break;
+        case "array.applyJson": {
+          const parsed = this.documents.deserialize(message.serialized);
+          if (!parsed.ok) throw new Error(parsed.error);
+          if (parsed.value.data.length !== 1) throw new Error("El documento debe contener exactamente un array.");
+          const resource = parsed.value.data[0];
+          if (resource === undefined) throw new Error("El documento no contiene ningún array.");
+          if (resource.id !== message.currentId) throw new Error("El ID del array no se puede cambiar desde el editor JSON.");
+          await this.post({ type: "array.jsonApplied", resource });
+          await this.notice("success", "JSON validado y cargado como cambios sin guardar.");
+          break;
+        }
         case "array.test": {
           const value = this.generator.pick(message.resource.items);
           if (value === undefined) {

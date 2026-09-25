@@ -5,8 +5,10 @@ import { isAutomationDocument } from "../../infrastructure/persistence/automatio
 import type { GlobalResourceSummary } from "../../domain/resources/globalResource";
 import { isJsonValue } from "../../domain/manual/storageValue";
 import { isDestructiveConfirmationRequest, type DestructiveConfirmationRequestMessage, type DestructiveConfirmationResultMessage } from "./destructiveConfirmationMessages";
+import type { AutomationSelectionScope } from "../../domain/automations/automationSelection";
 
 export interface AutomationResourceCatalogs { readonly formulas: readonly GlobalResourceSummary[]; readonly arrays: readonly GlobalResourceSummary[]; }
+export type AutomationJsonScope = AutomationSelectionScope;
 
 export type AutomationToExtensionMessage =
   | DestructiveConfirmationRequestMessage
@@ -14,6 +16,8 @@ export type AutomationToExtensionMessage =
   | { readonly type: "automation.save"; readonly document: AutomationDocument }
   | { readonly type: "automation.import" }
   | { readonly type: "automation.export"; readonly document: AutomationDocument }
+  | { readonly type: "automation.viewJson"; readonly document: AutomationDocument; readonly scope: AutomationJsonScope }
+  | { readonly type: "automation.applyJson"; readonly serialized: string; readonly scope: AutomationJsonScope }
   | { readonly type: "automation.runGroup"; readonly groupId: string; readonly document: AutomationDocument }
   | { readonly type: "automation.runProcess"; readonly groupId: string; readonly processId: string; readonly document: AutomationDocument }
   | { readonly type: "automation.pause" }
@@ -28,6 +32,8 @@ export type ExtensionToAutomationMessage =
   | DestructiveConfirmationResultMessage
   | { readonly type: "automation.state"; readonly document: AutomationDocument; readonly descriptors: readonly NodeDescriptor[]; readonly resources: AutomationResourceCatalogs }
   | { readonly type: "automation.resources"; readonly resources: AutomationResourceCatalogs }
+  | { readonly type: "automation.jsonDocument"; readonly serialized: string; readonly scope: AutomationJsonScope }
+  | { readonly type: "automation.jsonApplied"; readonly document: AutomationDocument; readonly scope: AutomationJsonScope }
   | { readonly type: "automation.nodeValidation"; readonly requestId: string; readonly nodeId: string; readonly error: string | null }
   | { readonly type: "automation.elementSelected"; readonly nodeId: string; readonly fieldKey: string; readonly selector: string }
   | { readonly type: "automation.notice"; readonly tone: "info" | "success" | "warning" | "error"; readonly message: string }
@@ -40,6 +46,8 @@ export const isAutomationToExtensionMessage = (value: unknown): value is Automat
   if (message.type === "ui.confirmDestructiveAction") return isDestructiveConfirmationRequest(value);
   switch (message.type) {
     case "automation.ready": case "automation.import": case "automation.pause": case "automation.resume": return true;
+    case "automation.applyJson": return typeof message.serialized === "string" && isAutomationJsonScope(message.scope);
+    case "automation.viewJson": return isAutomationDocument(message.document) && isAutomationJsonScope(message.scope);
     case "automation.save": case "automation.export": return isAutomationDocument(message.document);
     case "automation.runGroup": return typeof message.groupId === "string" && isAutomationDocument(message.document);
     case "automation.runProcess": return typeof message.groupId === "string" && typeof message.processId === "string" && isAutomationDocument(message.document);
@@ -49,4 +57,12 @@ export const isAutomationToExtensionMessage = (value: unknown): value is Automat
     case "automation.validateNode": return typeof message.requestId === "string" && typeof message.nodeId === "string" && AUTOMATION_NODE_TYPES.includes(message.nodeType as AutomationNodeType) && typeof message.config === "object" && message.config !== null && !Array.isArray(message.config) && isJsonValue(message.config);
     default: return false;
   }
+};
+
+const isAutomationJsonScope = (value: unknown): value is AutomationJsonScope => {
+  if (typeof value !== "object" || value === null) return false;
+  const scope = value as Record<string, unknown>;
+  return scope.kind === "group"
+    ? typeof scope.groupId === "string"
+    : scope.kind === "process" && typeof scope.groupId === "string" && typeof scope.processId === "string";
 };

@@ -50,7 +50,12 @@ export class ManualProfileService {
   public async save(draft: ManualProfile): Promise<ManualProfileState> {
     const metadata = this.metadataDao.get();
     const now = new Date().toISOString();
-    const profile: ManualProfile = { ...structuredClone(draft), name: draft.name.trim() || "untitled", updatedAt: now };
+    const name = draft.name.trim() || "untitled";
+    const normalizedName = name.toLocaleLowerCase();
+    if (metadata.profiles.some(({ id, name: existingName }) => id !== draft.id && existingName.trim().toLocaleLowerCase() === normalizedName)) {
+      throw new Error(`Ya existe un perfil llamado «${name}».`);
+    }
+    const profile: ManualProfile = { ...structuredClone(draft), name, updatedAt: now };
     await this.profileDao.save(profile);
 
     const summary: ProfileSummary = { id: profile.id, name: profile.name, updatedAt: profile.updatedAt };

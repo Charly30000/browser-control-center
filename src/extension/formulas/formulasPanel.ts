@@ -42,6 +42,7 @@ export class FormulasPanelManager implements vscode.Disposable {
   }
 
   public dispose(): void { this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }
+  public async refreshState(): Promise<void> { if (this.panel !== null) await this.state(await this.service.getInitialState()); }
 
   private async handle(message: FormulaToExtensionMessage): Promise<void> {
     try {
@@ -57,6 +58,18 @@ export class FormulasPanelManager implements vscode.Disposable {
         case "formula.deleteSelected": await this.deleteSelected(message.ids); break;
         case "formula.import": await this.importResources(); break;
         case "formula.export": await this.exportResource(message.resource); break;
+        case "formula.viewJson": await this.post({ type: "formula.jsonDocument", serialized: this.documents.serialize([message.resource]) }); break;
+        case "formula.applyJson": {
+          const parsed = this.documents.deserialize(message.serialized);
+          if (!parsed.ok) throw new Error(parsed.error);
+          if (parsed.value.data.length !== 1) throw new Error("El documento debe contener exactamente una fórmula.");
+          const resource = parsed.value.data[0];
+          if (resource === undefined) throw new Error("El documento no contiene ninguna fórmula.");
+          if (resource.id !== message.currentId) throw new Error("El ID de la fórmula no se puede cambiar desde el editor JSON.");
+          await this.post({ type: "formula.jsonApplied", resource });
+          await this.notice("success", "JSON validado y cargado como cambios sin guardar.");
+          break;
+        }
         case "formula.generateExample": {
           const example = this.service.createDraft();
           example.resource.code = EXAMPLE_FORMULA_CODE;

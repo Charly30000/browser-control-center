@@ -3,7 +3,10 @@ import type { ArrayResource } from "../../domain/arrays/arrayResource";
 import type { ManualProfile, ProfileSummary } from "../../domain/manual/manualProfile";
 import type { GlobalResourceSummary } from "../../domain/resources/globalResource";
 import type { BrowserSessionSnapshot } from "../../domain/browser/browserBridge";
+import type { ManualPortableResources, ManualProfileBundle } from "../../domain/importExport/manualProfileBundle";
 import { isManualProfile } from "../../infrastructure/persistence/profileSerializer";
+import { isArrayResource } from "../../infrastructure/persistence/arrayResourceSerializer";
+import { isFormulaResource } from "../../infrastructure/persistence/formulaSerializer";
 import { isDestructiveConfirmationRequest, type DestructiveConfirmationRequestMessage, type DestructiveConfirmationResultMessage } from "./destructiveConfirmationMessages";
 
 export interface ManualResourceCatalogs {
@@ -24,9 +27,11 @@ export type ManualToExtensionMessage =
   | { readonly type: "manual.ready" }
   | { readonly type: "manual.new" }
   | { readonly type: "manual.select"; readonly id: string }
-  | { readonly type: "manual.save"; readonly profile: ManualProfile }
+  | { readonly type: "manual.save"; readonly profile: ManualProfile; readonly resources: ManualPortableResources | null }
   | { readonly type: "manual.delete"; readonly id: string; readonly name: string }
-  | { readonly type: "manual.export"; readonly profile: ManualProfile }
+  | { readonly type: "manual.export"; readonly profile: ManualProfile; readonly resources: ManualPortableResources | null }
+  | { readonly type: "manual.viewJson"; readonly profile: ManualProfile; readonly resources: ManualPortableResources | null }
+  | { readonly type: "manual.applyJson"; readonly serialized: string; readonly currentId: string }
   | { readonly type: "manual.import" }
   | { readonly type: "browser.open"; readonly profile: ManualProfile }
   | { readonly type: "browser.start"; readonly profile: ManualProfile }
@@ -45,6 +50,8 @@ export type ExtensionToManualMessage =
   | { readonly type: "manual.state"; readonly state: ManualStatePayload }
   | { readonly type: "manual.notice"; readonly tone: "info" | "success" | "warning" | "error"; readonly message: string }
   | { readonly type: "manual.resources"; readonly resources: ManualResourceCatalogs }
+  | { readonly type: "manual.jsonDocument"; readonly serialized: string }
+  | { readonly type: "manual.jsonApplied"; readonly bundle: ManualProfileBundle }
   | { readonly type: "browser.elementSelected"; readonly bindingId: string; readonly selector: string }
   | { readonly type: "browser.generatorPreview"; readonly bindingId: string; readonly value: string }
   | { readonly type: "browser.state"; readonly browser: BrowserSessionSnapshot };
@@ -61,6 +68,8 @@ export const isManualToExtensionMessage = (value: unknown): value is ManualToExt
     case "manual.import":
     case "browser.resetGenerators":
       return true;
+    case "manual.applyJson":
+      return typeof message.serialized === "string" && typeof message.currentId === "string";
     case "browser.stop":
       return typeof message.force === "boolean";
     case "browser.selectPage":
@@ -71,7 +80,10 @@ export const isManualToExtensionMessage = (value: unknown): value is ManualToExt
     case "manual.delete":
       return typeof message.id === "string" && typeof message.name === "string";
     case "manual.save":
+      return isManualProfile(message.profile) && (message.resources === null || isPortableResources(message.resources));
     case "manual.export":
+    case "manual.viewJson":
+      return isManualProfile(message.profile) && (message.resources === null || isPortableResources(message.resources));
     case "browser.open":
     case "browser.start":
     case "browser.restart":
@@ -87,4 +99,11 @@ export const isManualToExtensionMessage = (value: unknown): value is ManualToExt
     default:
       return false;
   }
+};
+
+const isPortableResources = (value: unknown): value is ManualPortableResources => {
+  if (typeof value !== "object" || value === null) return false;
+  const resources = value as Record<string, unknown>;
+  return Array.isArray(resources.formulas) && resources.formulas.every(isFormulaResource) &&
+    Array.isArray(resources.arrays) && resources.arrays.every(isArrayResource);
 };

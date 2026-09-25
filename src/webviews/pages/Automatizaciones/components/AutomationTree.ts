@@ -11,19 +11,19 @@ export interface AutomationTreeCallbacks {
   moveProcess(sourceGroupId: string, processId: string, targetGroupId: string): void; removeProcess(groupId: string, processId: string): void;
 }
 
-export const renderAutomationTree = (document: AutomationDocument, selectedGroupId: string | null, selectedProcessId: string | null, processes: Readonly<Record<string, ProcessExecutionSnapshot>>, groups: Readonly<Record<string, GroupExecutionSummary>>, callbacks: AutomationTreeCallbacks): TemplateResult => html`
+export const renderAutomationTree = (document: AutomationDocument, selectedGroupId: string | null, selectedProcessId: string | null, selectionKind: "group" | "process", processes: Readonly<Record<string, ProcessExecutionSnapshot>>, groups: Readonly<Record<string, GroupExecutionSummary>>, callbacks: AutomationTreeCallbacks): TemplateResult => html`
   <aside class="automation-tree">
     <h2>Grupos y procesos</h2>
     ${document.groups.length === 0 ? html`<p class="empty-hint">Crea un grupo para comenzar.</p>` : document.groups.map((group) => {
       const summary = groups[group.id];
-      return html`<section class=${group.id === selectedGroupId ? "tree-group selected" : "tree-group"}>
+      return html`<section class=${group.id === selectedGroupId && selectionKind === "group" ? "tree-group selected" : "tree-group"}>
         <header>
           <input class="tree-name" aria-label="Nombre del grupo" .value=${live(group.name)} @focus=${() => callbacks.selectGroup(group.id)} @input=${(event: Event) => { const target = event.currentTarget; if (target instanceof HTMLInputElement) callbacks.renameGroup(group.id, target.value); }}>
           <button title="Ejecutar grupo" @click=${() => callbacks.runGroup(group.id)}>▶</button><button title="Detener ejecución" @click=${() => callbacks.stop()}>■</button>
           <button title="Añadir proceso" @click=${() => callbacks.addProcess(group.id)}>＋</button><button class="danger" title="Eliminar grupo" @click=${() => callbacks.removeGroup(group.id)}>×</button>
         </header>
         ${summary === undefined ? null : html`<small class="group-summary">${summary.completed}/${summary.total} · ${summary.failed} fallidos</small>`}
-        <div class="process-list">${group.processes.map((process) => html`<div class=${process.id === selectedProcessId ? "process-row selected" : "process-row"}>
+        <div class="process-list">${group.processes.map((process) => html`<div class=${process.id === selectedProcessId && selectionKind === "process" ? "process-row selected" : "process-row"}>
           <button class="process-name" @click=${() => callbacks.selectProcess(group.id, process.id)}><span class=${`state-dot ${processes[process.id]?.state ?? "idle"}`}></span>${process.name}</button>
           <button title="Ejecutar proceso" @click=${() => callbacks.runProcess(group.id, process.id)}>▶</button>
           <button title="Detener ejecución" @click=${() => callbacks.stop()}>■</button>

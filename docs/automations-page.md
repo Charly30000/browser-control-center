@@ -4,7 +4,11 @@
 
 Una automatización contiene grupos; cada grupo contiene procesos. Un proceso posee viewport, variables iniciales, nodos y conexiones. Al ejecutar un grupo, sus procesos se recorren en orden y cada uno abre una sesión limpia e independiente del navegador seleccionado que siempre se cierra al terminar.
 
-El documento usa `schemaVersion: 1` y se guarda en `globalStorageUri/automations/automation.json`. La exportación usa el envelope JSON común y versionado. La importación añade los grupos al documento actual en vez de reemplazarlo. Si un grupo o proceso coincide por ID o nombre, regenera ambos; los IDs de nodos y conexiones que colisionen también se regeneran y las conexiones se reparan para apuntar a los nodos importados correctos. Los archivos históricos con el documento directo siguen siendo compatibles.
+**Ver JSON** y **Exportar** comparten exactamente el mismo ámbito. Al seleccionar la cabecera de un grupo generan únicamente ese grupo con todos sus procesos; al seleccionar un proceso generan únicamente ese flujo dentro de su grupo. El nombre raíz y el nombre sugerido del archivo reflejan la selección. Al aplicar se validan el envelope, su versión, nodos, conexiones y configuraciones registradas, y solo se reinserta el grupo o flujo editado sin eliminar el resto del documento.
+
+El editor también admite pegar el JSON de otro grupo o flujo recibido por chat. No es necesario modificar sus IDs a mano: se conserva el ID del elemento de destino, se ignoran los IDs raíz y contenedores externos, se regeneran los IDs internos que colisionen y se reparan los extremos de las conexiones cuando cambia el ID de un nodo. Los nombres que colisionen reciben un sufijo. El resultado queda pendiente de **Guardar**, que vuelve a validar la automatización completa.
+
+El documento usa `schemaVersion: 1` y se guarda en `globalStorageUri/automations/automation.json`. La exportación usa el envelope JSON común y versionado. Un flujo exportado sigue siendo un documento válido con un grupo y un proceso, por lo que puede importarse sin un formato paralelo. La importación añade el contenido al documento actual en vez de reemplazarlo. Si un grupo o proceso coincide por ID o nombre, regenera ambos; los IDs de nodos y conexiones que colisionen también se regeneran y las conexiones se reparan para apuntar a los nodos importados correctos. Los archivos históricos con el documento directo siguen siendo compatibles.
 
 ## Editor
 

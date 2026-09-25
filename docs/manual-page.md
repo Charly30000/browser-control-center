@@ -38,4 +38,8 @@ Las fórmulas, arrays y generadores básicos se resuelven en la capa de aplicaci
 
 ## Importación y exportación
 
-El perfil se exporta dentro del envelope JSON común y versionado. También se admiten perfiles históricos exportados como JSON directo. La importación crea un perfil independiente: si el ID o el nombre ya existen, genera ambos de nuevo y añade un sufijo numérico al nombre, sin sustituir el perfil guardado.
+El perfil se exporta dentro del envelope JSON común y versionado como un paquete `bundleVersion: 1`. Además del perfil incluye únicamente las fórmulas y arrays referenciados por sus generadores, de modo que el archivo sea portátil entre instalaciones. También se admiten envelopes anteriores cuyo `data` era directamente el perfil y perfiles históricos exportados como JSON directo.
+
+Al importar o guardar un JSON editado, las fórmulas se comparan por su código y los arrays por su contenido estructural. Si ya existe un recurso equivalente se reutiliza y se repara el `resourceId`; solo el contenido realmente nuevo pasa por las reglas de importación que generan ID y nombre seguros. Esto evita sobrescrituras y también evita crear duplicados en guardados sucesivos. El perfil importado sigue recibiendo una identidad independiente cuando su ID o nombre colisionan.
+
+**Ver JSON** abre el paquete del perfil que se está editando. El documento se puede seleccionar, copiar y modificar, incluidas sus fórmulas y arrays portátiles. **Aplicar cambios** valida formato, versiones, perfil y recursos, exige conservar el ID del perfil y carga el resultado como cambios sin guardar. **Guardar** ejecuta el mismo resolvedor de recursos que la importación antes de persistir el perfil.

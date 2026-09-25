@@ -1,0 +1,60 @@
+.json-editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: color-mix(in srgb, var(--vscode-editor-background) 35%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.json-editor-dialog {
+  display: grid;
+  grid-template-rows: auto minmax(260px, 1fr) auto;
+  width: min(980px, 100%);
+  height: min(780px, 92vh);
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 4px;
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+  box-shadow: 0 12px 38px rgba(0, 0, 0, .4);
+}
+
+.json-editor-dialog header,
+.json-editor-dialog footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.json-editor-dialog header { justify-content: space-between; }
+.json-editor-dialog footer { justify-content: flex-end; border-top: 1px solid var(--vscode-panel-border); border-bottom: 0; }
+.json-editor-dialog footer span { margin-right: auto; color: var(--vscode-descriptionForeground); }
+.json-editor-dialog footer .json-editor-error { color: var(--vscode-errorForeground); }
+.json-editor-dialog h2 { margin: 0 0 3px; font-size: 16px; }
+.json-editor-dialog p { margin: 0; color: var(--vscode-descriptionForeground); font-size: 11px; }
+.json-editor-dialog header > button { min-width: 30px; font-size: 18px; }
+
+.json-document-content {
+  width: 100%;
+  min-height: 0;
+  padding: 12px;
+  border: 0;
+  border-radius: 0;
+  resize: none;
+  font-family: var(--vscode-editor-font-family);
+  font-size: var(--vscode-editor-font-size);
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+}
+
+@media (max-width: 600px) {
+  .json-editor-backdrop { padding: 6px; }
+  .json-editor-dialog { height: 96vh; }
+  .json-editor-dialog footer { flex-wrap: wrap; }
+  .json-editor-dialog footer span { width: 100%; }
+}

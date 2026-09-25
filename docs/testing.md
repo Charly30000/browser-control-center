@@ -16,6 +16,7 @@ La suite no descarga ni abre un navegador real. Usa adaptadores y dobles determi
 | Automatizaciones | schema, persistencia íntegra de la configuración de todos los nodos, validación, registro de nodos, grafos, variables y ejecución secuencial |
 | Confirmaciones | composición del mensaje y respeto de las respuestas de aceptación y cancelación antes de eliminar |
 | Importación/exportación | envelope y versiones, formatos incompatibles, IDs repetidos, colisiones de ID/nombre y reparación de conexiones importadas |
+| Editor JSON | mensajes tipados, recorte y reinserción de grupo/flujo externo, conservación del ID de destino, reparación de nodos/conexiones, paquetes Manual portátiles, deduplicación semántica y guardados repetidos sin duplicados |
 | Persistencia central | contratos DAO tipados, codecs de cada entidad, CRUD y conservación de rutas y claves de almacenamiento |
 | Validación de datos | rutas anidadas, existencia, regex, JSON y fuentes de red/storage/cookies |
 | Flow Canvas | selección, coordenadas, estado de conexión sugerida, confirmación/cancelación, copy/paste con IDs reparados, undo y redo |

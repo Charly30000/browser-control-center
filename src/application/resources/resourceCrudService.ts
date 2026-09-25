@@ -11,6 +11,11 @@ export interface ResourceDefinition<T extends GlobalResource> extends ResourceId
   validate(resource: T): Result<T>;
 }
 
+export interface ResourceImportResult<T extends GlobalResource> {
+  readonly state: ResourceEditorState<T>;
+  readonly idMap: ReadonlyMap<string, string>;
+}
+
 export class ResourceCrudService<T extends GlobalResource> {
   private readonly importService = new ResourceImportService();
 
@@ -89,6 +94,10 @@ export class ResourceCrudService<T extends GlobalResource> {
   public getSummaries(): readonly GlobalResourceSummary[] { return this.metadataDao.get().resources; }
 
   public async importMany(imported: readonly T[]): Promise<ResourceEditorState<T>> {
+    return (await this.importManyWithResolution(imported)).state;
+  }
+
+  public async importManyWithResolution(imported: readonly T[]): Promise<ResourceImportResult<T>> {
     for (const resource of imported) {
       const validation = this.definition.validate(resource);
       if (!validation.ok) throw new Error(`No se puede importar «${resource.name}»: ${validation.error}`);
@@ -105,8 +114,8 @@ export class ResourceCrudService<T extends GlobalResource> {
       ? metadata.selectedResourceId
       : resolution.idMap.get(imported[0].id) ?? metadata.selectedResourceId;
     await this.metadataDao.set({ version: 1, selectedResourceId, resources });
-    if (selectedResourceId !== null) return this.select(selectedResourceId);
-    return this.createDraft();
+    const state = selectedResourceId !== null ? await this.select(selectedResourceId) : this.createDraft();
+    return { state, idMap: resolution.idMap };
   }
 
   private toSummary(resource: T): GlobalResourceSummary {

@@ -16,4 +16,6 @@ El botón **Probar** valida y utiliza el JSON que se encuentra actualmente en el
 
 Los arrays se guardan individualmente en `globalStorageUri/arrays`, mientras `globalState` conserva catálogo y selección. Validar no guarda; Guardar solo se habilita con contenido válido. Exportar utiliza el contenido actual validado del editor.
 
+**Ver JSON** usa igualmente el contenido actual validado y muestra únicamente el array seleccionado. El JSON puede seleccionarse, copiarse y editarse. **Aplicar cambios** exige exactamente un array válido con el mismo ID y lo devuelve al editor como cambios sin guardar.
+
 Los documentos de importación/exportación usan el envelope común con `format`, `schemaVersion`, `extensionVersion`, `exportedAt` y `data`. Antes de guardar se validan todos los arrays del archivo. Si coincide el ID o el nombre, se regeneran ambos y nunca se sustituye el array existente.

@@ -6,7 +6,7 @@ import type { NodeRegistry } from "../../application/automations/nodeRegistry";
 import type { ProcessRunner } from "../../application/automations/processRunner";
 import { validateAutomationDocument } from "../../domain/automations/automationValidation";
 import { deserializeAutomation, isAutomationDocument } from "../../infrastructure/persistence/automationSerializer";
-import { isAutomationToExtensionMessage, type AutomationToExtensionMessage, type ExtensionToAutomationMessage } from "../../shared/messages/automationMessages";
+import { isAutomationToExtensionMessage, type AutomationJsonScope, type AutomationToExtensionMessage, type ExtensionToAutomationMessage } from "../../shared/messages/automationMessages";
 import { createWebviewHtml } from "../webview/createWebviewHtml";
 import type { FormulaService } from "../../application/formulas/formulaService";
 import type { ArrayResourceService } from "../../application/arrays/arrayResourceService";
@@ -55,6 +55,19 @@ export class AutomationsPanelManager implements vscode.Disposable {
         case "automation.save": await this.state(await this.service.save(message.document)); await this.notice("success", "Automatización guardada."); break;
         case "automation.import": await this.importDocument(); break;
         case "automation.export": await this.exportDocument(message.document); break;
+        case "automation.viewJson": {
+          const document = this.validatedScope(message.document, message.scope);
+          await this.post({ type: "automation.jsonDocument", serialized: this.documents.serialize(document), scope: message.scope });
+          break;
+        }
+        case "automation.applyJson": {
+          const parsed = this.documents.deserialize(message.serialized);
+          if (!parsed.ok) throw new Error(parsed.error);
+          const document = this.validatedScope(parsed.value.data, message.scope);
+          await this.post({ type: "automation.jsonApplied", document, scope: message.scope });
+          await this.notice("success", "JSON validado y cargado como cambios sin guardar.");
+          break;
+        }
         case "automation.runGroup": {
           const document = this.validated(message.document); const group = document.groups.find(({ id }) => id === message.groupId); if (group === undefined) throw new Error("El grupo ya no existe.");
           this.logger.prepareForExecution();
@@ -86,6 +99,16 @@ export class AutomationsPanelManager implements vscode.Disposable {
 
   private validated(document: Parameters<AutomationService["save"]>[0]) {
     const result = validateAutomationDocument(document, this.registry); if (!result.ok) throw new Error(result.error); return result.value;
+  }
+  private validatedScope(document: Parameters<AutomationService["save"]>[0], scope: AutomationJsonScope) {
+    const validated = this.validated(document);
+    if (validated.groups.length !== 1) throw new Error("El JSON seleccionado debe contener exactamente un grupo.");
+    const group = validated.groups[0];
+    if (group === undefined) throw new Error("El JSON seleccionado no contiene ningún grupo.");
+    if (scope.kind === "process") {
+      if (group.processes.length !== 1) throw new Error("El JSON del flujo debe contener exactamente un proceso.");
+    }
+    return validated;
   }
   private async importDocument(): Promise<void> {
     const contents = await this.files.read({ filterName: "Automatización", openLabel: "Importar automatización" });

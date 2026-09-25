@@ -5,6 +5,8 @@ import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ArrayToExtensionMessage, ExtensionToArrayMessage } from "../../../shared/messages/arrayMessages";
 import type { NoticeTone } from "../../components/statusNotice";
+import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
+import "../../components/jsonDocumentEditor";
 import { vscodeApi } from "../../vscodeApi";
 import "../../components";
 import "./arrays.css";
@@ -22,6 +24,7 @@ class ArraysApp extends LitElement {
   private savedContent = "";
   private selectedIds = new Set<string>();
   private notice: { tone: NoticeTone; message: string } = { tone: "info", message: "" };
+  private jsonDocument: string | null = null;
 
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "array.ready" }); }
@@ -65,6 +68,7 @@ class ArraysApp extends LitElement {
                 <button ?disabled=${!validation.ok} @click=${this.test}>Probar</button>
                 <button class="primary" ?disabled=${!validation.ok} @click=${this.save}>Guardar</button>
                 <button @click=${this.exportResource}>Exportar</button>
+                <button @click=${this.viewJson}>Ver JSON</button>
                 <span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
@@ -72,6 +76,14 @@ class ArraysApp extends LitElement {
           </section>
         </div>
       </main>
+      ${this.jsonDocument === null ? nothing : html`<json-document-editor
+        .value=${this.jsonDocument}
+        .heading=${`JSON de ${this.resource.name}`}
+        .errorMessage=${this.notice.tone === "error" ? this.notice.message : ""}
+        @json-editor-change=${this.changeJson}
+        @json-editor-close=${this.closeJsonEditor}
+        @json-editor-apply=${this.applyJson}
+      ></json-document-editor>`}
     `;
   }
 
@@ -83,10 +95,25 @@ class ArraysApp extends LitElement {
       this.content = JSON.stringify(this.resource.items, null, 2);
       this.savedContent = this.content;
       this.selectedIds = new Set([...this.selectedIds].filter((id) => this.resources.some((resource) => resource.id === id)));
+    } else if (event.data.type === "array.jsonDocument") {
+      this.jsonDocument = event.data.serialized;
+      this.notice = { tone: "info", message: "" };
+    } else if (event.data.type === "array.jsonApplied") {
+      this.resource = structuredClone(event.data.resource);
+      this.content = JSON.stringify(this.resource.items, null, 2);
+      this.jsonDocument = null;
     } else {
       this.notice = { tone: event.data.tone, message: event.data.message };
     }
     this.requestUpdate();
+  };
+
+  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.requestUpdate(); };
+  private readonly changeJson = (event: CustomEvent<JsonEditorApplyDetail>): void => { this.jsonDocument = event.detail.serialized; };
+
+  private readonly applyJson = (event: CustomEvent<JsonEditorApplyDetail>): void => {
+    if (this.resource === null) return;
+    this.post({ type: "array.applyJson", serialized: event.detail.serialized, currentId: this.resource.id });
   };
 
   private changeName(name: string): void {
@@ -122,6 +149,13 @@ class ArraysApp extends LitElement {
     const validation = parseArrayContent(this.content);
     if (!validation.ok) { this.notice = { tone: "error", message: validation.error }; this.requestUpdate(); return; }
     this.post({ type: "array.export", resource: { ...this.resource, items: validation.value } });
+  };
+
+  private readonly viewJson = (): void => {
+    if (this.resource === null) return;
+    const validation = parseArrayContent(this.content);
+    if (!validation.ok) { this.notice = { tone: "error", message: validation.error }; this.requestUpdate(); return; }
+    this.post({ type: "array.viewJson", resource: { ...this.resource, items: validation.value } });
   };
 
   private toggleSelection(id: string, event: Event): void {

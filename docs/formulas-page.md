@@ -21,3 +21,5 @@ Manual utiliza el mismo `FormulaExecutionService`, evitando diferencias entre la
 ## Importación y exportación
 
 Las fórmulas se exportan en el envelope JSON común y versionado. Antes de guardar se validan todas las fórmulas del archivo. Si una fórmula importada coincide por ID o nombre con otra existente, recibe un ID y un nombre nuevos; nunca reemplaza la fórmula guardada.
+
+**Ver JSON** muestra solo la fórmula seleccionada, aunque el envelope conserve el formato de colección usado por importación y exportación. Permite seleccionar, copiar y editar. Al aplicar debe contener exactamente una fórmula válida y conservar su ID; el cambio vuelve al editor como pendiente de guardar.

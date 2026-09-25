@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 import type { BrowserActionTarget } from "../../../application/manual/browserActionsService";
 import type { ArrayResource } from "../../../domain/arrays/arrayResource";
 import type { BrowserSessionSnapshot } from "../../../domain/browser/browserBridge";
+import type { ManualPortableResources } from "../../../domain/importExport/manualProfileBundle";
 import {
   createCookie,
   createGeneratorBinding,
@@ -25,6 +26,8 @@ import { parseStorageValue } from "../../../domain/manual/storageValue";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToManualMessage, ManualToExtensionMessage } from "../../../shared/messages/manualMessages";
 import type { NoticeTone } from "../../components/statusNotice";
+import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
+import "../../components/jsonDocumentEditor";
 import { DestructiveConfirmationClient } from "../../components/confirmDestructiveAction";
 import { renderRequestOverrideEditor } from "../../components/requestOverrideEditor";
 import { vscodeApi } from "../../vscodeApi";
@@ -64,6 +67,8 @@ class ManualApp extends LitElement {
   private formulas: readonly GlobalResourceSummary[] = [];
   private arrays: readonly ArrayResource[] = [];
   private browser: BrowserSessionSnapshot = { lifecycle: "stopped", pages: [], activePageId: null };
+  private jsonDocument: string | null = null;
+  private pendingPortableResources: ManualPortableResources | null = null;
   private readonly confirmations = new DestructiveConfirmationClient((message) => this.post(message));
 
   public override createRenderRoot(): this { return this; }
@@ -84,7 +89,7 @@ class ManualApp extends LitElement {
     if (this.profile === null) {
       return html`<main class="manual-shell loading">Cargando perfil…</main>`;
     }
-    const dirty = isProfileDirty(this.profile, this.savedProfile);
+    const dirty = isProfileDirty(this.profile, this.savedProfile) || this.pendingPortableResources !== null;
     const composedUrl = buildUrlWithQueryParams(this.profile.url, this.profile.queryParams);
 
     return html`
@@ -130,6 +135,7 @@ class ManualApp extends LitElement {
             <button class="primary" @click=${this.saveProfile}>Guardar</button>
             <button class="danger" @click=${this.deleteProfile}>Eliminar</button>
             <button @click=${this.exportProfile}>Exportar</button>
+            <button @click=${this.viewJson}>Ver JSON</button>
             <button @click=${this.importProfile}>Importar</button>
           </div>
           <span class=${dirty ? "save-state dirty" : "save-state saved"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
@@ -168,6 +174,14 @@ class ManualApp extends LitElement {
           ${this.renderGenerators()}
         </div>
       </main>
+      ${this.jsonDocument === null ? nothing : html`<json-document-editor
+        .value=${this.jsonDocument}
+        .heading=${`JSON del perfil ${this.profile.name}`}
+        .errorMessage=${this.notice.tone === "error" ? this.notice.message : ""}
+        @json-editor-change=${this.changeJson}
+        @json-editor-close=${this.closeJsonEditor}
+        @json-editor-apply=${this.applyJson}
+      ></json-document-editor>`}
     `;
   }
 
@@ -341,11 +355,23 @@ class ManualApp extends LitElement {
       this.arrays = message.state.resources.arrays;
       this.browser = message.state.browser;
       this.previews = {};
+      this.pendingPortableResources = null;
     } else if (message.type === "manual.resources") {
       this.formulas = message.resources.formulas;
       this.arrays = message.resources.arrays;
     } else if (message.type === "manual.notice") {
       this.notice = { tone: message.tone, message: message.message };
+    } else if (message.type === "manual.jsonDocument") {
+      this.jsonDocument = message.serialized;
+      this.notice = { tone: "info", message: "" };
+    } else if (message.type === "manual.jsonApplied") {
+      this.profile = structuredClone(message.bundle.profile);
+      this.pendingPortableResources = {
+        formulas: structuredClone(message.bundle.formulas),
+        arrays: structuredClone(message.bundle.arrays)
+      };
+      this.jsonDocument = null;
+      this.previews = {};
     } else if (message.type === "browser.elementSelected") {
       this.updateBinding(message.bindingId, (binding) => { binding.selector = message.selector; });
     } else if (message.type === "browser.generatorPreview") {
@@ -354,6 +380,14 @@ class ManualApp extends LitElement {
       this.browser = message.browser;
     }
     this.requestUpdate();
+  };
+
+  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.requestUpdate(); };
+  private readonly changeJson = (event: CustomEvent<JsonEditorApplyDetail>): void => { this.jsonDocument = event.detail.serialized; };
+
+  private readonly applyJson = (event: CustomEvent<JsonEditorApplyDetail>): void => {
+    if (this.profile === null) return;
+    this.post({ type: "manual.applyJson", serialized: event.detail.serialized, currentId: this.profile.id });
   };
 
   private mutate(change: (profile: ManualProfile) => void): void {
@@ -366,7 +400,7 @@ class ManualApp extends LitElement {
 
   private readonly selectProfile = (event: Event): void => {
     if (this.profile === null) return;
-    if (isProfileDirty(this.profile, this.savedProfile) && !window.confirm("Hay cambios sin guardar. ¿Quieres descartarlos?")) {
+    if (this.hasUnsavedChanges() && !window.confirm("Hay cambios sin guardar. ¿Quieres descartarlos?")) {
       if (event.currentTarget instanceof HTMLSelectElement) event.currentTarget.value = this.profile.id;
       return;
     }
@@ -374,16 +408,18 @@ class ManualApp extends LitElement {
   };
 
   private readonly newProfile = (): void => {
-    if (this.profile !== null && isProfileDirty(this.profile, this.savedProfile) && !window.confirm("Hay cambios sin guardar. ¿Quieres crear otro perfil y descartarlos?")) return;
+    if (this.profile !== null && this.hasUnsavedChanges() && !window.confirm("Hay cambios sin guardar. ¿Quieres crear otro perfil y descartarlos?")) return;
     this.post({ type: "manual.new" });
   };
 
-  private readonly saveProfile = (): void => { if (this.profile) this.post({ type: "manual.save", profile: this.profile }); };
-  private readonly exportProfile = (): void => { if (this.profile) this.post({ type: "manual.export", profile: this.profile }); };
+  private readonly saveProfile = (): void => { if (this.profile) this.post({ type: "manual.save", profile: this.profile, resources: this.pendingPortableResources }); };
+  private readonly exportProfile = (): void => { if (this.profile) this.post({ type: "manual.export", profile: this.profile, resources: this.pendingPortableResources }); };
+  private readonly viewJson = (): void => { if (this.profile) this.post({ type: "manual.viewJson", profile: this.profile, resources: this.pendingPortableResources }); };
   private readonly importProfile = (): void => {
-    if (this.profile !== null && isProfileDirty(this.profile, this.savedProfile) && !window.confirm("Hay cambios sin guardar. ¿Quieres importar otro perfil y descartarlos?")) return;
+    if (this.profile !== null && this.hasUnsavedChanges() && !window.confirm("Hay cambios sin guardar. ¿Quieres importar otro perfil y descartarlos?")) return;
     this.post({ type: "manual.import" });
   };
+  private hasUnsavedChanges(): boolean { return this.profile !== null && (isProfileDirty(this.profile, this.savedProfile) || this.pendingPortableResources !== null); }
   private readonly deleteProfile = (): void => {
     if (this.profile) this.post({ type: "manual.delete", id: this.profile.id, name: this.profile.name });
   };
