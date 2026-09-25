@@ -29,7 +29,7 @@ npm run build
 
 La primera descarga puede ocupar varios cientos de MB. No se utiliza Chrome o Edge del sistema.
 
-`npm run dev` observa los seis puntos de entrada. Los cambios del Extension Host requieren recargar la ventana de desarrollo; para cambios de webview basta con reabrir su panel después de reconstruir.
+`npm run dev` observa los siete puntos de entrada. Los cambios del Extension Host requieren recargar la ventana de desarrollo; para cambios de webview basta con reabrir su panel después de reconstruir.
 
 ## Datos locales
 
@@ -39,6 +39,7 @@ Dentro de `ExtensionContext.globalStorageUri` se crean:
 profiles/
 formulas/
 arrays/
+automations/
 browser/
   binaries/
   runtime/

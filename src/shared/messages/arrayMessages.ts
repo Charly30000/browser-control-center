@@ -9,7 +9,8 @@ export type ArrayToExtensionMessage =
   | { readonly type: "array.save"; readonly resource: ArrayResource }
   | { readonly type: "array.deleteSelected"; readonly ids: readonly string[] }
   | { readonly type: "array.import" }
-  | { readonly type: "array.export"; readonly resource: ArrayResource };
+  | { readonly type: "array.export"; readonly resource: ArrayResource }
+  | { readonly type: "array.test"; readonly resource: ArrayResource };
 
 export type ExtensionToArrayMessage =
   | { readonly type: "array.state"; readonly state: ResourceEditorState<ArrayResource> }
@@ -29,6 +30,7 @@ export const isArrayToExtensionMessage = (value: unknown): value is ArrayToExten
       return Array.isArray(message.ids) && message.ids.every((id) => typeof id === "string");
     case "array.save":
     case "array.export":
+    case "array.test":
       return isArrayResource(message.resource);
     default:
       return false;

@@ -1,6 +1,6 @@
 import { FORMULA_SCHEMA_VERSION, type FormulaResource } from "../../domain/formulas/formula";
 import { failure, success, type Result } from "../../shared/result";
-import type { ResourceCodec } from "./fileResourceRepository";
+import type { DataCodec } from "../../application/persistence/applicationDataDao";
 
 export const isFormulaResource = (value: unknown): value is FormulaResource => {
   if (typeof value !== "object" || value === null) return false;
@@ -12,7 +12,7 @@ export const isFormulaResource = (value: unknown): value is FormulaResource => {
     typeof record.createdAt === "string" && typeof record.updatedAt === "string";
 };
 
-export const formulaCodec: ResourceCodec<FormulaResource> = {
+export const formulaCodec: DataCodec<FormulaResource> = {
   serialize: (resource) => JSON.stringify(resource, null, 2),
   deserialize: (serialized): Result<FormulaResource> => {
     try {

@@ -1,0 +1,26 @@
+.request-override-editor,
+.request-override-list { display: grid; gap: 8px; min-width: 0; }
+.request-override-row { border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border)); background: var(--vscode-editorWidget-background); }
+.request-override-row > summary { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, auto) auto; gap: 8px; align-items: center; min-height: 32px; padding: 5px 8px; cursor: pointer; }
+.request-override-row > summary small,
+.request-override-empty { color: var(--vscode-descriptionForeground); }
+.override-enabled { color: var(--vscode-testing-iconPassed); }
+.override-disabled { color: var(--vscode-disabledForeground); }
+.request-override-grid { display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 8px; padding: 9px; }
+.request-override-grid label { min-width: 0; }
+.request-override-grid input,
+.request-override-grid select,
+.request-override-grid textarea { width: 100%; }
+.request-override-grid .override-wide { grid-column: 1 / -1; }
+.request-override-headers { margin: 0 9px 9px; padding: 8px; border: 1px solid var(--vscode-panel-border); }
+.request-override-headers h4 { margin: 0 0 8px; }
+.request-override-header-row { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) auto auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.request-override-check { display: inline-flex; align-items: center; gap: 5px; }
+.request-override-check input { width: auto; }
+.request-override-actions,
+.request-override-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.request-override-actions { padding: 0 9px 9px; }
+.request-override-add-header { margin-top: 2px; }
+.request-override-empty { margin: 4px 0; }
+@media (max-width: 850px) { .request-override-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); } }
+@media (max-width: 600px) { .request-override-grid, .request-override-header-row { grid-template-columns: 1fr; } .request-override-row > summary { grid-template-columns: 1fr auto; } .request-override-row > summary small { grid-column: 1 / -1; grid-row: 2; } }

@@ -23,3 +23,5 @@ Se descartaron `playwright` por incluir capacidades de instalación que no neces
 - `eslint` y `typescript-eslint`: análisis estático sin formateo automático.
 
 Las dependencias de desarrollo no se necesitan en el VSIX.
+
+La Fase 4 no añade dependencias. El Flow Canvas está construido con Lit, SVG y Pointer Events sobre la infraestructura existente.

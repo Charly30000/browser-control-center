@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { FormulaService } from "../src/application/formulas/formulaService";
 import type { FormulaResource } from "../src/domain/formulas/formula";
-import { createMetadataStore, InMemoryResourceRepository } from "./resourceTestUtils";
+import { createMetadataDao, InMemoryResourceDao } from "./resourceTestUtils";
 
 describe("CRUD de recursos", () => {
   it("crea, guarda, selecciona y elimina fórmulas", async () => {
-    const repository = new InMemoryResourceRepository<FormulaResource>();
-    const service = new FormulaService(repository, createMetadataStore());
-    await service.initialize();
+    const dao = new InMemoryResourceDao<FormulaResource>();
+    const service = new FormulaService(dao, createMetadataDao());
     const draft = service.createDraft().resource;
     const saved = await service.save({ ...draft, name: "randomEmail" });
     expect(saved.resources.map(({ name }) => name)).toEqual(["randomEmail"]);
@@ -18,8 +17,8 @@ describe("CRUD de recursos", () => {
   });
 
   it("rechaza nombres duplicados", async () => {
-    const repository = new InMemoryResourceRepository<FormulaResource>();
-    const service = new FormulaService(repository, createMetadataStore());
+    const dao = new InMemoryResourceDao<FormulaResource>();
+    const service = new FormulaService(dao, createMetadataDao());
     const first = service.createDraft().resource;
     await service.save({ ...first, name: "duplicate" });
     const second = service.createDraft().resource;

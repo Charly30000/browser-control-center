@@ -1,7 +1,7 @@
 import { ARRAY_RESOURCE_SCHEMA_VERSION, type ArrayResource } from "../../domain/arrays/arrayResource";
 import { isJsonValue } from "../../domain/manual/storageValue";
 import { failure, success, type Result } from "../../shared/result";
-import type { ResourceCodec } from "./fileResourceRepository";
+import type { DataCodec } from "../../application/persistence/applicationDataDao";
 
 export const isArrayResource = (value: unknown): value is ArrayResource => {
   if (typeof value !== "object" || value === null) return false;
@@ -13,7 +13,7 @@ export const isArrayResource = (value: unknown): value is ArrayResource => {
     typeof record.createdAt === "string" && typeof record.updatedAt === "string";
 };
 
-export const arrayResourceCodec: ResourceCodec<ArrayResource> = {
+export const arrayResourceCodec: DataCodec<ArrayResource> = {
   serialize: (resource) => JSON.stringify(resource, null, 2),
   deserialize: (serialized): Result<ArrayResource> => {
     try {

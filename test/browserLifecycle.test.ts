@@ -16,8 +16,9 @@ describe("BrowserLifecycleManager", () => {
     const root = await mkdtemp(join(tmpdir(), "bcc-runtime-")); roots.push(root);
     let contexts = 0;
     const context = () => ({ close: vi.fn(() => Promise.resolve()) });
+    const newContext = vi.fn(() => { contexts += 1; return Promise.resolve(context()); });
     const browser = () => ({
-      newContext: vi.fn(() => { contexts += 1; return Promise.resolve(context()); }),
+      newContext,
       once: vi.fn()
     });
     const server = () => ({ wsEndpoint: () => "ws://test", close: vi.fn(() => Promise.resolve()), kill: vi.fn(() => Promise.resolve()) });
@@ -28,6 +29,10 @@ describe("BrowserLifecycleManager", () => {
     await lifecycle.start("C:\\managed\\chrome.exe", defaultViewport());
     expect(lifecycle.getState()).toBe("running");
     expect(contexts).toBe(1);
+    expect(newContext).toHaveBeenCalledWith(expect.objectContaining({
+      viewport: { width: 1366, height: 768 },
+      screen: { width: 1366, height: 768 }
+    }));
     expect(await readdir(root)).toHaveLength(1);
 
     await lifecycle.restart("C:\\managed\\chrome.exe", defaultViewport());

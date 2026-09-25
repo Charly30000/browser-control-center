@@ -4,17 +4,18 @@ import { createNonce } from "./nonce";
 export const createWebviewHtml = (
   webview: vscode.Webview,
   extensionUri: vscode.Uri,
-  entryName: "manual" | "sidebar" | "formulas" | "arrays" | "browserManagement",
+  entryName: "manual" | "sidebar" | "formulas" | "arrays" | "browserManagement" | "automations",
   title: string
 ): string => {
   const nonce = createNonce();
   const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", `${entryName}.js`));
   const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", `${entryName}.css`));
+  const styleSource = entryName === "automations" ? `${webview.cspSource} 'unsafe-inline'` : webview.cspSource;
   const csp = [
     "default-src 'none'",
     `img-src ${webview.cspSource} data: https:`,
     `font-src ${webview.cspSource}`,
-    `style-src ${webview.cspSource}`,
+    `style-src ${styleSource}`,
     `script-src 'nonce-${nonce}'`
   ].join("; ");
 

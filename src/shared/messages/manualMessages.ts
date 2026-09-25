@@ -4,6 +4,7 @@ import type { ManualProfile, ProfileSummary } from "../../domain/manual/manualPr
 import type { GlobalResourceSummary } from "../../domain/resources/globalResource";
 import type { BrowserSessionSnapshot } from "../../domain/browser/browserBridge";
 import { isManualProfile } from "../../infrastructure/persistence/profileSerializer";
+import { isDestructiveConfirmationRequest, type DestructiveConfirmationRequestMessage, type DestructiveConfirmationResultMessage } from "./destructiveConfirmationMessages";
 
 export interface ManualResourceCatalogs {
   readonly formulas: readonly GlobalResourceSummary[];
@@ -19,6 +20,7 @@ export interface ManualStatePayload {
 }
 
 export type ManualToExtensionMessage =
+  | DestructiveConfirmationRequestMessage
   | { readonly type: "manual.ready" }
   | { readonly type: "manual.new" }
   | { readonly type: "manual.select"; readonly id: string }
@@ -39,6 +41,7 @@ export type ManualToExtensionMessage =
   | { readonly type: "browser.previewGenerator"; readonly bindingId: string; readonly profile: ManualProfile };
 
 export type ExtensionToManualMessage =
+  | DestructiveConfirmationResultMessage
   | { readonly type: "manual.state"; readonly state: ManualStatePayload }
   | { readonly type: "manual.notice"; readonly tone: "info" | "success" | "warning" | "error"; readonly message: string }
   | { readonly type: "manual.resources"; readonly resources: ManualResourceCatalogs }
@@ -51,6 +54,7 @@ const browserTargets: readonly BrowserActionTarget[] = ["headers", "cookies", "l
 export const isManualToExtensionMessage = (value: unknown): value is ManualToExtensionMessage => {
   if (typeof value !== "object" || value === null || !("type" in value)) return false;
   const message = value as Record<string, unknown>;
+  if (message.type === "ui.confirmDestructiveAction") return isDestructiveConfirmationRequest(value);
   switch (message.type) {
     case "manual.ready":
     case "manual.new":

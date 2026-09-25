@@ -1,9 +1,10 @@
 import * as vscode from "vscode";
 import type { ArrayResourceService } from "../../application/arrays/arrayResourceService";
+import { ImportExportDocumentService, decodeWithGuard } from "../../application/importExport/importExportDocumentService";
 import type { FormulaService } from "../../application/formulas/formulaService";
 import type { BrowserActionsService } from "../../application/manual/browserActionsService";
 import type { ManualProfileService, ManualProfileState } from "../../application/manual/manualProfileService";
-import { deserializeProfile, serializeProfile } from "../../infrastructure/persistence/profileSerializer";
+import { deserializeProfile, isManualProfile } from "../../infrastructure/persistence/profileSerializer";
 import {
   isManualToExtensionMessage,
   type ExtensionToManualMessage,
@@ -11,10 +12,18 @@ import {
   type ManualToExtensionMessage
 } from "../../shared/messages/manualMessages";
 import { createWebviewHtml } from "../webview/createWebviewHtml";
+import { confirmDestructiveAction } from "../webview/confirmDestructiveAction";
+import { JsonImportExportFileService } from "../importExport/jsonImportExportFileService";
 
 export class ManualPanelManager implements vscode.Disposable {
   private panel: vscode.WebviewPanel | null = null;
   private readonly disposables: vscode.Disposable[] = [];
+  private readonly documents = new ImportExportDocumentService(
+    "browser-control-center/manual-profile",
+    decodeWithGuard(isManualProfile, "El perfil importado no tiene una estructura válida."),
+    deserializeProfile
+  );
+  private readonly files = new JsonImportExportFileService();
 
   public constructor(
     private readonly extensionUri: vscode.Uri,
@@ -67,6 +76,11 @@ export class ManualPanelManager implements vscode.Disposable {
   private async handleMessage(message: ManualToExtensionMessage): Promise<void> {
     try {
       switch (message.type) {
+        case "ui.confirmDestructiveAction": {
+          const confirmed = await confirmDestructiveAction(message.confirmation);
+          await this.post({ type: "ui.destructiveActionConfirmed", requestId: message.requestId, confirmed });
+          break;
+        }
         case "manual.ready":
           await this.sendState(await this.profileService.getInitialState());
           break;
@@ -81,12 +95,11 @@ export class ManualPanelManager implements vscode.Disposable {
           await this.sendNotice("success", "Perfil guardado.");
           break;
         case "manual.delete": {
-          const confirmation = await vscode.window.showWarningMessage(
-            `¿Quieres eliminar el perfil «${message.name}»?`,
-            { modal: true, detail: "Esta acción elimina el perfil guardado o descarta el borrador actual." },
-            "Eliminar"
-          );
-          if (confirmation === "Eliminar") {
+          const confirmed = await confirmDestructiveAction({
+            question: `¿Quieres eliminar el perfil «${message.name}»?`,
+            detail: "Esta acción elimina el perfil guardado o descarta el borrador actual."
+          });
+          if (confirmed) {
             await this.sendState(await this.profileService.delete(message.id));
             await this.sendNotice("success", "Perfil eliminado.");
           }
@@ -167,31 +180,25 @@ export class ManualPanelManager implements vscode.Disposable {
   }
 
   private async exportProfile(profile: ManualStatePayload["profile"]): Promise<void> {
-    const target = await vscode.window.showSaveDialog({
-      defaultUri: vscode.Uri.file(`${profile.name}.manual-profile.json`),
-      filters: { "Perfil Manual": ["json"] },
+    const exported = await this.files.write(this.documents.serialize(profile), {
+      suggestedName: profile.name,
+      suffix: ".manual-profile.json",
+      filterName: "Perfil Manual",
       saveLabel: "Exportar perfil"
     });
-    if (target === undefined) return;
-    await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(serializeProfile(profile)));
+    if (!exported) return;
     await this.sendNotice("success", "Perfil exportado.");
   }
 
   private async importProfile(): Promise<void> {
-    const sources = await vscode.window.showOpenDialog({
-      canSelectMany: false,
-      filters: { "Perfil Manual": ["json"] },
-      openLabel: "Importar perfil"
-    });
-    const source = sources?.[0];
-    if (source === undefined) return;
-    const contents = await vscode.workspace.fs.readFile(source);
-    const parsed = deserializeProfile(new TextDecoder().decode(contents));
+    const contents = await this.files.read({ filterName: "Perfil Manual", openLabel: "Importar perfil" });
+    if (contents === null) return;
+    const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) {
       await this.sendNotice("error", parsed.error);
       return;
     }
-    await this.sendState(await this.profileService.import(parsed.value));
+    await this.sendState(await this.profileService.import(parsed.value.data));
     await this.sendNotice("success", "Perfil importado.");
   }
 

@@ -1,15 +1,19 @@
 import * as vscode from "vscode";
 import type { ArrayResourceService } from "../../application/arrays/arrayResourceService";
-import { ResourceDocumentService } from "../../application/resources/resourceDocumentService";
+import { ImportExportDocumentService, decodeResourceCollection } from "../../application/importExport/importExportDocumentService";
 import type { ArrayResource } from "../../domain/arrays/arrayResource";
+import { ArrayValueGenerator } from "../../domain/arrays/arrayValueGenerator";
 import { isArrayResource } from "../../infrastructure/persistence/arrayResourceSerializer";
 import { isArrayToExtensionMessage, type ArrayToExtensionMessage, type ExtensionToArrayMessage } from "../../shared/messages/arrayMessages";
 import { createWebviewHtml } from "../webview/createWebviewHtml";
+import { JsonImportExportFileService } from "../importExport/jsonImportExportFileService";
 
 export class ArraysPanelManager implements vscode.Disposable {
   private panel: vscode.WebviewPanel | null = null;
   private readonly disposables: vscode.Disposable[] = [];
-  private readonly documents = new ResourceDocumentService("browser-control-center/arrays", isArrayResource);
+  private readonly documents = new ImportExportDocumentService("browser-control-center/arrays", decodeResourceCollection(isArrayResource, "arrays"));
+  private readonly files = new JsonImportExportFileService();
+  private readonly generator = new ArrayValueGenerator();
 
   public constructor(
     private readonly extensionUri: vscode.Uri,
@@ -49,6 +53,16 @@ export class ArraysPanelManager implements vscode.Disposable {
         case "array.deleteSelected": await this.deleteSelected(message.ids); break;
         case "array.import": await this.importResources(); break;
         case "array.export": await this.exportResource(message.resource); break;
+        case "array.test": {
+          const value = this.generator.pick(message.resource.items);
+          if (value === undefined) {
+            await this.notice("warning", "Sin resultado: el array está vacío.");
+            break;
+          }
+          const valueType = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+          await this.notice("success", `Resultado (${valueType}): ${JSON.stringify(value)}`);
+          break;
+        }
       }
     } catch (error: unknown) {
       await this.notice("error", error instanceof Error ? error.message : "Error inesperado en Arrays.");
@@ -69,10 +83,9 @@ export class ArraysPanelManager implements vscode.Disposable {
   }
 
   private async importResources(): Promise<void> {
-    const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { "Documento de arrays": ["json"] }, openLabel: "Importar arrays" });
-    const file = files?.[0];
-    if (file === undefined) return;
-    const parsed = this.documents.deserialize(new TextDecoder().decode(await vscode.workspace.fs.readFile(file)));
+    const contents = await this.files.read({ filterName: "Documento de arrays", openLabel: "Importar arrays" });
+    if (contents === null) return;
+    const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) { await this.notice("error", parsed.error); return; }
     await this.state(await this.service.importMany(parsed.value.data));
     this.onResourcesChanged();
@@ -80,9 +93,8 @@ export class ArraysPanelManager implements vscode.Disposable {
   }
 
   private async exportResource(resource: ArrayResource): Promise<void> {
-    const target = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(`${resource.name}.arrays.json`), filters: { "Documento de arrays": ["json"] }, saveLabel: "Exportar array" });
-    if (target === undefined) return;
-    await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(this.documents.serialize([resource])));
+    const exported = await this.files.write(this.documents.serialize([resource]), { suggestedName: resource.name, suffix: ".arrays.json", filterName: "Documento de arrays", saveLabel: "Exportar array" });
+    if (!exported) return;
     await this.notice("success", "Array exportado.");
   }
 

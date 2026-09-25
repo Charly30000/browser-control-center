@@ -17,3 +17,7 @@ El código se inserta como script en la página. No se usa `eval`, `new Function
 El resultado muestra valor, tipo y duración. La sesión se destruye siempre, también después de errores o timeouts. Para probar fórmulas es necesario instalar Chromium primero.
 
 Manual utiliza el mismo `FormulaExecutionService`, evitando diferencias entre la muestra y el valor aplicado.
+
+## Importación y exportación
+
+Las fórmulas se exportan en el envelope JSON común y versionado. Antes de guardar se validan todas las fórmulas del archivo. Si una fórmula importada coincide por ID o nombre con otra existente, recibe un ID y un nombre nuevos; nunca reemplaza la fórmula guardada.

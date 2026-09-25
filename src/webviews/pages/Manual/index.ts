@@ -11,7 +11,6 @@ import {
   createStorageEntry,
   type GeneratorBinding,
   type GeneratorType,
-  type HeaderEntry,
   type ManualProfile,
   type ProfileSummary,
   type RequestOverrideEntry,
@@ -26,6 +25,8 @@ import { parseStorageValue } from "../../../domain/manual/storageValue";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToManualMessage, ManualToExtensionMessage } from "../../../shared/messages/manualMessages";
 import type { NoticeTone } from "../../components/statusNotice";
+import { DestructiveConfirmationClient } from "../../components/confirmDestructiveAction";
+import { renderRequestOverrideEditor } from "../../components/requestOverrideEditor";
 import { vscodeApi } from "../../vscodeApi";
 import "../../components";
 import "./components/validationMessage";
@@ -63,6 +64,7 @@ class ManualApp extends LitElement {
   private formulas: readonly GlobalResourceSummary[] = [];
   private arrays: readonly ArrayResource[] = [];
   private browser: BrowserSessionSnapshot = { lifecycle: "stopped", pages: [], activePageId: null };
+  private readonly confirmations = new DestructiveConfirmationClient((message) => this.post(message));
 
   public override createRenderRoot(): this { return this; }
 
@@ -74,6 +76,7 @@ class ManualApp extends LitElement {
 
   public override disconnectedCallback(): void {
     window.removeEventListener("message", this.onMessage);
+    this.confirmations.cancelPending();
     super.disconnectedCallback();
   }
 
@@ -148,7 +151,7 @@ class ManualApp extends LitElement {
                   <label><span class="sr-only">Clave</span><input placeholder="Key" .value=${entry.key} @input=${(event: Event) => this.mutate((profile) => { const item = profile.queryParams.find(({ id }) => id === entry.id); if (item) item.key = inputValue(event); })}></label>
                   <label><span class="sr-only">Valor</span><input placeholder="Value" .value=${entry.value} @input=${(event: Event) => this.mutate((profile) => { const item = profile.queryParams.find(({ id }) => id === entry.id); if (item) item.value = inputValue(event); })}></label>
                   ${this.enabledToggle(entry.enabled, (enabled) => this.mutate((profile) => { const item = profile.queryParams.find(({ id }) => id === entry.id); if (item) item.enabled = enabled; }))}
-                  <button class="icon-button danger" title="Eliminar query param" @click=${() => this.mutate((profile) => { profile.queryParams = profile.queryParams.filter(({ id }) => id !== entry.id); })}>Eliminar</button>
+                  <button class="icon-button danger" title="Eliminar query param" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar el query param «${entry.key || "sin clave"}»?` })) this.mutate((profile) => { profile.queryParams = profile.queryParams.filter(({ id }) => id !== entry.id); }); }}>Eliminar</button>
                 </div>
               `)}
               ${this.profile.queryParams.length === 0 ? html`<empty-state message="No hay query params."></empty-state>` : nothing}
@@ -180,7 +183,7 @@ class ManualApp extends LitElement {
               <input aria-label="Valor" placeholder="Value" .value=${entry.value} @input=${(event: Event) => this.mutate((draft) => { const item = draft.headers.find(({ id }) => id === entry.id); if (item) item.value = inputValue(event); })}>
               ${this.enabledToggle(entry.enabled, (enabled) => this.mutate((draft) => { const item = draft.headers.find(({ id }) => id === entry.id); if (item) item.enabled = enabled; }))}
               <button @click=${() => this.apply("headers", entry.id)}>Aplicar</button>
-              <button class="danger" @click=${() => this.mutate((draft) => { draft.headers = draft.headers.filter(({ id }) => id !== entry.id); })}>Eliminar</button>
+              <button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar el header «${entry.key || "sin clave"}»?` })) this.mutate((draft) => { draft.headers = draft.headers.filter(({ id }) => id !== entry.id); }); }}>Eliminar</button>
             </div>
           `)}
           ${profile.headers.length === 0 ? html`<empty-state message="No hay headers."></empty-state>` : nothing}
@@ -217,7 +220,7 @@ class ManualApp extends LitElement {
                 ${this.enabledToggle(cookie.httpOnly, (value) => this.updateCookie(cookie.id, (item) => { item.httpOnly = value; }), "HttpOnly")}
                 ${this.enabledToggle(cookie.enabled, (value) => this.updateCookie(cookie.id, (item) => { item.enabled = value; }))}
               </div>
-              <div class="row-actions"><button @click=${() => this.apply("cookies", cookie.id)}>Aplicar</button><button class="danger" @click=${() => this.mutate((draft) => { draft.cookies = draft.cookies.filter(({ id }) => id !== cookie.id); })}>Eliminar</button></div>
+              <div class="row-actions"><button @click=${() => this.apply("cookies", cookie.id)}>Aplicar</button><button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar la cookie «${cookie.name || "sin nombre"}»?` })) this.mutate((draft) => { draft.cookies = draft.cookies.filter(({ id }) => id !== cookie.id); }); }}>Eliminar</button></div>
             </details>
           `)}
           ${profile.cookies.length === 0 ? html`<empty-state message="No hay cookies."></empty-state>` : nothing}
@@ -245,7 +248,7 @@ class ManualApp extends LitElement {
                 <input aria-label="Valor" placeholder="Value" .value=${entry.value} ?disabled=${entry.valueType === "null"} @input=${(event: Event) => this.updateStorage(scope, entry.id, (item) => { item.value = inputValue(event); })}>
                 ${this.enabledToggle(entry.enabled, (enabled) => this.updateStorage(scope, entry.id, (item) => { item.enabled = enabled; }))}
                 <button @click=${() => this.apply(scope, entry.id)}>Aplicar</button>
-                <button class="danger" @click=${() => this.mutate((draft) => { draft[scope] = draft[scope].filter(({ id }) => id !== entry.id); })}>Eliminar</button>
+                <button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar la entrada «${entry.key || "sin clave"}» de ${title}?` })) this.mutate((draft) => { draft[scope] = draft[scope].filter(({ id }) => id !== entry.id); }); }}>Eliminar</button>
                 ${validation.ok ? nothing : html`<validation-message class="row-validation" .message=${validation.error}></validation-message>`}
               </div>
             `;
@@ -262,36 +265,15 @@ class ManualApp extends LitElement {
     if (profile === null) return nothing;
     return html`
       <section-card heading="Request Overrides" description="Interceptores preparados para fulfill, abort y continue-modified.">
-        <div class="rows">
-          ${profile.requestOverrides.map((override) => html`
-            <details class="row-details">
-              <summary><span>${override.matcher || "Matcher sin definir"}</span><small>${override.method} · ${override.action}</small><span class=${override.enabled ? "enabled-mark" : "disabled-mark"}>${override.enabled ? "Activo" : "Inactivo"}</span></summary>
-              <div class="details-grid override-grid">
-                <label><span>Coincidencia</span><select .value=${override.matcherType} @change=${(event: Event) => this.updateOverride(override.id, (item) => { item.matcherType = inputValue(event) as RequestOverrideEntry["matcherType"]; })}><option value="exact">URL exacta</option><option value="glob">Glob</option><option value="regex">Regex</option></select></label>
-                ${this.textField("Matcher", override.matcher, (value) => this.updateOverride(override.id, (item) => { item.matcher = value; }))}
-                <label><span>Método</span><select .value=${override.method} @change=${(event: Event) => this.updateOverride(override.id, (item) => { item.method = inputValue(event) as RequestOverrideEntry["method"]; })}>${["ANY", "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].map((method) => html`<option>${method}</option>`)}</select></label>
-                <label><span>Acción</span><select .value=${override.action} @change=${(event: Event) => this.updateOverride(override.id, (item) => { item.action = inputValue(event) as RequestOverrideEntry["action"]; })}><option value="fulfill">fulfill</option><option value="abort">abort</option><option value="continue-modified">continue-modified</option></select></label>
-                <label><span>Status</span><input type="number" min="100" max="599" .value=${String(override.status)} @input=${(event: Event) => this.updateOverride(override.id, (item) => { item.status = Number(inputValue(event)); })}></label>
-                ${this.textField("Content-Type", override.contentType, (value) => this.updateOverride(override.id, (item) => { item.contentType = value; }))}
-                <label class="wide"><span>Body</span><textarea rows="5" .value=${override.body} @input=${(event: Event) => this.updateOverride(override.id, (item) => { item.body = inputValue(event); })}></textarea></label>
-              </div>
-              <div class="nested-section"><h4>Headers de respuesta</h4>${this.renderOverrideHeaders(override)}</div>
-              <div class="row-actions">${this.enabledToggle(override.enabled, (enabled) => this.updateOverride(override.id, (item) => { item.enabled = enabled; }))}<button @click=${() => this.apply("overrides", override.id)}>Aplicar</button><button class="danger" @click=${() => this.deleteOverride(override.id)}>Eliminar</button></div>
-            </details>
-          `)}
-          ${profile.requestOverrides.length === 0 ? html`<empty-state message="No hay overrides."></empty-state>` : nothing}
-        </div>
-        <div slot="actions" class="slot-actions"><button @click=${() => this.mutate((draft) => { draft.requestOverrides.push(createRequestOverride(crypto.randomUUID())); })}>+ Añadir</button><button @click=${() => this.apply("overrides", null)}>Aplicar todos</button></div>
+        ${renderRequestOverrideEditor(profile.requestOverrides, {
+          add: () => this.mutate((draft) => { draft.requestOverrides.push(createRequestOverride(crypto.randomUUID())); }),
+          update: (id, change) => this.updateOverride(id, change),
+          remove: (id) => this.deleteOverride(id),
+          confirmDeletion: this.confirmations.confirm,
+          apply: (id) => this.apply("overrides", id),
+          applyAll: () => this.apply("overrides", null)
+        })}
       </section-card>
-    `;
-  }
-
-  private renderOverrideHeaders(override: RequestOverrideEntry) {
-    return html`
-      <div class="rows compact">
-        ${override.headers.map((header) => html`<div class="data-row nested-header-row"><input aria-label="Clave" placeholder="Key" .value=${header.key} @input=${(event: Event) => this.updateOverrideHeader(override.id, header.id, (item) => { item.key = inputValue(event); })}><input aria-label="Valor" placeholder="Value" .value=${header.value} @input=${(event: Event) => this.updateOverrideHeader(override.id, header.id, (item) => { item.value = inputValue(event); })}>${this.enabledToggle(header.enabled, (enabled) => this.updateOverrideHeader(override.id, header.id, (item) => { item.enabled = enabled; }))}<button class="danger" @click=${() => this.updateOverride(override.id, (item) => { item.headers = item.headers.filter(({ id }) => id !== header.id); })}>Eliminar</button></div>`)}
-        <button class="inline-add" @click=${() => this.updateOverride(override.id, (item) => { item.headers.push(createHeader(crypto.randomUUID())); })}>+ Añadir header</button>
-      </div>
     `;
   }
 
@@ -337,7 +319,7 @@ class ManualApp extends LitElement {
                 ${binding.inputMode === "sequential" ? this.numberField("Retraso por tecla (ms)", binding.delayMs, (value) => this.updateBinding(binding.id, (item) => { item.delayMs = Math.max(0, value); })) : nothing}
               </div>
               ${this.previews[binding.id] ? html`<output class="generator-preview">Muestra: ${this.previews[binding.id]}</output>` : nothing}
-              <div class="row-actions">${this.enabledToggle(binding.enabled, (enabled) => this.updateBinding(binding.id, (item) => { item.enabled = enabled; }))}<button @click=${() => this.post({ type: "browser.selectElement", bindingId: binding.id })}>Seleccionar elemento</button><button @click=${() => this.preview(binding)}>Generar muestra</button><button @click=${() => this.apply("generators", binding.id)}>Aplicar</button><button class="danger" @click=${() => this.mutate((draft) => { draft.generatorBindings = draft.generatorBindings.filter(({ id }) => id !== binding.id); })}>Eliminar</button></div>
+              <div class="row-actions">${this.enabledToggle(binding.enabled, (enabled) => this.updateBinding(binding.id, (item) => { item.enabled = enabled; }))}<button @click=${() => this.post({ type: "browser.selectElement", bindingId: binding.id })}>Seleccionar elemento</button><button @click=${() => this.preview(binding)}>Generar muestra</button><button @click=${() => this.apply("generators", binding.id)}>Aplicar</button><button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar el generador «${generatorLabels[binding.generatorType]}»?` })) this.mutate((draft) => { draft.generatorBindings = draft.generatorBindings.filter(({ id }) => id !== binding.id); }); }}>Eliminar</button></div>
             </details>
           `)}
           ${profile.generatorBindings.length === 0 ? html`<empty-state message="No hay generadores vinculados."></empty-state>` : nothing}
@@ -349,7 +331,9 @@ class ManualApp extends LitElement {
 
   private readonly onMessage = (event: MessageEvent<ExtensionToManualMessage>): void => {
     const message = event.data;
-    if (message.type === "manual.state") {
+    if (message.type === "ui.destructiveActionConfirmed") {
+      this.confirmations.resolve(message);
+    } else if (message.type === "manual.state") {
       this.profile = structuredClone(message.state.profile);
       this.savedProfile = message.state.savedProfile === null ? null : structuredClone(message.state.savedProfile);
       this.profiles = message.state.profiles;
@@ -438,7 +422,6 @@ class ManualApp extends LitElement {
     this.post({ type: "browser.syncOverrides", profile: draft });
     this.requestUpdate();
   }
-  private updateOverrideHeader(overrideId: string, headerId: string, change: (entry: HeaderEntry) => void): void { this.updateOverride(overrideId, (override) => { const header = override.headers.find((entry) => entry.id === headerId); if (header) change(header); }); }
   private updateBinding(id: string, change: (entry: GeneratorBinding) => void): void { this.mutate((profile) => { const item = profile.generatorBindings.find((entry) => entry.id === id); if (item) change(item); }); }
 
   private enabledToggle(value: boolean, change: (enabled: boolean) => void, label = "Activo") {

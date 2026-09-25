@@ -1,0 +1,211 @@
+.flow-node.selected {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+  color: var(--vscode-list-activeSelectionForeground);
+  background: var(--vscode-list-activeSelectionBackground);
+}
+
+.flow-node:active {
+  cursor: grabbing;
+}
+
+.flow-node.connection-source {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vscode-focusBorder) 35%, transparent);
+}
+
+.flow-node.connection-target {
+  border-color: var(--vscode-testing-iconPassed);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--vscode-testing-iconPassed) 35%, transparent);
+}
+
+.port {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  top: 25px;
+  cursor: crosshair;
+  transition: transform 80ms ease, background-color 80ms ease, box-shadow 80ms ease;
+}
+
+.input-port {
+  left: -10px;
+}
+
+.output-port {
+  right: -10px;
+}
+
+.port:hover,
+.port.connection-source {
+  transform: scale(1.25);
+  background: var(--vscode-focusBorder);
+}
+
+.port.connection-target {
+  transform: scale(1.4);
+  border-color: var(--vscode-testing-iconPassed);
+  background: var(--vscode-testing-iconPassed);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--vscode-testing-iconPassed) 24%, transparent);
+}
+
+.flow-edge {
+  stroke: var(--vscode-focusBorder);
+  stroke-width: 2.5;
+  pointer-events: none;
+  filter: drop-shadow(0 0 1px var(--vscode-editor-background));
+}
+
+.flow-edge.pending {
+  stroke: var(--vscode-focusBorder);
+  stroke-width: 3;
+}
+
+.flow-edge.selected {
+  stroke: var(--vscode-testing-iconPassed);
+  stroke-width: 4;
+}
+
+#flow-arrow path {
+  fill: var(--vscode-focusBorder);
+}
+
+.node-layer {
+  pointer-events: none;
+}
+
+.flow-node {
+  pointer-events: auto;
+}
+
+.node-remove {
+  position: absolute;
+  z-index: 2;
+  top: -11px;
+  right: -11px;
+  display: grid;
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  place-items: center;
+  border: 2px solid var(--vscode-errorForeground);
+  border-radius: 50%;
+  color: var(--vscode-errorForeground);
+  background: var(--vscode-editorWidget-background);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.node-remove:hover {
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-errorForeground);
+}
+
+.edge-hit-area {
+  fill: none;
+  stroke: rgba(0, 0, 0, 0.001);
+  stroke-width: 18;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.edge-remove {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.edge-remove circle {
+  fill: var(--vscode-editorWidget-background);
+  stroke: var(--vscode-errorForeground);
+  stroke-width: 2;
+}
+
+.edge-remove text {
+  fill: var(--vscode-errorForeground);
+  font-size: 16px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  user-select: none;
+}
+
+.canvas-grid {
+  z-index: 1;
+}
+
+.selection-rectangle {
+  z-index: 10;
+  border: 2px solid var(--vscode-focusBorder);
+  background: var(--vscode-list-inactiveSelectionBackground);
+  background: color-mix(in srgb, var(--vscode-focusBorder) 22%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--vscode-editor-background) 55%, transparent);
+}
+
+.canvas-help {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  max-width: calc(100% - 16px);
+  padding: 4px 7px;
+  color: var(--vscode-descriptionForeground);
+  background: color-mix(in srgb, var(--vscode-editor-background) 88%, transparent);
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.selection-count {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  padding: 4px 7px;
+  border: 1px solid var(--vscode-focusBorder);
+  background: var(--vscode-editorWidget-background);
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.canvas-controls {
+  z-index: 20;
+}
+
+.node-inspector {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.node-inspector > header,
+.node-inspector > header > div,
+.inspector-fields,
+.inspector-fields > label {
+  min-width: 0;
+}
+
+.node-inspector > header small {
+  display: block;
+  overflow: hidden;
+  max-width: min(52vw, 520px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inspector-fields {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 950px) {
+  .inspector-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .inspector-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

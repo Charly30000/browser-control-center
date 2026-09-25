@@ -1,7 +1,7 @@
 import * as vscode from "vscode";
 import type { FormulaExecutionService } from "../../application/formulas/formulaExecutionService";
 import type { FormulaService } from "../../application/formulas/formulaService";
-import { ResourceDocumentService } from "../../application/resources/resourceDocumentService";
+import { ImportExportDocumentService, decodeResourceCollection } from "../../application/importExport/importExportDocumentService";
 import { EXAMPLE_FORMULA_CODE, type FormulaResource } from "../../domain/formulas/formula";
 import { isFormulaResource } from "../../infrastructure/persistence/formulaSerializer";
 import {
@@ -10,11 +10,13 @@ import {
   type FormulaToExtensionMessage
 } from "../../shared/messages/formulaMessages";
 import { createWebviewHtml } from "../webview/createWebviewHtml";
+import { JsonImportExportFileService } from "../importExport/jsonImportExportFileService";
 
 export class FormulasPanelManager implements vscode.Disposable {
   private panel: vscode.WebviewPanel | null = null;
   private readonly disposables: vscode.Disposable[] = [];
-  private readonly documents = new ResourceDocumentService("browser-control-center/formulas", isFormulaResource);
+  private readonly documents = new ImportExportDocumentService("browser-control-center/formulas", decodeResourceCollection(isFormulaResource, "fórmulas"));
+  private readonly files = new JsonImportExportFileService();
 
   public constructor(
     private readonly extensionUri: vscode.Uri,
@@ -89,10 +91,9 @@ export class FormulasPanelManager implements vscode.Disposable {
   }
 
   private async importResources(): Promise<void> {
-    const files = await vscode.window.showOpenDialog({ canSelectMany: false, filters: { "Documento de fórmulas": ["json"] }, openLabel: "Importar fórmulas" });
-    const file = files?.[0];
-    if (file === undefined) return;
-    const parsed = this.documents.deserialize(new TextDecoder().decode(await vscode.workspace.fs.readFile(file)));
+    const contents = await this.files.read({ filterName: "Documento de fórmulas", openLabel: "Importar fórmulas" });
+    if (contents === null) return;
+    const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) { await this.notice("error", parsed.error); return; }
     await this.state(await this.service.importMany(parsed.value.data));
     this.onResourcesChanged();
@@ -100,9 +101,8 @@ export class FormulasPanelManager implements vscode.Disposable {
   }
 
   private async exportResource(resource: FormulaResource): Promise<void> {
-    const target = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(`${resource.name}.formulas.json`), filters: { "Documento de fórmulas": ["json"] }, saveLabel: "Exportar fórmula" });
-    if (target === undefined) return;
-    await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(this.documents.serialize([resource])));
+    const exported = await this.files.write(this.documents.serialize([resource]), { suggestedName: resource.name, suffix: ".formulas.json", filterName: "Documento de fórmulas", saveLabel: "Exportar fórmula" });
+    if (!exported) return;
     await this.notice("success", "Fórmula exportada.");
   }
 

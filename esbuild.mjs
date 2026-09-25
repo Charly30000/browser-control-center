@@ -20,6 +20,7 @@ const webviewOptions = {
     formulas: "src/webviews/pages/Formulas/index.ts",
     arrays: "src/webviews/pages/Arrays/index.ts",
     browserManagement: "src/webviews/pages/BrowserManagement/index.ts",
+    automations: "src/webviews/pages/Automatizaciones/index.ts",
     sidebar: "src/webviews/sidebar/index.ts"
   },
   bundle: true,

@@ -1,12 +1,11 @@
 import { createArrayResource, type ArrayResource } from "../../domain/arrays/arrayResource";
-import type { ResourceRepository } from "../../domain/resources/resourceRepository";
-import type { ResourceMetadataStore } from "../../infrastructure/persistence/resourceMetadataStore";
 import { failure, success } from "../../shared/result";
+import type { ResourceDataDao, ResourceMetadata, StateDataDao } from "../persistence/applicationDataDao";
 import { ResourceCrudService } from "../resources/resourceCrudService";
 
 export class ArrayResourceService extends ResourceCrudService<ArrayResource> {
-  public constructor(repository: ResourceRepository<ArrayResource>, metadata: ResourceMetadataStore) {
-    super(repository, metadata, {
+  public constructor(dao: ResourceDataDao<ArrayResource>, metadata: StateDataDao<ResourceMetadata>) {
+    super(dao, metadata, {
       baseName: "array",
       create: createArrayResource,
       validate: (resource) => resource.name.trim() === "" ? failure("El nombre del array es obligatorio.") : success(resource),

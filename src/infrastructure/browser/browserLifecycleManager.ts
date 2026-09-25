@@ -51,6 +51,7 @@ export class BrowserLifecycleManager {
         const browser = await chromium.connect(server.wsEndpoint());
         const context = await browser.newContext({
           viewport: { width: viewport.width, height: viewport.height },
+          screen: { width: viewport.width, height: viewport.height },
           deviceScaleFactor: viewport.deviceScaleFactor,
           hasTouch: viewport.hasTouch,
           isMobile: viewport.isMobile,
@@ -104,6 +105,7 @@ export class BrowserLifecycleManager {
       const browser = await chromium.connect(server.wsEndpoint());
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
+        screen: { width: viewport.width, height: viewport.height },
         deviceScaleFactor: viewport.deviceScaleFactor,
         hasTouch: viewport.hasTouch,
         isMobile: viewport.isMobile,

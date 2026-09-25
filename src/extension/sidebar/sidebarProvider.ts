@@ -22,9 +22,8 @@ export class SidebarProvider implements vscode.WebviewViewProvider, vscode.Dispo
       if (!isSidebarToExtensionMessage(message)) return;
       if (message.type === "sidebar.ready") { void this.sendState(); return; }
       if (message.type === "sidebar.manageBrowser") { this.openBrowserManagement(); return; }
-      if (message.pageId === "automations") void vscode.window.showInformationMessage("Automatizaciones estará disponible en una fase posterior.");
-      else if (message.pageId !== "browserManagement") {
-        const commandByPage = { manual: "browserControl.openManual", formulas: "browserControl.openFormulas", arrays: "browserControl.openArrays" } as const;
+      if (message.pageId !== "browserManagement") {
+        const commandByPage = { manual: "browserControl.openManual", formulas: "browserControl.openFormulas", arrays: "browserControl.openArrays", automations: "browserControl.openAutomations" } as const;
         void vscode.commands.executeCommand(commandByPage[message.pageId]);
       }
     });

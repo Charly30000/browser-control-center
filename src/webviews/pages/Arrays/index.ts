@@ -1,4 +1,4 @@
-import { LitElement, html } from "lit";
+import { LitElement, html, nothing } from "lit";
 import type { ArrayResource } from "../../../domain/arrays/arrayResource";
 import { parseArrayContent } from "../../../domain/arrays/arrayValidation";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
@@ -59,12 +59,15 @@ class ArraysApp extends LitElement {
               <label><span>Nombre</span><input .value=${this.resource.name} @input=${(event: Event) => this.changeName(fieldValue(event))}></label>
               <label><span>Contenido JSON</span><textarea class="code-editor" spellcheck="false" .value=${this.content} @input=${(event: Event) => { this.content = fieldValue(event); this.requestUpdate(); }}></textarea></label>
               <div class=${validation.ok ? "result-panel success" : "result-panel error"}>${validationMessage}</div>
+              <p class="execution-note">Probar selecciona aleatoriamente un elemento del contenido actual sin guardar el array.</p>
               <div class="editor-actions">
                 <button @click=${this.validate}>Validar</button>
+                <button ?disabled=${!validation.ok} @click=${this.test}>Probar</button>
                 <button class="primary" ?disabled=${!validation.ok} @click=${this.save}>Guardar</button>
                 <button @click=${this.exportResource}>Exportar</button>
                 <span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
               </div>
+              ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
             </div>
           </section>
         </div>
@@ -105,6 +108,13 @@ class ArraysApp extends LitElement {
     const validation = parseArrayContent(this.content);
     if (!validation.ok) { this.notice = { tone: "error", message: validation.error }; this.requestUpdate(); return; }
     this.post({ type: "array.save", resource: { ...this.resource, items: validation.value } });
+  };
+
+  private readonly test = (): void => {
+    if (this.resource === null) return;
+    const validation = parseArrayContent(this.content);
+    if (!validation.ok) { this.notice = { tone: "error", message: validation.error }; this.requestUpdate(); return; }
+    this.post({ type: "array.test", resource: { ...this.resource, items: validation.value } });
   };
 
   private readonly exportResource = (): void => {

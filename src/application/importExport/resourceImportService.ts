@@ -1,5 +1,5 @@
 import type { GlobalResource } from "../../domain/resources/globalResource";
-import { uniqueImportedResourceName } from "../../domain/resources/resourceNaming";
+import { resolveImportedIdentity } from "./importIdentityResolver";
 
 export interface ResourceImportResolution<T extends GlobalResource> {
   readonly resourcesToSave: readonly T[];
@@ -18,24 +18,18 @@ export class ResourceImportService {
     identityFactory: ResourceIdentityFactory<T>,
     now = new Date().toISOString()
   ): ResourceImportResolution<T> {
-    const byId = new Map(existing.map((resource) => [resource.id, resource]));
+    const occupiedIds = new Set(existing.map(({ id }) => id));
     const occupiedNames = existing.map(({ name }) => name);
     const resourcesToSave: T[] = [];
     const idMap = new Map<string, string>();
 
     for (const resource of imported) {
-      const collision = byId.get(resource.id);
-      if (collision !== undefined && JSON.stringify(collision) === JSON.stringify(resource)) {
-        idMap.set(resource.id, collision.id);
-        continue;
-      }
-      const id = collision === undefined ? resource.id : createId();
-      const name = uniqueImportedResourceName(resource.name, occupiedNames);
-      const resolved = identityFactory.withIdentity(resource, id, name, now);
+      const identity = resolveImportedIdentity(resource, occupiedIds, occupiedNames, createId);
+      const resolved = identityFactory.withIdentity(resource, identity.id, identity.name, now);
       resourcesToSave.push(resolved);
-      byId.set(id, resolved);
-      occupiedNames.push(name);
-      idMap.set(resource.id, id);
+      occupiedIds.add(resolved.id);
+      occupiedNames.push(resolved.name);
+      idMap.set(resource.id, resolved.id);
     }
     return { resourcesToSave, idMap };
   }

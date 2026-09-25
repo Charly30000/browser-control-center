@@ -1,5 +1,54 @@
+# Dependencias y artefactos de compilación
 node_modules/
 dist/
-*.vsix
-.DS_Store
+out/
 coverage/
+*.tsbuildinfo
+
+# Resultados y entornos locales de pruebas
+test-results/
+playwright-report/
+blob-report/
+.nyc_output/
+.vscode-test/
+.vscode-test-web/
+
+# Paquetes, registros y procesos locales
+*.vsix
+*.log
+*.pid
+*.pid.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Variables de entorno locales
+.env
+.env.*
+!.env.example
+
+# Perfiles y utilidades temporales de agentes/pruebas visuales
+/.codex-vscode-profile*/
+/.codex-vscode-extensions*/
+/.codex-*.mjs
+/.codex/
+/.agents/
+
+# Cachés y directorios temporales de herramientas
+.cache/
+.eslintcache
+.vite/
+.vitest/
+.tmp/
+tmp/
+temp/
+
+# Configuración local de otros editores
+.idea/
+.vs/
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini

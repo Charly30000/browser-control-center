@@ -15,4 +15,9 @@ describe("mensajes de la página Manual", () => {
     expect(isManualToExtensionMessage({ type: "browser.syncOverrides", profile: createEmptyManualProfile("profile-1", "QA") })).toBe(true);
     expect(isManualToExtensionMessage({ type: "browser.syncOverrides", profile: {} })).toBe(false);
   });
+
+  it("valida las solicitudes de confirmación destructiva", () => {
+    expect(isManualToExtensionMessage({ type: "ui.confirmDestructiveAction", requestId: "request-1", confirmation: { question: "¿Eliminar?", detail: "Detalle" } })).toBe(true);
+    expect(isManualToExtensionMessage({ type: "ui.confirmDestructiveAction", requestId: "request-1", confirmation: { question: 1 } })).toBe(false);
+  });
 });

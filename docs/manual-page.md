@@ -1,5 +1,7 @@
 # Página Manual
 
+Las eliminaciones siempre requieren confirmación. Se aplica a perfiles, query params, headers, cookies, valores de localStorage y sessionStorage, overrides, headers internos de overrides y vínculos de generadores. Todas usan el diálogo modal de advertencia de VS Code con el botón explícito **Eliminar**; la webview espera la respuesta del Extension Host antes de modificar el borrador.
+
 ## Sesión y pestañas
 
 **Iniciar** crea una sesión limpia. **Detener** intenta un cierre normal, **Forzar cierre** termina el proceso y **Reinicio limpio** descarta el contexto actual y crea otro. Las pestañas se identifican internamente por ID y se actualizan cuando navegan, cambian de título, se abren como popup o se cierran.
@@ -33,3 +35,7 @@ Los bindings pueden escribir `value`, `checked`, `textContent`, `innerText`, atr
 El picker resalta el elemento bajo el puntero, captura el click y genera un selector CSS estable priorizando ID y atributos de testing. Los selectores CSS atraviesan Shadow DOM abierto; no se intenta acceder a raíces cerradas y XPath no es la opción principal. `Escape` cancela la selección.
 
 Las fórmulas, arrays y generadores básicos se resuelven en la capa de aplicación. **Resetear** restaura los valores capturados antes de aplicar bindings durante la sesión actual.
+
+## Importación y exportación
+
+El perfil se exporta dentro del envelope JSON común y versionado. También se admiten perfiles históricos exportados como JSON directo. La importación crea un perfil independiente: si el ID o el nombre ya existen, genera ambos de nuevo y añade un sufijo numérico al nombre, sin sustituir el perfil guardado.

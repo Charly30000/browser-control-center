@@ -2,7 +2,7 @@
   "name": "browser-control-center",
   "displayName": "Browser Control Center",
   "description": "Panel de control para testing manual asistido y automatización web desde VS Code.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "andres",
   "license": "MIT",
   "engines": {
@@ -24,6 +24,7 @@
     "onCommand:browserControl.openManual",
     "onCommand:browserControl.openFormulas",
     "onCommand:browserControl.openArrays",
+    "onCommand:browserControl.openAutomations",
     "onCommand:browserControl.manageBrowser"
   ],
   "contributes": {
@@ -39,6 +40,10 @@
       {
         "command": "browserControl.openArrays",
         "title": "Browser Control: Abrir Arrays"
+      },
+      {
+        "command": "browserControl.openAutomations",
+        "title": "Browser Control: Abrir Automatizaciones"
       },
       {
         "command": "browserControl.manageBrowser",
