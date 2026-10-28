@@ -16,6 +16,10 @@ flow-canvas { min-width: 0; min-height: 470px; display: block; overflow: hidden;
 .field-with-action { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
 .field-with-action input { min-width: 0; }
 .inspector-overrides { margin-top: 9px; }
+.inspector-session-data { display: grid; gap: 8px; margin-top: 9px; }
+.inspector-session-data > label { max-width: 620px; }
+.inspector-session-data h3 { margin: 4px 0 0; font-size: 12px; }
+.session-url-preview { margin: 0; color: var(--vscode-descriptionForeground); font-family: var(--vscode-editor-font-family); font-size: 11px; overflow-wrap: anywhere; }
 .inspector-help { margin: 9px 0 0; color: var(--vscode-descriptionForeground); font-size: 11px; line-height: 1.45; }
 .inspector-help code { color: var(--vscode-textPreformat-foreground); }
 .example-guide { margin: 8px; padding: 8px 10px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); }
@@ -27,3 +31,10 @@ flow-canvas { min-width: 0; min-height: 470px; display: block; overflow: hidden;
 @media (max-width: 700px) { .example-guide ol { grid-template-columns: 1fr; } }
 @media (max-width: 950px) { .automation-layout { grid-template-columns: 220px minmax(0,1fr); } .canvas-workspace { grid-template-columns: 125px minmax(0,1fr); } .inspector-fields { grid-template-columns: repeat(2,minmax(120px,1fr)); } }
 @media (max-width: 700px) { .automation-header { flex-direction: column; } .toolbar { justify-content: flex-start; } .automation-layout { grid-template-columns: 1fr; } .automation-tree { max-height: 260px; border-right: 0; border-bottom: 1px solid var(--vscode-panel-border); } .process-settings > div { grid-template-columns: 1fr; } .viewport-fields { grid-template-columns: repeat(2, minmax(100px, 1fr)); } .canvas-workspace { grid-template-columns: 1fr; } .node-palette { max-height: 160px; border-right: 0; border-bottom: 1px solid var(--vscode-panel-border); } .node-palette details > div { display: flex; flex-wrap: wrap; } .inspector-fields { grid-template-columns: 1fr; } }
+
+@media (forced-colors: active) {
+  button, input, select, textarea, .flow-node, .node-inspector, .canvas-controls { border-color: CanvasText; }
+  .flow-node.selected, .flow-node:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  .flow-edge { stroke: CanvasText; }
+  .selection-rectangle { border: 2px solid Highlight; background: transparent; }
+}

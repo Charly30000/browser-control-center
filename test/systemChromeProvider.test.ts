@@ -27,7 +27,9 @@ describe("SystemChromeProvider", () => {
     };
     const provider = new SystemChromeProvider(runtime);
 
-    expect(await provider.inspect()).toMatchObject({ state: "missing", detail: expect.stringContaining("Chrome no encontrado") });
+    const inspection = await provider.inspect();
+    expect(inspection.state).toBe("missing");
+    expect(inspection.detail).toContain("Chrome no encontrado");
     await expect(provider.resolveLaunchConfiguration()).rejects.toThrow("no está instalado");
   });
 });

@@ -21,12 +21,17 @@ export class PlaywrightAutomationSessionFactory implements AutomationBrowserSess
     const lifecycle = new BrowserLifecycleManager(this.runtime, this.runtimeRoot, this.logger);
     const configuration = await this.browserSelection.resolveLaunchConfiguration();
     const runtime = await lifecycle.start(configuration, viewport);
-    const router = new RequestOverrideRouter();
-    await router.attach(runtime.context);
-    const page = await runtime.context.newPage();
-    const viewportSize = { width: viewport.width, height: viewport.height };
-    await page.setViewportSize(viewportSize);
-    return new PlaywrightAutomationSession(lifecycle, runtime.context, page, router, viewportSize, this.logger);
+    try {
+      const router = new RequestOverrideRouter();
+      await router.attach(runtime.context);
+      const page = await runtime.context.newPage();
+      const viewportSize = { width: viewport.width, height: viewport.height };
+      await page.setViewportSize(viewportSize);
+      return new PlaywrightAutomationSession(lifecycle, runtime.context, page, router, viewportSize, this.logger);
+    } catch (error: unknown) {
+      await lifecycle.stop("force").catch(() => undefined);
+      throw error;
+    }
   }
 }
 
@@ -47,6 +52,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
       this.remember(this.observedResponses, { response, url: response.url(), status: response.status(), headers: response.headers() });
     });
     page.on("domcontentloaded", () => { if (this.activePromptMessage !== null) void this.renderUserPrompt(this.activePromptMessage).catch(() => undefined); });
+    page.on("close", () => { const resolve = this.promptResolver; this.promptResolver = null; this.activePromptMessage = null; resolve?.("dismissed"); });
   }
   public async navigate(url: string, timeoutMs: number): Promise<void> {
     await this.page.setViewportSize(this.viewportSize);

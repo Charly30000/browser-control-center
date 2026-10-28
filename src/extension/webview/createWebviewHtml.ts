@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { createNonce } from "./nonce";
+import { createContentSecurityPolicy } from "./contentSecurityPolicy";
 
 export const createWebviewHtml = (
   webview: vscode.Webview,
@@ -10,14 +11,7 @@ export const createWebviewHtml = (
   const nonce = createNonce();
   const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", `${entryName}.js`));
   const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "dist", `${entryName}.css`));
-  const styleSource = entryName === "automations" ? `${webview.cspSource} 'unsafe-inline'` : webview.cspSource;
-  const csp = [
-    "default-src 'none'",
-    `img-src ${webview.cspSource} data: https:`,
-    `font-src ${webview.cspSource}`,
-    `style-src ${styleSource}`,
-    `script-src 'nonce-${nonce}'`
-  ].join("; ");
+  const csp = createContentSecurityPolicy(webview.cspSource, nonce, entryName === "automations");
 
   return `<!doctype html>
 <html lang="es">

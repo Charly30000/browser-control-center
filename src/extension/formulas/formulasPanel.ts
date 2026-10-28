@@ -34,11 +34,11 @@ export class FormulasPanelManager implements vscode.Disposable {
     });
     this.panel = panel;
     panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "formulas", "Fórmulas");
-    panel.onDidDispose(() => { this.panel = null; }, undefined, this.disposables);
-    panel.webview.onDidReceiveMessage((message: unknown) => {
+    const messageSubscription = panel.webview.onDidReceiveMessage((message: unknown) => {
       if (!isFormulaToExtensionMessage(message)) { void this.notice("error", "Mensaje de Fórmulas no válido."); return; }
       void this.handle(message);
-    }, undefined, this.disposables);
+    });
+    panel.onDidDispose(() => { messageSubscription.dispose(); this.panel = null; });
   }
 
   public dispose(): void { this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }

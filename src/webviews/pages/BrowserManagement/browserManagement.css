@@ -20,3 +20,7 @@ header p, .help { color: var(--vscode-descriptionForeground); }
 .managed-section h2 { margin: 0 0 4px; font-size: 16px; }
 .managed-section > p { color: var(--vscode-descriptionForeground); }
 @media (max-width: 600px) { .status-card { grid-template-columns: 1fr; } .status-card .wide { grid-column: auto; } }
+@media (forced-colors: active) {
+  button, select, .browser-card { border-color: CanvasText; }
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}

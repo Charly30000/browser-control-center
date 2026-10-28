@@ -8,8 +8,10 @@ import type { GroupExecutionSummary, NodeExecutionState, ProcessExecutionSnapsho
 import type { JsonValue } from "../../../domain/manual/storageValue";
 import { VIEWPORT_PRESETS, type ViewportPresetId } from "../../../domain/manual/manualProfile";
 import type { AutomationJsonScope, AutomationResourceCatalogs, AutomationToExtensionMessage, ExtensionToAutomationMessage } from "../../../shared/messages/automationMessages";
+import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import type { NoticeTone } from "../../components/statusNotice";
 import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
+import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import "../../components/jsonDocumentEditor";
 import { DestructiveConfirmationClient } from "../../components/confirmDestructiveAction";
 import { vscodeApi } from "../../vscodeApi";
@@ -50,6 +52,9 @@ class AutomationsApp extends LitElement {
   private jsonDocument: string | null = null;
   private jsonScope: AutomationJsonScope | null = null;
   private readonly confirmations = new DestructiveConfirmationClient((message) => this.post(message));
+  private pendingTransition: (() => void) | null = null;
+  private awaitingSaveTransition = false;
+  private unsavedMessage: string | null = null;
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "automation.ready" }); }
   public override disconnectedCallback(): void { window.removeEventListener("message", this.onMessage); this.confirmations.cancelPending(); super.disconnectedCallback(); }
@@ -71,9 +76,9 @@ class AutomationsApp extends LitElement {
     };
     return html`<main class="automations-shell">
       <header class="automation-header"><div><h1>Automatizaciones</h1><p>Procesos visuales ejecutados en sesiones limpias e independientes del navegador seleccionado.</p></div><div class="toolbar">
-        <button class="primary" @click=${this.addExample}>Añadir ejemplo</button><button @click=${this.newGroup}>Nuevo grupo</button><button @click=${() => this.post({ type: "automation.import" })}>Importar</button><button @click=${this.exportSelection}>Exportar</button><button @click=${this.viewJson}>Ver JSON</button>
+        <button class="primary" @click=${this.addExample}>Añadir ejemplo</button><button @click=${this.newGroup}>Nuevo grupo</button><button @click=${() => this.guardTransition(() => this.post({ type: "automation.import" }), "¿Guardar la automatización antes de importar?")}>Importar</button><button @click=${this.exportSelection}>Exportar</button><button @click=${this.viewJson}>Ver JSON</button>
         ${this.copiedProcess !== null && group !== null ? html`<button @click=${() => this.pasteProcess(group.id)}>Pegar proceso</button>` : nothing}
-        <button class="primary" @click=${() => this.post({ type: "automation.save", document })}>Guardar</button><span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
+        <button class="primary" @click=${this.save}>Guardar</button><span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
       </div></header>
       <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
       ${waitingNode === undefined ? nothing : html`<section class="waiting-banner"><strong>Esperando acción del usuario</strong><span>Completa CAPTCHA, 2FA u OAuth en el navegador.</span><button class="primary" @click=${() => this.post({ type: "automation.continueUser", nodeId: waitingNode.nodeId })}>Continuar</button><button @click=${() => this.post({ type: "automation.retryUser", nodeId: waitingNode.nodeId })}>Reintentar</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: false })}>Detener</button></section>`}
@@ -123,7 +128,8 @@ class AutomationsApp extends LitElement {
       @json-editor-change=${this.changeJson}
       @json-editor-close=${this.closeJsonEditor}
       @json-editor-apply=${this.applyJson}
-    ></json-document-editor>`}`;
+    ></json-document-editor>`}
+    ${this.unsavedMessage === null ? nothing : html`<unsaved-changes-dialog .message=${this.unsavedMessage} @unsaved-choice=${this.resolveUnsavedChoice}></unsaved-changes-dialog>`}`;
   }
 
   private readonly onMessage = (event: MessageEvent<ExtensionToAutomationMessage>): void => {
@@ -134,6 +140,12 @@ class AutomationsApp extends LitElement {
       this.applyDocumentState(message.document);
       this.descriptors = message.descriptors;
       this.resources = message.resources;
+      if (this.awaitingSaveTransition) {
+        const transition = this.pendingTransition;
+        this.awaitingSaveTransition = false;
+        this.pendingTransition = null;
+        transition?.();
+      }
     } else if (message.type === "automation.resources") this.resources = message.resources;
     else if (message.type === "automation.jsonDocument") { this.jsonDocument = message.serialized; this.jsonScope = message.scope; this.notice = { tone: "info", message: "" }; }
     else if (message.type === "automation.jsonApplied") {
@@ -146,7 +158,10 @@ class AutomationsApp extends LitElement {
       this.updateNode(message.nodeId, (node) => { node.config[message.fieldKey] = message.selector; });
       this.notice = { tone: "success", message: "Selector capturado desde el navegador." };
     }
-    else if (message.type === "automation.notice") this.notice = { tone: message.tone, message: message.message };
+    else if (message.type === "automation.notice") {
+      this.notice = { tone: message.tone, message: message.message };
+      if (message.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
+    }
     else if (message.type === "automation.processState") {
       this.processStates = { ...this.processStates, [message.snapshot.processId]: message.snapshot };
       if (["queued", "running", "paused", "waiting-user"].includes(message.snapshot.state)) this.showProcess(message.snapshot.processId);
@@ -225,7 +240,34 @@ class AutomationsApp extends LitElement {
     this.nodeValidationError = null;
   }
 
-  private mutate(change: (document: AutomationDocument) => void): void { if (this.document === null) return; const draft = structuredClone(this.document); change(draft); this.document = draft; this.requestUpdate(); }
+  private mutate(change: (document: AutomationDocument) => void): void {
+    if (this.document === null) return;
+    const draft = structuredClone(this.document);
+    change(draft);
+    const size = assessDocumentSize(JSON.stringify(draft));
+    if (size.exceedsLimit) {
+      this.notice = { tone: "error", message: documentSizeLimitMessage(size.bytes) };
+      this.requestUpdate();
+      return;
+    }
+    this.document = draft;
+    if (size.shouldWarn) this.notice = { tone: "warning", message: `La automatización ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` };
+    this.requestUpdate();
+  }
+  private readonly save = (): void => { if (this.document !== null) this.post({ type: "automation.save", document: this.document }); };
+  private guardTransition(transition: () => void, message: string): void {
+    if (this.document === null || JSON.stringify(this.document) === JSON.stringify(this.savedDocument)) { transition(); return; }
+    this.pendingTransition = transition;
+    this.unsavedMessage = message;
+    this.requestUpdate();
+  }
+  private readonly resolveUnsavedChoice = (event: CustomEvent<UnsavedChangesChoice>): void => {
+    this.unsavedMessage = null;
+    if (event.detail === "cancel") this.pendingTransition = null;
+    else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
+    else { this.awaitingSaveTransition = true; this.save(); }
+    this.requestUpdate();
+  };
   private selectedGroup(): AutomationGroup | null { return this.document?.groups.find(({ id }) => id === this.selectedGroupId) ?? null; }
   private selectedProcess(): AutomationProcess | null { return this.selectedGroup()?.processes.find(({ id }) => id === this.selectedProcessId) ?? null; }
   private selectedNode(): AutomationNode | null { const process = this.selectedProcess(); return this.selectedNodeIds.length === 1 ? process?.nodes.find(({ id }) => id === this.selectedNodeIds[0]) ?? null : null; }

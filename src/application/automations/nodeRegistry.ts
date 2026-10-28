@@ -16,6 +16,7 @@ export interface NodeDefinition {
   readonly category: string;
   readonly defaultTimeoutMs: number;
   readonly inspectorFields: readonly InspectorField[];
+  readonly availableInPalette?: boolean;
   validate(config: unknown): Result<AutomationNodeConfig>;
   execute(context: ExecutionContext, config: AutomationNodeConfig, nodeId: string, timeoutMs: number): Promise<void>;
 }
@@ -26,6 +27,7 @@ export interface NodeDescriptor {
   readonly category: string;
   readonly defaultTimeoutMs: number;
   readonly inspectorFields: readonly InspectorField[];
+  readonly availableInPalette: boolean;
 }
 
 export class NodeRegistry {
@@ -41,5 +43,5 @@ export class NodeRegistry {
   }
   public has(type: string): boolean { return this.definitions.has(type as AutomationNodeType); }
   public validate(type: string, config: unknown): Result<AutomationNodeConfig> { return this.get(type as AutomationNodeType).validate(config); }
-  public descriptors(): readonly NodeDescriptor[] { return [...this.definitions.values()].map(({ type, title, category, defaultTimeoutMs, inspectorFields }) => ({ type, title, category, defaultTimeoutMs, inspectorFields })); }
+  public descriptors(): readonly NodeDescriptor[] { return [...this.definitions.values()].map(({ type, title, category, defaultTimeoutMs, inspectorFields, availableInPalette }) => ({ type, title, category, defaultTimeoutMs, inspectorFields, availableInPalette: availableInPalette !== false })); }
 }

@@ -60,3 +60,8 @@ button { font: inherit; }
 .runtime-state { margin: 5px 0 8px !important; padding-left: 16px; font-size: 11px; }
 .manage-button { width: 100%; min-height: 28px; border: 1px solid var(--vscode-button-border, transparent); color: var(--vscode-button-foreground); background: var(--vscode-button-background); cursor: pointer; }
 .manage-button:hover { background: var(--vscode-button-hoverBackground); }
+@media (forced-colors: active) {
+  button { border: 1px solid CanvasText; }
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+  .status-dot { forced-color-adjust: none; }
+}

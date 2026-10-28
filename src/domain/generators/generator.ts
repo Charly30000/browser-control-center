@@ -57,10 +57,12 @@ const generatePhone = (random: RandomSource): string => {
 
 export const generateValue = (
   type: GeneratorType,
-  binding: Pick<GeneratorBinding, "min" | "max">,
+  binding: Pick<GeneratorBinding, "min" | "max" | "literalValue">,
   random: RandomSource = systemRandom
 ): Result<string> => {
   switch (type) {
+    case "string":
+      return success(binding.literalValue ?? "");
     case "firstName":
       return success(pick(FIRST_NAMES, random));
     case "lastName":

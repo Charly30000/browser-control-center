@@ -8,25 +8,25 @@ import { createEmptyManualProfile, createGeneratorBinding } from "../src/domain/
 
 const repository = <T extends FormulaResource | ArrayResource>(initial: readonly T[]) => {
   const stored = [...structuredClone(initial)];
-  const importManyWithResolution = vi.fn(async (imported: readonly T[]): Promise<ResourceImportResult<T>> => {
+  const importManyWithResolution = vi.fn((imported: readonly T[]): Promise<ResourceImportResult<T>> => {
     const idMap = new Map<string, string>();
     for (const resource of imported) {
       const id = `imported-${resource.id}`;
       idMap.set(resource.id, id);
-      stored.push({ ...structuredClone(resource), id, name: `${resource.name} importado` } as T);
+      stored.push({ ...structuredClone(resource), id, name: `${resource.name} importado` });
     }
     const resource = stored[0] ?? structuredClone(imported[0]);
     if (resource === undefined) throw new Error("El repositorio de prueba está vacío.");
-    return {
+    return Promise.resolve({
       idMap,
       state: {
         resource,
         savedResource: structuredClone(resource),
         resources: stored.map(({ id, name, updatedAt }) => ({ id, name, updatedAt }))
       }
-    };
+    });
   });
-  const value: PortableResourceRepository<T> = { getAll: async () => structuredClone(stored), importManyWithResolution };
+  const value: PortableResourceRepository<T> = { getAll: () => Promise.resolve(structuredClone(stored)), importManyWithResolution };
   return { value, stored, importManyWithResolution };
 };
 

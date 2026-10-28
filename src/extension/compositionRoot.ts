@@ -65,17 +65,17 @@ export const createApplicationServices = (context: vscode.ExtensionContext): App
   const automationService = new AutomationService(dataDao.automations, nodeRegistry);
   const automationSessions = new PlaywrightAutomationSessionFactory(browserSelection, runtime, browserBinaries.runtimePath, logger);
   const processRunner = new ProcessRunner(automationSessions, nodeRegistry, generatorResolver, logger);
-  let formulasPanel!: FormulasPanelManager;
-  let arraysPanel!: ArraysPanelManager;
+  const panels: { manual: ManualPanelManager | null } = { manual: null };
+  const automationsPanel = new AutomationsPanelManager(context.extensionUri, automationService, nodeRegistry, processRunner, formulaService, arrayService, browserActions, logger);
+  const refreshResourceCatalogs = (): void => { void panels.manual?.refreshResourceCatalogs(); void automationsPanel.refreshResourceCatalogs(); };
+  const formulasPanel = new FormulasPanelManager(context.extensionUri, formulaService, formulaExecution, refreshResourceCatalogs);
+  const arraysPanel = new ArraysPanelManager(context.extensionUri, arrayService, refreshResourceCatalogs);
   const manualPanel = new ManualPanelManager(context.extensionUri, profileService, browserActions, formulaService, arrayService, () => {
     void formulasPanel.refreshState();
     void arraysPanel.refreshState();
     void automationsPanel.refreshResourceCatalogs();
-  });
-  const automationsPanel = new AutomationsPanelManager(context.extensionUri, automationService, nodeRegistry, processRunner, formulaService, arrayService, browserActions, logger);
-  const refreshResourceCatalogs = (): void => { void manualPanel.refreshResourceCatalogs(); void automationsPanel.refreshResourceCatalogs(); };
-  formulasPanel = new FormulasPanelManager(context.extensionUri, formulaService, formulaExecution, refreshResourceCatalogs);
-  arraysPanel = new ArraysPanelManager(context.extensionUri, arrayService, refreshResourceCatalogs);
+  }, logger);
+  panels.manual = manualPanel;
   const browserManagement = new BrowserManagementPanel(context.extensionUri, browserBinaries, browserSelection, browserActions);
   return { dataDao, profileService, formulaService, arrayService, automationService, browserActions, browserBinaries, browserSelection, manualPanel, formulasPanel, arraysPanel, browserManagement, automationsPanel, logger };
 };

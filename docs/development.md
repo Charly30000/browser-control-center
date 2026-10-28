@@ -31,6 +31,8 @@ La primera descarga de Chromium puede ocupar varios cientos de MB. Si se selecci
 
 `npm run dev` observa los siete puntos de entrada. Los cambios del Extension Host requieren recargar la ventana de desarrollo; para cambios de webview basta con reabrir su panel después de reconstruir.
 
+Los paneles mantienen su contexto mientras quedan ocultos para proteger borradores y evitar reconstrucciones innecesarias. Las transiciones internas muestran Guardar/Descartar/Cancelar. El API de VS Code no permite vetar el cierre explícito de un `WebviewPanel`, por lo que cerrar su pestaña descarta los cambios que no se hayan guardado.
+
 ## Datos locales
 
 Dentro de `ExtensionContext.globalStorageUri` se crean:
@@ -51,3 +53,15 @@ Usa la pantalla **Gestionar navegador** para borrar o reinstalar Chromium o para
 ## Publicación
 
 Antes de publicar, comprueba el `publisher` de `package.json`. El paquete debe incluir `dist`, manifiesto, recursos, documentación, licencia y `node_modules/playwright-core`; nunca debe incluir `globalStorageUri` ni binarios de Chromium.
+
+## Definition of Done
+
+Todo cambio funcional, de contrato, persistencia, navegador, seguridad, UI o release debe actualizar en el mismo cambio:
+
+- las pruebas unitarias o de integración afectadas;
+- la guía funcional correspondiente en `docs`;
+- `architecture.md` o un ADR cuando cambien límites entre capas;
+- `CHANGELOG.md` cuando el cambio sea visible para el usuario;
+- `release.md` cuando afecte al paquete o al Marketplace.
+
+Una tarea no se considera terminada si la documentación describe un comportamiento anterior al código.

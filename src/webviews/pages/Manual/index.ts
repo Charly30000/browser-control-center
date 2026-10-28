@@ -3,6 +3,7 @@ import type { BrowserActionTarget } from "../../../application/manual/browserAct
 import type { ArrayResource } from "../../../domain/arrays/arrayResource";
 import type { BrowserSessionSnapshot } from "../../../domain/browser/browserBridge";
 import type { ManualPortableResources } from "../../../domain/importExport/manualProfileBundle";
+import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import {
   createCookie,
   createGeneratorBinding,
@@ -16,26 +17,27 @@ import {
   type ProfileSummary,
   type RequestOverrideEntry,
   type StorageEntry,
-  type StorageValueType,
   type ViewportPresetId,
   VIEWPORT_PRESETS
 } from "../../../domain/manual/manualProfile";
 import { isProfileDirty } from "../../../domain/manual/dirtyState";
 import { buildUrlWithQueryParams } from "../../../domain/manual/queryParams";
-import { parseStorageValue } from "../../../domain/manual/storageValue";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToManualMessage, ManualToExtensionMessage } from "../../../shared/messages/manualMessages";
 import type { NoticeTone } from "../../components/statusNotice";
 import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
+import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import "../../components/jsonDocumentEditor";
 import { DestructiveConfirmationClient } from "../../components/confirmDestructiveAction";
 import { renderRequestOverrideEditor } from "../../components/requestOverrideEditor";
+import { renderCookieEditor, renderHeaderEditor, renderQueryParamEditor, renderStorageEditor } from "../../components/sessionDataEditors";
 import { vscodeApi } from "../../vscodeApi";
 import "../../components";
 import "./components/validationMessage";
 import "./manual.css";
 
 const generatorLabels: Readonly<Record<GeneratorType, string>> = {
+  string: "Texto fijo",
   firstName: "Nombre",
   lastName: "Apellido",
   email: "Email",
@@ -69,6 +71,9 @@ class ManualApp extends LitElement {
   private browser: BrowserSessionSnapshot = { lifecycle: "stopped", pages: [], activePageId: null };
   private jsonDocument: string | null = null;
   private pendingPortableResources: ManualPortableResources | null = null;
+  private pendingTransition: (() => void) | null = null;
+  private awaitingSaveTransition = false;
+  private unsavedMessage: string | null = null;
   private readonly confirmations = new DestructiveConfirmationClient((message) => this.post(message));
 
   public override createRenderRoot(): this { return this; }
@@ -151,18 +156,12 @@ class ManualApp extends LitElement {
             </div>
             <p class=${composedUrl.ok ? "url-preview" : "field-error"}>${composedUrl.ok ? composedUrl.value : composedUrl.error}</p>
             <h3>Query params</h3>
-            <div class="rows">
-              ${this.profile.queryParams.map((entry) => html`
-                <div class="data-row query-row">
-                  <label><span class="sr-only">Clave</span><input placeholder="Key" .value=${entry.key} @input=${(event: Event) => this.mutate((profile) => { const item = profile.queryParams.find(({ id }) => id === entry.id); if (item) item.key = inputValue(event); })}></label>
-                  <label><span class="sr-only">Valor</span><input placeholder="Value" .value=${entry.value} @input=${(event: Event) => this.mutate((profile) => { const item = profile.queryParams.find(({ id }) => id === entry.id); if (item) item.value = inputValue(event); })}></label>
-                  ${this.enabledToggle(entry.enabled, (enabled) => this.mutate((profile) => { const item = profile.queryParams.find(({ id }) => id === entry.id); if (item) item.enabled = enabled; }))}
-                  <button class="icon-button danger" title="Eliminar query param" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar el query param «${entry.key || "sin clave"}»?` })) this.mutate((profile) => { profile.queryParams = profile.queryParams.filter(({ id }) => id !== entry.id); }); }}>Eliminar</button>
-                </div>
-              `)}
-              ${this.profile.queryParams.length === 0 ? html`<empty-state message="No hay query params."></empty-state>` : nothing}
-            </div>
-            <button slot="actions" @click=${() => this.mutate((profile) => { profile.queryParams.push(createQueryParam(crypto.randomUUID())); })}>+ Añadir</button>
+            ${renderQueryParamEditor(this.profile.queryParams, {
+              add: () => this.mutate((profile) => { profile.queryParams.push(createQueryParam(crypto.randomUUID())); }),
+              update: (id, change) => this.mutate((profile) => { const item = profile.queryParams.find((entry) => entry.id === id); if (item) change(item); }),
+              remove: (id) => this.mutate((profile) => { profile.queryParams = profile.queryParams.filter((entry) => entry.id !== id); }),
+              confirmDeletion: this.confirmations.confirm
+            })}
           </section-card>
 
           ${this.renderHeaders()}
@@ -182,6 +181,7 @@ class ManualApp extends LitElement {
         @json-editor-close=${this.closeJsonEditor}
         @json-editor-apply=${this.applyJson}
       ></json-document-editor>`}
+      ${this.unsavedMessage === null ? nothing : html`<unsaved-changes-dialog .message=${this.unsavedMessage} @unsaved-choice=${this.resolveUnsavedChoice}></unsaved-changes-dialog>`}
     `;
   }
 
@@ -190,22 +190,14 @@ class ManualApp extends LitElement {
     if (profile === null) return nothing;
     return html`
       <section-card heading="Headers" description="Cabeceras que se aplicarán al contexto del navegador.">
-        <div class="rows">
-          ${profile.headers.map((entry) => html`
-            <div class="data-row key-value-row">
-              <input aria-label="Clave" placeholder="Key" .value=${entry.key} @input=${(event: Event) => this.mutate((draft) => { const item = draft.headers.find(({ id }) => id === entry.id); if (item) item.key = inputValue(event); })}>
-              <input aria-label="Valor" placeholder="Value" .value=${entry.value} @input=${(event: Event) => this.mutate((draft) => { const item = draft.headers.find(({ id }) => id === entry.id); if (item) item.value = inputValue(event); })}>
-              ${this.enabledToggle(entry.enabled, (enabled) => this.mutate((draft) => { const item = draft.headers.find(({ id }) => id === entry.id); if (item) item.enabled = enabled; }))}
-              <button @click=${() => this.apply("headers", entry.id)}>Aplicar</button>
-              <button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar el header «${entry.key || "sin clave"}»?` })) this.mutate((draft) => { draft.headers = draft.headers.filter(({ id }) => id !== entry.id); }); }}>Eliminar</button>
-            </div>
-          `)}
-          ${profile.headers.length === 0 ? html`<empty-state message="No hay headers."></empty-state>` : nothing}
-        </div>
-        <div slot="actions" class="slot-actions">
-          <button @click=${() => this.mutate((draft) => { draft.headers.push(createHeader(crypto.randomUUID())); })}>+ Añadir</button>
-          <button @click=${() => this.apply("headers", null)}>Aplicar todos</button>
-        </div>
+        ${renderHeaderEditor(profile.headers, {
+          add: () => this.mutate((draft) => { draft.headers.push(createHeader(crypto.randomUUID())); }),
+          update: (id, change) => this.mutate((draft) => { const item = draft.headers.find((entry) => entry.id === id); if (item) change(item); }),
+          remove: (id) => this.mutate((draft) => { draft.headers = draft.headers.filter((entry) => entry.id !== id); }),
+          confirmDeletion: this.confirmations.confirm,
+          apply: (id) => this.apply("headers", id),
+          applyAll: () => this.apply("headers", null)
+        })}
       </section-card>
     `;
   }
@@ -215,31 +207,14 @@ class ManualApp extends LitElement {
     if (profile === null) return nothing;
     return html`
       <section-card heading="Cookies" description="Cada cookie mantiene sus atributos completos en los detalles.">
-        <div class="rows">
-          ${profile.cookies.map((cookie) => html`
-            <details class="row-details">
-              <summary>
-                <span>${cookie.name || "Cookie sin nombre"}</span>
-                <small>${cookie.domain || "Dominio pendiente"}</small>
-                <span class=${cookie.enabled ? "enabled-mark" : "disabled-mark"}>${cookie.enabled ? "Activa" : "Inactiva"}</span>
-              </summary>
-              <div class="details-grid cookie-grid">
-                ${this.textField("Nombre", cookie.name, (value) => this.updateCookie(cookie.id, (item) => { item.name = value; }))}
-                ${this.textField("Valor", cookie.value, (value) => this.updateCookie(cookie.id, (item) => { item.value = value; }))}
-                ${this.textField("Dominio", cookie.domain, (value) => this.updateCookie(cookie.id, (item) => { item.domain = value; }))}
-                ${this.textField("Path", cookie.path, (value) => this.updateCookie(cookie.id, (item) => { item.path = value; }))}
-                <label><span>Expira</span><input type="datetime-local" .value=${cookie.expires ?? ""} @input=${(event: Event) => this.updateCookie(cookie.id, (item) => { item.expires = inputValue(event) || null; })}></label>
-                <label><span>SameSite</span><select .value=${cookie.sameSite} @change=${(event: Event) => this.updateCookie(cookie.id, (item) => { item.sameSite = inputValue(event) as "Strict" | "Lax" | "None"; })}><option>Strict</option><option>Lax</option><option>None</option></select></label>
-                ${this.enabledToggle(cookie.secure, (value) => this.updateCookie(cookie.id, (item) => { item.secure = value; }), "Secure")}
-                ${this.enabledToggle(cookie.httpOnly, (value) => this.updateCookie(cookie.id, (item) => { item.httpOnly = value; }), "HttpOnly")}
-                ${this.enabledToggle(cookie.enabled, (value) => this.updateCookie(cookie.id, (item) => { item.enabled = value; }))}
-              </div>
-              <div class="row-actions"><button @click=${() => this.apply("cookies", cookie.id)}>Aplicar</button><button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar la cookie «${cookie.name || "sin nombre"}»?` })) this.mutate((draft) => { draft.cookies = draft.cookies.filter(({ id }) => id !== cookie.id); }); }}>Eliminar</button></div>
-            </details>
-          `)}
-          ${profile.cookies.length === 0 ? html`<empty-state message="No hay cookies."></empty-state>` : nothing}
-        </div>
-        <div slot="actions" class="slot-actions"><button @click=${() => this.mutate((draft) => { draft.cookies.push(createCookie(crypto.randomUUID())); })}>+ Añadir</button><button @click=${() => this.apply("cookies", null)}>Aplicar todas</button></div>
+        ${renderCookieEditor(profile.cookies, {
+          add: () => this.mutate((draft) => { draft.cookies.push(createCookie(crypto.randomUUID())); }),
+          update: (id, change) => this.updateCookie(id, change),
+          remove: (id) => this.mutate((draft) => { draft.cookies = draft.cookies.filter((entry) => entry.id !== id); }),
+          confirmDeletion: this.confirmations.confirm,
+          apply: (id) => this.apply("cookies", id),
+          applyAll: () => this.apply("cookies", null)
+        })}
       </section-card>
     `;
   }
@@ -250,26 +225,14 @@ class ManualApp extends LitElement {
     const entries = profile[scope];
     return html`
       <section-card heading=${title} description="Valores tipados y validados antes de enviarse al navegador.">
-        <div class="rows">
-          ${entries.map((entry) => {
-            const validation = parseStorageValue(entry.valueType, entry.value);
-            return html`
-              <div class="data-row storage-row">
-                <input aria-label="Clave" placeholder="Key" .value=${entry.key} @input=${(event: Event) => this.updateStorage(scope, entry.id, (item) => { item.key = inputValue(event); })}>
-                <select aria-label="Tipo" .value=${entry.valueType} @change=${(event: Event) => this.updateStorage(scope, entry.id, (item) => { item.valueType = inputValue(event) as StorageValueType; if (item.valueType === "null") item.value = "null"; })}>
-                  <option value="string">string</option><option value="number">number</option><option value="boolean">boolean</option><option value="json">JSON</option><option value="null">null</option>
-                </select>
-                <input aria-label="Valor" placeholder="Value" .value=${entry.value} ?disabled=${entry.valueType === "null"} @input=${(event: Event) => this.updateStorage(scope, entry.id, (item) => { item.value = inputValue(event); })}>
-                ${this.enabledToggle(entry.enabled, (enabled) => this.updateStorage(scope, entry.id, (item) => { item.enabled = enabled; }))}
-                <button @click=${() => this.apply(scope, entry.id)}>Aplicar</button>
-                <button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar la entrada «${entry.key || "sin clave"}» de ${title}?` })) this.mutate((draft) => { draft[scope] = draft[scope].filter(({ id }) => id !== entry.id); }); }}>Eliminar</button>
-                ${validation.ok ? nothing : html`<validation-message class="row-validation" .message=${validation.error}></validation-message>`}
-              </div>
-            `;
-          })}
-          ${entries.length === 0 ? html`<empty-state message="No hay valores definidos."></empty-state>` : nothing}
-        </div>
-        <div slot="actions" class="slot-actions"><button @click=${() => this.mutate((draft) => { draft[scope].push(createStorageEntry(crypto.randomUUID())); })}>+ Añadir</button><button @click=${() => this.apply(scope, null)}>Aplicar todos</button></div>
+        ${renderStorageEditor(entries, {
+          add: () => this.mutate((draft) => { draft[scope].push(createStorageEntry(crypto.randomUUID())); }),
+          update: (id, change) => this.updateStorage(scope, id, change),
+          remove: (id) => this.mutate((draft) => { draft[scope] = draft[scope].filter((entry) => entry.id !== id); }),
+          confirmDeletion: this.confirmations.confirm,
+          apply: (id) => this.apply(scope, id),
+          applyAll: () => this.apply(scope, null)
+        })}
       </section-card>
     `;
   }
@@ -327,6 +290,7 @@ class ManualApp extends LitElement {
                 ${this.textField("Selector CSS", binding.selector, (value) => this.updateBinding(binding.id, (item) => { item.selector = value; }))}
                 <label><span>Propiedad</span><select .value=${binding.propertyKind} @change=${(event: Event) => this.updateBinding(binding.id, (item) => { item.propertyKind = inputValue(event) as GeneratorBinding["propertyKind"]; })}><option value="value">value</option><option value="textContent">textContent</option><option value="innerText">innerText</option><option value="checked">checked</option><option value="attribute">attribute</option><option value="property">custom property</option></select></label>
                 ${this.renderResourceSelector(binding)}
+                ${binding.generatorType === "string" ? this.textField("Texto", binding.literalValue ?? "", (value) => this.updateBinding(binding.id, (item) => { item.literalValue = value; })) : nothing}
                 ${binding.propertyKind === "attribute" || binding.propertyKind === "property" ? this.textField("Nombre de propiedad", binding.propertyName, (value) => this.updateBinding(binding.id, (item) => { item.propertyName = value; })) : nothing}
                 ${binding.generatorType === "number" ? html`${this.textField("Mínimo", binding.min, (value) => this.updateBinding(binding.id, (item) => { item.min = value; }), "number")}${this.textField("Máximo", binding.max, (value) => this.updateBinding(binding.id, (item) => { item.max = value; }), "number")}` : nothing}
                 <label><span>Escritura</span><select .value=${binding.inputMode} @change=${(event: Event) => this.updateBinding(binding.id, (item) => { item.inputMode = inputValue(event) as GeneratorBinding["inputMode"]; })}><option value="instant">Instantánea</option><option value="sequential">Secuencial</option></select></label>
@@ -356,11 +320,18 @@ class ManualApp extends LitElement {
       this.browser = message.state.browser;
       this.previews = {};
       this.pendingPortableResources = null;
+      if (this.awaitingSaveTransition) {
+        const transition = this.pendingTransition;
+        this.awaitingSaveTransition = false;
+        this.pendingTransition = null;
+        transition?.();
+      }
     } else if (message.type === "manual.resources") {
       this.formulas = message.resources.formulas;
       this.arrays = message.resources.arrays;
     } else if (message.type === "manual.notice") {
       this.notice = { tone: message.tone, message: message.message };
+      if (message.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
     } else if (message.type === "manual.jsonDocument") {
       this.jsonDocument = message.serialized;
       this.notice = { tone: "info", message: "" };
@@ -394,32 +365,48 @@ class ManualApp extends LitElement {
     if (this.profile === null) return;
     const draft = structuredClone(this.profile);
     change(draft);
+    const size = assessDocumentSize(JSON.stringify(draft));
+    if (size.exceedsLimit) {
+      this.notice = { tone: "error", message: documentSizeLimitMessage(size.bytes) };
+      this.requestUpdate();
+      return;
+    }
     this.profile = draft;
+    if (size.shouldWarn) this.notice = { tone: "warning", message: `El perfil ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` };
     this.requestUpdate();
   }
 
   private readonly selectProfile = (event: Event): void => {
     if (this.profile === null) return;
-    if (this.hasUnsavedChanges() && !window.confirm("Hay cambios sin guardar. ¿Quieres descartarlos?")) {
-      if (event.currentTarget instanceof HTMLSelectElement) event.currentTarget.value = this.profile.id;
-      return;
-    }
-    this.post({ type: "manual.select", id: inputValue(event) });
+    const id = inputValue(event);
+    if (event.currentTarget instanceof HTMLSelectElement) event.currentTarget.value = this.profile.id;
+    this.guardTransition(() => this.post({ type: "manual.select", id }), "¿Guardar el perfil antes de cambiar de selección?");
   };
 
   private readonly newProfile = (): void => {
-    if (this.profile !== null && this.hasUnsavedChanges() && !window.confirm("Hay cambios sin guardar. ¿Quieres crear otro perfil y descartarlos?")) return;
-    this.post({ type: "manual.new" });
+    this.guardTransition(() => this.post({ type: "manual.new" }), "¿Guardar el perfil antes de crear otro?");
   };
 
   private readonly saveProfile = (): void => { if (this.profile) this.post({ type: "manual.save", profile: this.profile, resources: this.pendingPortableResources }); };
   private readonly exportProfile = (): void => { if (this.profile) this.post({ type: "manual.export", profile: this.profile, resources: this.pendingPortableResources }); };
   private readonly viewJson = (): void => { if (this.profile) this.post({ type: "manual.viewJson", profile: this.profile, resources: this.pendingPortableResources }); };
   private readonly importProfile = (): void => {
-    if (this.profile !== null && this.hasUnsavedChanges() && !window.confirm("Hay cambios sin guardar. ¿Quieres importar otro perfil y descartarlos?")) return;
-    this.post({ type: "manual.import" });
+    this.guardTransition(() => this.post({ type: "manual.import" }), "¿Guardar el perfil antes de importar?");
   };
   private hasUnsavedChanges(): boolean { return this.profile !== null && (isProfileDirty(this.profile, this.savedProfile) || this.pendingPortableResources !== null); }
+  private guardTransition(transition: () => void, message: string): void {
+    if (!this.hasUnsavedChanges()) { transition(); return; }
+    this.pendingTransition = transition;
+    this.unsavedMessage = message;
+    this.requestUpdate();
+  }
+  private readonly resolveUnsavedChoice = (event: CustomEvent<UnsavedChangesChoice>): void => {
+    this.unsavedMessage = null;
+    if (event.detail === "cancel") this.pendingTransition = null;
+    else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
+    else { this.awaitingSaveTransition = true; this.saveProfile(); }
+    this.requestUpdate();
+  };
   private readonly deleteProfile = (): void => {
     if (this.profile) this.post({ type: "manual.delete", id: this.profile.id, name: this.profile.name });
   };

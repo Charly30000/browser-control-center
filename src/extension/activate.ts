@@ -2,8 +2,13 @@ import * as vscode from "vscode";
 import { createApplicationServices } from "./compositionRoot";
 import { SidebarProvider } from "./sidebar/sidebarProvider";
 
+let shutdown: (() => Promise<void>) | null = null;
+
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
   const services = createApplicationServices(context);
+  shutdown = async () => {
+    await services.browserActions.stop(true).catch(() => undefined);
+  };
   await services.dataDao.initialize();
   await services.automationService.initialize();
   const sidebar = new SidebarProvider(context.extensionUri, services.browserSelection, services.browserActions, () => services.browserManagement.open());
@@ -25,4 +30,8 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
   );
 };
 
-export const deactivate = (): void => undefined;
+export const deactivate = async (): Promise<void> => {
+  const action = shutdown;
+  shutdown = null;
+  await action?.();
+};

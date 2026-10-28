@@ -1,6 +1,6 @@
 # Frontera común de importación y exportación
 
-**Estado:** aceptado.
+**Estado:** decisión aplicada por requisitos del proyecto.
 
 Manual, Fórmulas, Arrays y Automatizaciones comparten un envelope JSON:
 
@@ -22,6 +22,6 @@ La implementación se divide en tres carpetas:
 - `src/application/importExport`: decodificación, compatibilidad, resolución de identidades y fusión;
 - `src/extension/importExport`: selección, lectura y escritura de archivos mediante VS Code.
 
-Las importaciones no reemplazan datos. Una coincidencia de ID o nombre regenera ambos campos; los nombres se comparan sin distinguir mayúsculas ni espacios exteriores. Los nombres nuevos reciben sufijos `-1`, `-2`, etc. En automatizaciones, la fusión conserva el documento actual, añade grupos y repara los extremos de cada conexión cuando cambia el ID de un nodo.
+Las importaciones no reemplazan datos. Si coinciden ID y contenido serializado se reutiliza la entidad; el mismo ID con contenido distinto genera una nueva identidad. Una colisión de nombre también genera identidad y nombre con sufijo `-1`, `-2`, etc. En automatizaciones, la fusión conserva el documento actual, añade grupos y repara los extremos de cada conexión cuando cambia el ID de un nodo.
 
-Antes de mutar datos se comprueban el JSON, el formato, la versión, la estructura y las reglas semánticas disponibles. También se rechazan IDs duplicados dentro de colecciones, texto que no sea UTF-8 y archivos mayores de 5 MB. Los nombres de archivo sugeridos se sanean para evitar caracteres y nombres reservados de Windows. Se mantienen lectores heredados para los JSON directos de Manual y Automatizaciones y para los envelopes de recursos anteriores sin `exportedAt`.
+Antes de mutar datos se comprueban el JSON, el formato, la versión, la estructura y las reglas semánticas disponibles. También se rechazan IDs duplicados dentro de colecciones, texto que no sea UTF-8 y documentos mayores de 100 MiB; los editores avisan desde el 80 %. Los nombres de archivo sugeridos se sanean para evitar caracteres y nombres reservados de Windows. Se mantienen lectores heredados para los JSON directos de Manual y Automatizaciones y para los envelopes de recursos anteriores sin `exportedAt`.

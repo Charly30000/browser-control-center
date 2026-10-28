@@ -1,8 +1,8 @@
 import type { FormulaResource } from "./formula";
 import { failure, success, type Result } from "../../shared/result";
 
-const generateDeclaration = /\bfunction\s+generate\s*\(\s*\)\s*\{/;
-const parameterizedGenerate = /\bfunction\s+generate\s*\(([^)]*)\)/;
+const generateDeclaration = /\b(?:async\s+)?function\s+generate\s*\(\s*\)\s*\{/;
+const parameterizedGenerate = /\b(?:async\s+)?function\s+generate\s*\(([^)]*)\)/;
 
 export const validateFormula = (formula: FormulaResource): Result<FormulaResource> => {
   if (formula.name.trim() === "") return failure("El nombre de la fórmula es obligatorio.");

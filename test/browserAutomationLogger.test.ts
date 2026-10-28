@@ -30,6 +30,7 @@ describe("BrowserAutomationLogger", () => {
 
     expect(output.calls.clear).toHaveBeenCalledTimes(1);
     expect(output.calls.show).toHaveBeenCalledOnce();
+    expect(output.calls.show).toHaveBeenCalledWith(false);
     expect(output.calls.clear.mock.invocationCallOrder[0]).toBeLessThan(output.calls.show.mock.invocationCallOrder[0] ?? 0);
   });
 
@@ -44,5 +45,18 @@ describe("BrowserAutomationLogger", () => {
     expect(output.calls.appendLine).toHaveBeenCalledWith(expect.stringMatching(/\[info\] \[OK\] Proceso correcto$/));
     expect(output.calls.appendLine).toHaveBeenCalledWith(expect.stringContaining("[error] [ERROR] Proceso fallido"));
     expect(output.calls.appendLine).toHaveBeenCalledWith(expect.stringContaining("fallo visible"));
+  });
+
+  it("redacta credenciales antes de escribir mensajes y errores", () => {
+    const output = outputChannel();
+    const logger = new BrowserAutomationLogger(output.channel);
+
+    logger.error("Authorization: Bearer secreto https://example.test/?token=abc", new Error('{"password":"clave"}'));
+
+    const serialized = output.calls.appendLine.mock.calls.join("\n");
+    expect(serialized).not.toContain("secreto");
+    expect(serialized).not.toContain("token=abc");
+    expect(serialized).not.toContain("clave");
+    expect(serialized).toContain("[REDACTADO]");
   });
 });

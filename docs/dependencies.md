@@ -24,4 +24,10 @@ Se descartaron `playwright` por incluir capacidades de instalación que no neces
 
 Las dependencias de desarrollo no se necesitan en el VSIX.
 
-La Fase 4 no añade dependencias. El Flow Canvas está construido con Lit, SVG y Pointer Events sobre la infraestructura existente.
+### `@vscode/vsce` — MIT
+
+Herramienta oficial de desarrollo para validar y empaquetar el VSIX de forma reproducible. Solo se ejecuta mediante `npm run package` y no forma parte del artefacto publicado.
+
+`@vscode/test-electron` no está instalado. No es necesario para publicar; solo se incorporará si se aprueba automatizar pruebas de Extension Host con una descarga de VS Code para testing.
+
+El Flow Canvas está construido con Lit, SVG y Pointer Events sobre la infraestructura existente y no añade una librería de grafos.

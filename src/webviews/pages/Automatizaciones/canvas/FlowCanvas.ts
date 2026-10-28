@@ -50,22 +50,22 @@ export class FlowCanvas extends LitElement {
     const selectionRect = this.selectionEnd === null
       ? null
       : normalizeRect(worldToScreen(this.startWorld, this.viewport), worldToScreen(this.selectionEnd, this.viewport));
-    return html`<div class="flow-canvas" tabindex="0" @keydown=${this.onKeyDown} @keyup=${this.onKeyUp} @wheel=${this.onWheel} @pointerdown=${this.onCanvasPointerDown}>
+    return html`<div class="flow-canvas" tabindex="0" role="application" aria-label="Editor visual de automatización" @keydown=${this.onKeyDown} @keyup=${this.onKeyUp} @wheel=${this.onWheel} @pointerdown=${this.onCanvasPointerDown}>
       <div class="canvas-grid" style=${`transform:translate(${this.viewport.pan.x}px,${this.viewport.pan.y}px) scale(${this.viewport.zoom})`}>
-        ${renderEdgeLayer(this._nodes, this._edges, pending, this.selectedEdgeId, { onSelect: this.onEdgePointerDown, onRemove: this.onEdgeRemovePointerDown })}
+        ${renderEdgeLayer(this._nodes, this._edges, pending, this.selectedEdgeId, { onSelect: this.onEdgePointerDown, onRemove: this.onEdgeRemovePointerDown, onKeyDown: this.onEdgeKeyDown })}
         ${renderNodeLayer(
           this._nodes,
           selected,
           this._descriptors,
           this._states,
           { sourceNodeId: pending?.sourceNodeId ?? null, targetNodeId: pending?.targetNodeId ?? null },
-          { onNodePointerDown: this.onNodePointerDown, onOutputPointerDown: this.onOutputPointerDown, onRemovePointerDown: this.onNodeRemovePointerDown },
+          { onNodePointerDown: this.onNodePointerDown, onNodeKeyDown: this.onNodeKeyDown, onOutputPointerDown: this.onOutputPointerDown, onOutputKeyDown: this.onOutputKeyDown, onInputKeyDown: this.onInputKeyDown, onRemovePointerDown: this.onNodeRemovePointerDown },
         )}
       </div>
       ${selectionRect === null ? null : html`<div class="selection-rectangle" style=${`left:${selectionRect.x}px;top:${selectionRect.y}px;width:${selectionRect.width}px;height:${selectionRect.height}px`}></div>`}
       <div class="canvas-help">Arrastra una card para moverla · Arrastra desde su salida para conectarla · Arrastra el fondo para seleccionar varias</div>
       ${selected.size === 0 ? null : html`<div class="selection-count">${selected.size} ${selected.size === 1 ? "nodo seleccionado" : "nodos seleccionados"}</div>`}
-      <div class="canvas-controls"><button title="Deshacer" @click=${this.undo}>↶</button><button title="Rehacer" @click=${this.redo}>↷</button><button title="Alejar" @click=${() => this.zoomBy(1 / 1.2)}>−</button><button title="Restablecer zoom" @click=${this.resetViewport}>100%</button><button title="Acercar" @click=${() => this.zoomBy(1.2)}>+</button><span>${Math.round(this.viewport.zoom * 100)}%</span></div>
+      <div class="canvas-controls"><button title="Deshacer" aria-label="Deshacer" @click=${this.undo}>↶</button><button title="Rehacer" aria-label="Rehacer" @click=${this.redo}>↷</button><button title="Alejar" aria-label="Alejar" @click=${() => this.zoomBy(1 / 1.2)}>−</button><button title="Restablecer zoom" aria-label="Restablecer zoom" @click=${this.resetViewport}>100%</button><button title="Acercar" aria-label="Acercar" @click=${() => this.zoomBy(1.2)}>+</button><span aria-live="polite">${Math.round(this.viewport.zoom * 100)}%</span></div>
     </div>`;
   }
 
@@ -100,6 +100,55 @@ export class FlowCanvas extends LitElement {
     const source = this._nodes.find(({ id }) => id === nodeId);
     const point = source === undefined ? screenToWorld(this.localPoint(event), this.viewport) : this.outputPort(source);
     this.connections.start(nodeId, point); this.requestUpdate();
+  };
+
+  private readonly onNodeKeyDown = (event: KeyboardEvent, nodeId: string): void => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key === "Enter" || event.key === " ") {
+      this.selection.select(nodeId, event.ctrlKey || event.metaKey || event.shiftKey);
+      this.selectedEdgeId = null;
+      this.emitSelection();
+      this.requestUpdate();
+      event.preventDefault();
+      return;
+    }
+    if (event.key === "Delete" || event.key === "Backspace") {
+      this.removeNodes(new Set([nodeId]));
+      event.preventDefault();
+      return;
+    }
+    const directions: Readonly<Record<string, Point>> = {
+      ArrowLeft: { x: -1, y: 0 }, ArrowRight: { x: 1, y: 0 }, ArrowUp: { x: 0, y: -1 }, ArrowDown: { x: 0, y: 1 }
+    };
+    const direction = directions[event.key];
+    if (direction === undefined) return;
+    const step = event.shiftKey ? 10 : 1;
+    this.pushHistory();
+    this._nodes = this._nodes.map((node) => node.id === nodeId
+      ? { ...node, position: { x: node.position.x + direction.x * step, y: node.position.y + direction.y * step } }
+      : node);
+    this.emitGraph();
+    event.preventDefault();
+  };
+
+  private readonly onOutputKeyDown = (event: KeyboardEvent, nodeId: string): void => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const source = this._nodes.find(({ id }) => id === nodeId);
+    if (source === undefined) return;
+    this.connections.start(nodeId, this.outputPort(source));
+    this.selectedEdgeId = null;
+    this.requestUpdate();
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  private readonly onInputKeyDown = (event: KeyboardEvent, nodeId: string): void => {
+    if ((event.key !== "Enter" && event.key !== " ") || this.connections.snapshot() === null) return;
+    const changed = this.finishConnection(nodeId);
+    if (this.connections.snapshot() !== null) this.connections.cancel();
+    if (changed) this.emitGraph(); else this.requestUpdate();
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   private readonly onNodeRemovePointerDown = (event: PointerEvent, nodeId: string): void => {
@@ -155,6 +204,19 @@ export class FlowCanvas extends LitElement {
   private readonly onEdgeRemovePointerDown = (event: PointerEvent, edgeId: string): void => {
     if (event.button !== 0) return;
     event.preventDefault(); event.stopPropagation(); this.removeEdge(edgeId);
+  };
+
+  private readonly onEdgeKeyDown = (event: KeyboardEvent, edgeId: string): void => {
+    if (event.key === "Enter" || event.key === " ") {
+      this.selectedEdgeId = edgeId;
+      this.selection.replace([]);
+      this.emitSelection();
+      this.requestUpdate();
+      event.preventDefault();
+    } else if (event.key === "Delete" || event.key === "Backspace") {
+      this.removeEdge(edgeId);
+      event.preventDefault();
+    }
   };
 
   private removeEdge(edgeId: string): void {

@@ -24,6 +24,11 @@ export class ResourceImportService {
     const idMap = new Map<string, string>();
 
     for (const resource of imported) {
+      const sameIdentity = existing.find(({ id }) => id === resource.id);
+      if (sameIdentity !== undefined && JSON.stringify(sameIdentity) === JSON.stringify(resource)) {
+        idMap.set(resource.id, sameIdentity.id);
+        continue;
+      }
       const identity = resolveImportedIdentity(resource, occupiedIds, occupiedNames, createId);
       const resolved = identityFactory.withIdentity(resource, identity.id, identity.name, now);
       resourcesToSave.push(resolved);

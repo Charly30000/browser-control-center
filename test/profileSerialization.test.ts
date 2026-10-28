@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyManualProfile, createHeader } from "../src/domain/manual/manualProfile";
+import { createEmptyManualProfile, createGeneratorBinding, createHeader } from "../src/domain/manual/manualProfile";
 import { deserializeProfile, serializeProfile } from "../src/infrastructure/persistence/profileSerializer";
 
 describe("serialización de perfiles", () => {
@@ -8,6 +8,16 @@ describe("serialización de perfiles", () => {
     profile.headers.push({ ...createHeader("header-1"), key: "X-Test", value: "true" });
     const result = deserializeProfile(serializeProfile(profile));
     expect(result).toEqual({ ok: true, value: profile });
+  });
+
+  it("conserva texto fijo y admite bindings v2 anteriores sin ese campo", () => {
+    const profile = createEmptyManualProfile("profile-1", "QA");
+    profile.generatorBindings.push({ ...createGeneratorBinding("binding-1"), literalValue: "Ada" });
+    expect(deserializeProfile(serializeProfile(profile))).toEqual({ ok: true, value: profile });
+
+    const legacyShape = structuredClone(profile);
+    delete legacyShape.generatorBindings[0]?.literalValue;
+    expect(deserializeProfile(JSON.stringify(legacyShape)).ok).toBe(true);
   });
 
   it("rechaza versiones desconocidas", () => {

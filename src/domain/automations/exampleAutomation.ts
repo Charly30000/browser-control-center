@@ -177,8 +177,8 @@ export const createCompleteAutomationExample = (createId: () => string): Automat
   addProcess("03 · Request Override", (add) => { addOverrides(add); addNavigate(add); add("assertion", { kind: "text-equals", selector: "h1", expected: "Ejemplo local de Automatizaciones" }); });
   addProcess("04 · Navigate", (add) => { addOverrides(add); addNavigate(add); add("assertion", { kind: "url-equals", selector: "", expected: AUTOMATION_EXAMPLE_URL }); });
   addProcess("05 · Click", (add) => { addOverrides(add); addNavigate(add); add("click", { selector: "#apply" }); add("assertion", { kind: "text-equals", selector: "#result", expected: "Hola, " }); });
-  addProcess("06 · Fill", (add) => { addOverrides(add); addNavigate(add); add("fill", { selector: "#name", value: "Ada", mode: "instant", delayMs: 0 }); add("assertion", { kind: "value-equals", selector: "#name", expected: "Ada" }); });
-  addProcess("07 · Generate Value", (add) => { addOverrides(add); addNavigate(add); add("generate-value", { generatorType: "firstName", outputVariable: "demoName", min: "0", max: "100", resourceId: null }); add("fill", { selector: "#name", value: "{demoName}", mode: "instant", delayMs: 0 }); add("assertion", { kind: "value-equals", selector: "#name", expected: "{demoName}" }); });
+  addProcess("06 · Campo con texto", (add) => { addOverrides(add); addNavigate(add); add("fill", { selector: "#name", generatorType: "string", value: "Ada", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 }); add("assertion", { kind: "value-equals", selector: "#name", expected: "Ada" }); });
+  addProcess("07 · Campo con generador", (add) => { addOverrides(add); addNavigate(add); add("fill", { selector: "#name", generatorType: "firstName", value: "", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 }); add("assertion", { kind: "visible", selector: "#name", expected: "" }); });
   addProcess("08 · Set Headers", (add) => { addOverrides(add); addHeaders(add); addNavigate(add); addApiInteraction(add, "Ada"); add("validate-data", { source: "request", urlPattern: "/api/example", key: "", pathPreset: "custom", path: "headers.x-example-header", operator: "equals", expected: "automation-demo" }); });
   addProcess("09 · Set Cookies", (add) => { addOverrides(add); addCookie(add); addNavigate(add); add("validate-data", { source: "cookie", urlPattern: "", key: "example-cookie", pathPreset: "value", path: "", operator: "equals", expected: "cookie-from-automation" }); });
   addProcess("10 · Set Storage", (add) => { addOverrides(add); addNavigate(add); addLocalStorage(add); addSessionStorage(add); add("validate-data", { source: "localStorage", urlPattern: "", key: "exampleUser", pathPreset: "custom", path: "name", operator: "equals", expected: "Ada" }); add("validate-data", { source: "sessionStorage", urlPattern: "", key: "exampleSession", pathPreset: "", path: "", operator: "equals", expected: "ready" }); });
@@ -192,7 +192,8 @@ export const createCompleteAutomationExample = (createId: () => string): Automat
     addOverrides(add); addHeaders(add); addCookie(add); addNavigate(add); addLocalStorage(add); addSessionStorage(add);
     add("fill", { selector: "#name", value: "{initialName}", mode: "instant", delayMs: 0 });
     add("assertion", { kind: "value-equals", selector: "#name", expected: "{initialName}" });
-    add("generate-value", { generatorType: "firstName", outputVariable: "demoName", min: "0", max: "100", resourceId: null });
+    add("fill", { selector: "#name", generatorType: "firstName", value: "", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 });
+    add("extract-value", { selector: "#name", property: "value", attribute: "", outputVariable: "demoName" });
     addApiInteraction(add, "{demoName}");
     add("assertion", { kind: "text-equals", selector: "#result", expected: "Hola, {demoName}" });
     addDataValidations(add, "{demoName}");

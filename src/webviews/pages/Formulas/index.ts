@@ -1,10 +1,12 @@
 import { LitElement, html, nothing } from "lit";
 import type { FormulaResource } from "../../../domain/formulas/formula";
+import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToFormulaMessage, FormulaToExtensionMessage } from "../../../shared/messages/formulaMessages";
 import type { NoticeTone } from "../../components/statusNotice";
 import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
+import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import "../../components/jsonDocumentEditor";
 import { vscodeApi } from "../../vscodeApi";
 import "../../components";
@@ -22,6 +24,9 @@ class FormulasApp extends LitElement {
   private selectedIds = new Set<string>();
   private notice: { tone: NoticeTone; message: string } = { tone: "info", message: "" };
   private jsonDocument: string | null = null;
+  private pendingTransition: (() => void) | null = null;
+  private awaitingSaveTransition = false;
+  private unsavedMessage: string | null = null;
 
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "formula.ready" }); }
@@ -35,10 +40,10 @@ class FormulasApp extends LitElement {
         <header class="page-header">
           <div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en el navegador seleccionado, en modo headless y aislado.</p></div>
           <div class="toolbar">
-            <button @click=${() => this.post({ type: "formula.new" })}>Agregar</button>
-            <button class="danger" @click=${() => this.post({ type: "formula.deleteSelected", ids: [...this.selectedIds] })}>Eliminar seleccionadas</button>
-            <button title="Carga una fórmula de ejemplo sin ejecutarla" @click=${() => this.post({ type: "formula.generateExample" })}>Generar ejemplo</button>
-            <button @click=${() => this.post({ type: "formula.import" })}>Importar</button>
+            <button @click=${() => this.guardTransition(() => this.post({ type: "formula.new" }), "¿Guardar la fórmula antes de crear otra?")}>Agregar</button>
+            <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "formula.deleteSelected", ids: [...this.selectedIds] }), "¿Guardar la fórmula actual antes de eliminar la selección?")}>Eliminar seleccionadas</button>
+            <button title="Carga una fórmula de ejemplo sin ejecutarla" @click=${() => this.guardTransition(() => this.post({ type: "formula.generateExample" }), "¿Guardar la fórmula antes de cargar el ejemplo?")}>Generar ejemplo</button>
+            <button @click=${() => this.guardTransition(() => this.post({ type: "formula.import" }), "¿Guardar la fórmula antes de importar?")}>Importar</button>
           </div>
         </header>
         <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
@@ -48,7 +53,7 @@ class FormulasApp extends LitElement {
             ${this.resources.length === 0 ? html`<p class="empty-list">No hay fórmulas guardadas.</p>` : html`
               <ul>${this.resources.map((item) => html`<li>
                 <input type="checkbox" aria-label=${`Seleccionar ${item.name}`} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
-                <button class=${item.id === this.resource?.id ? "resource-name current" : "resource-name"} @click=${() => this.post({ type: "formula.select", id: item.id })}>${item.name}</button>
+                <button class=${item.id === this.resource?.id ? "resource-name current" : "resource-name"} @click=${() => this.guardTransition(() => this.post({ type: "formula.select", id: item.id }), "¿Guardar la fórmula antes de cambiar de selección?")}>${item.name}</button>
               </li>`)}</ul>
             `}
           </aside>
@@ -56,11 +61,11 @@ class FormulasApp extends LitElement {
             <h2>Editor</h2>
             <div class="editor-content">
               <label><span>Nombre</span><input .value=${this.resource.name} @input=${(event: Event) => this.change((resource) => { resource.name = fieldValue(event); })}></label>
-              <label><span>Código — contrato: function generate() sin parámetros</span><textarea class="code-editor" spellcheck="false" .value=${this.resource.code} @input=${(event: Event) => this.change((resource) => { resource.code = fieldValue(event); })}></textarea></label>
+              <label><span>Código — contrato: function generate() sin parámetros</span><textarea class="code-editor" spellcheck="false" .value=${this.resource.code} @input=${this.changeCode}></textarea></label>
               <p class="execution-note">Probar ejecuta la fórmula sin red ni acceso a Node/VS Code y aplica un timeout duro de 2 segundos.</p>
               <div class="editor-actions">
                 <button @click=${() => this.post({ type: "formula.test", resource: this.resource! })}>Probar</button>
-                <button class="primary" @click=${() => this.post({ type: "formula.save", resource: this.resource! })}>Guardar</button>
+                <button class="primary" @click=${this.save}>Guardar</button>
                 <button @click=${() => this.post({ type: "formula.export", resource: this.resource! })}>Exportar</button>
                 <button @click=${() => this.post({ type: "formula.viewJson", resource: this.resource! })}>Ver JSON</button>
                 <span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
@@ -78,6 +83,7 @@ class FormulasApp extends LitElement {
         @json-editor-close=${this.closeJsonEditor}
         @json-editor-apply=${this.applyJson}
       ></json-document-editor>`}
+      ${this.unsavedMessage === null ? nothing : html`<unsaved-changes-dialog .message=${this.unsavedMessage} @unsaved-choice=${this.resolveUnsavedChoice}></unsaved-changes-dialog>`}
     `;
   }
 
@@ -87,6 +93,12 @@ class FormulasApp extends LitElement {
       this.savedResource = event.data.state.savedResource === null ? null : structuredClone(event.data.state.savedResource);
       this.resources = event.data.state.resources;
       this.selectedIds = new Set([...this.selectedIds].filter((id) => this.resources.some((resource) => resource.id === id)));
+      if (this.awaitingSaveTransition) {
+        const transition = this.pendingTransition;
+        this.awaitingSaveTransition = false;
+        this.pendingTransition = null;
+        transition?.();
+      }
     } else if (event.data.type === "formula.jsonDocument") {
       this.jsonDocument = event.data.serialized;
       this.notice = { tone: "info", message: "" };
@@ -95,6 +107,7 @@ class FormulasApp extends LitElement {
       this.jsonDocument = null;
     } else {
       this.notice = { tone: event.data.tone, message: event.data.message };
+      if (event.data.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
     }
     this.requestUpdate();
   };
@@ -114,6 +127,39 @@ class FormulasApp extends LitElement {
     this.resource = resource;
     this.requestUpdate();
   }
+
+  private readonly save = (): void => { if (this.resource !== null) this.post({ type: "formula.save", resource: this.resource }); };
+
+  private guardTransition(transition: () => void, message: string): void {
+    if (this.resource === null || !isResourceDirty(this.resource, this.savedResource)) { transition(); return; }
+    this.pendingTransition = transition;
+    this.unsavedMessage = message;
+    this.requestUpdate();
+  }
+
+  private readonly resolveUnsavedChoice = (event: CustomEvent<UnsavedChangesChoice>): void => {
+    this.unsavedMessage = null;
+    if (event.detail === "cancel") this.pendingTransition = null;
+    else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
+    else { this.awaitingSaveTransition = true; this.save(); }
+    this.requestUpdate();
+  };
+
+  private readonly changeCode = (event: Event): void => {
+    if (this.resource === null || !(event.currentTarget instanceof HTMLTextAreaElement)) return;
+    const candidate = event.currentTarget.value;
+    const size = assessDocumentSize(candidate);
+    if (size.exceedsLimit) {
+      event.currentTarget.value = this.resource.code;
+      this.notice = { tone: "error", message: documentSizeLimitMessage(size.bytes) };
+    } else {
+      this.change((resource) => { resource.code = candidate; });
+      this.notice = size.shouldWarn
+        ? { tone: "warning", message: `La fórmula ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` }
+        : { tone: "info", message: "" };
+    }
+    this.requestUpdate();
+  };
 
   private toggleSelection(id: string, event: Event): void {
     const checked = event.currentTarget instanceof HTMLInputElement && event.currentTarget.checked;

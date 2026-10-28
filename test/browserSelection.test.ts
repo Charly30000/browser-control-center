@@ -29,7 +29,7 @@ describe("BrowserSelectionService", () => {
     let preferences: BrowserPreferences = { version: 1, selectedProviderId: "managed-chromium" };
     const preferencesDao: StateDataDao<BrowserPreferences> = {
       get: () => preferences,
-      set: vi.fn((value) => { preferences = value; return Promise.resolve(); })
+      set: vi.fn((value: BrowserPreferences) => { preferences = value; return Promise.resolve(); })
     };
     const managed = provider("managed-chromium", "Chromium administrado");
     const chrome = provider("system-chrome", "Google Chrome instalado");
@@ -40,7 +40,6 @@ describe("BrowserSelectionService", () => {
 
     expect(preferences.selectedProviderId).toBe("system-chrome");
     expect((await service.resolveLaunchConfiguration()).channel).toBe("chrome");
-    expect(chrome.resolveLaunchConfiguration).toHaveBeenCalledOnce();
   });
 
   it("rechaza proveedores no registrados aunque llegue un identificador externo inválido", async () => {

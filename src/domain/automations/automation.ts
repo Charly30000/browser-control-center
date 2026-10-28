@@ -62,9 +62,9 @@ export const createAutomationGroup = (id: string, name = "Nuevo grupo"): Automat
 export const createAutomationProcess = (id: string, name = "Nuevo proceso"): AutomationProcess => ({ id, name, viewport: defaultViewport(), nodes: [], edges: [], variables: {} });
 
 const defaultConfigs: Record<AutomationNodeType, AutomationNodeConfig> = {
-  navigate: { url: "https://example.com" },
+  navigate: { url: "https://example.com", queryParams: [] },
   click: { selector: "" },
-  fill: { selector: "", value: "", mode: "instant", delayMs: 0 },
+  fill: { selector: "", generatorType: "string", value: "", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 },
   "generate-value": { generatorType: "firstName", outputVariable: "generatedValue", min: "0", max: "100", resourceId: null },
   "set-headers": { entries: [] },
   "set-cookies": { entries: [] },

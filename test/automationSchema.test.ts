@@ -17,6 +17,20 @@ describe("schema de automatizaciones", () => {
     expect(validateAutomationDocument(document, createDefaultNodeRegistry()).ok).toBe(false);
   });
 
+  it("permite guardar y visualizar borradores con nodos incompletos sin permitir ejecutarlos", () => {
+    const document = createAutomationDocument("automation");
+    const group = createAutomationGroup("group");
+    const process = createAutomationProcess("process");
+    const field = createAutomationNode("field", "fill", { x: 0, y: 0 });
+    field.config.selector = "";
+    process.nodes.push(field);
+    group.processes.push(process);
+    document.groups.push(group);
+
+    expect(validateAutomationDocument(document, createDefaultNodeRegistry()).ok).toBe(false);
+    expect(validateAutomationDocument(document, createDefaultNodeRegistry(), { validateNodeConfigs: false }).ok).toBe(true);
+  });
+
   it("conserva la configuración completa de todos los tipos de nodo", () => {
     const document = createAutomationDocument("automation", "2026-01-01T00:00:00.000Z");
     const group = createAutomationGroup("group", "Persistencia");

@@ -30,11 +30,11 @@ export class ArraysPanelManager implements vscode.Disposable {
     });
     this.panel = panel;
     panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "arrays", "Arrays");
-    panel.onDidDispose(() => { this.panel = null; }, undefined, this.disposables);
-    panel.webview.onDidReceiveMessage((message: unknown) => {
+    const messageSubscription = panel.webview.onDidReceiveMessage((message: unknown) => {
       if (!isArrayToExtensionMessage(message)) { void this.notice("error", "Mensaje de Arrays no válido."); return; }
       void this.handle(message);
-    }, undefined, this.disposables);
+    });
+    panel.onDidDispose(() => { messageSubscription.dispose(); this.panel = null; });
   }
 
   public dispose(): void { this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }

@@ -5,6 +5,10 @@ import { calculateCifControl, calculateDniLetter } from "../src/domain/generator
 const fixedRandom = (value: number): RandomSource => ({ next: () => value });
 
 describe("generadores", () => {
+  it("devuelve texto fijo sin transformarlo", () => {
+    expect(generateValue("string", { min: "0", max: "1", literalValue: "Texto literal" })).toEqual({ ok: true, value: "Texto literal" });
+  });
+
   it("usa la precisión máxima entre mínimo y máximo", () => {
     expect(decimalPlaces("1.2")).toBe(1);
     expect(decimalPlaces("2.345")).toBe(3);

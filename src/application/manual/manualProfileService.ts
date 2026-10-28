@@ -79,6 +79,10 @@ export class ManualProfileService {
 
   public async import(profileToImport: ManualProfile): Promise<ManualProfileState> {
     const metadata = this.metadataDao.get();
+    if (metadata.profiles.some(({ id }) => id === profileToImport.id)) {
+      const existing = await this.profileDao.load(profileToImport.id);
+      if (existing !== null && JSON.stringify(existing) === JSON.stringify(profileToImport)) return this.select(existing.id);
+    }
     const identity = resolveImportedIdentity(
       profileToImport,
       new Set(metadata.profiles.map(({ id }) => id)),

@@ -8,6 +8,20 @@ describe("NodeRegistry de automatizaciones", () => {
   it("registra todos los nodos iniciales con metadatos para paleta e inspector", () => {
     expect(registry.descriptors().map(({ type }) => type)).toEqual(AUTOMATION_NODE_TYPES);
     expect(registry.descriptors().every(({ title, category, inspectorFields }) => title !== "" && category !== "" && Array.isArray(inspectorFields))).toBe(true);
+    expect(registry.descriptors().find(({ type }) => type === "fill")).toMatchObject({ title: "Campo", availableInPalette: true });
+    expect(registry.descriptors().find(({ type }) => type === "generate-value")?.availableInPalette).toBe(false);
+  });
+
+  it("acepta texto y generadores directamente en Campo", () => {
+    expect(registry.validate("fill", { selector: "#name", value: "Ada", mode: "instant", delayMs: 0 }).ok).toBe(true);
+    expect(registry.validate("fill", { selector: "#name", generatorType: "firstName", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 }).ok).toBe(true);
+    expect(registry.validate("fill", { selector: "#name", generatorType: "formula", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 }).ok).toBe(false);
+  });
+
+  it("valida query params y valores de storage estructurados", () => {
+    expect(registry.validate("navigate", { url: "https://example.com", queryParams: [{ id: "query", key: "page", value: "2", enabled: true }] }).ok).toBe(true);
+    expect(registry.validate("navigate", { url: "https://example.com", queryParams: [{ id: "query", key: 1, value: "2", enabled: true }] }).ok).toBe(false);
+    expect(registry.validate("set-storage", { scope: "local", entries: [{ id: "entry", key: "data", value: "{", valueType: "json", enabled: true }] }).ok).toBe(false);
   });
 
   it("rechaza configuraciones semánticamente inválidas", () => {

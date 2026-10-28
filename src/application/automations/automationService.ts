@@ -12,7 +12,7 @@ export class AutomationService {
   public async initialize(): Promise<void> { this.document = await this.automationDao.load() ?? createAutomationDocument(randomUUID()); }
   public get(): AutomationDocument { if (this.document === null) throw new Error("AutomationService no está inicializado."); return structuredClone(this.document); }
   public async save(draft: AutomationDocument): Promise<AutomationDocument> {
-    const validation = validateAutomationDocument(draft, this.registry); if (!validation.ok) throw new Error(validation.error);
+    const validation = validateAutomationDocument(draft, this.registry, { validateNodeConfigs: false }); if (!validation.ok) throw new Error(validation.error);
     const saved = { ...structuredClone(draft), updatedAt: new Date().toISOString() };
     await this.automationDao.save(saved); this.document = saved; return structuredClone(saved);
   }

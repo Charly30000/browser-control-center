@@ -37,8 +37,8 @@ export class AutomationsPanelManager implements vscode.Disposable {
     if (this.panel !== null) { this.panel.reveal(vscode.ViewColumn.One); return; }
     const panel = vscode.window.createWebviewPanel("browserControl.automations", "Automatizaciones", vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")] });
     this.panel = panel; panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "automations", "Automatizaciones");
-    panel.onDidDispose(() => { if (this.coordinator.isRunning()) this.coordinator.forceStop(); this.panel = null; }, undefined, this.disposables);
-    panel.webview.onDidReceiveMessage((value: unknown) => { if (!isAutomationToExtensionMessage(value)) { void this.notice("error", "Mensaje de Automatizaciones no válido."); return; } void this.handle(value); }, undefined, this.disposables);
+    const messageSubscription = panel.webview.onDidReceiveMessage((value: unknown) => { if (!isAutomationToExtensionMessage(value)) { void this.notice("error", "Mensaje de Automatizaciones no válido."); return; } void this.handle(value); });
+    panel.onDidDispose(() => { messageSubscription.dispose(); if (this.coordinator.isRunning()) this.coordinator.forceStop(); this.panel = null; });
   }
   public async refreshResourceCatalogs(): Promise<void> { await this.post({ type: "automation.resources", resources: this.resourceCatalogs() }); }
   public dispose(): void { if (this.coordinator.isRunning()) this.coordinator.forceStop(); this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }
@@ -56,7 +56,7 @@ export class AutomationsPanelManager implements vscode.Disposable {
         case "automation.import": await this.importDocument(); break;
         case "automation.export": await this.exportDocument(message.document); break;
         case "automation.viewJson": {
-          const document = this.validatedScope(message.document, message.scope);
+          const document = this.validatedScope(message.document, message.scope, false);
           await this.post({ type: "automation.jsonDocument", serialized: this.documents.serialize(document), scope: message.scope });
           break;
         }
@@ -69,13 +69,16 @@ export class AutomationsPanelManager implements vscode.Disposable {
           break;
         }
         case "automation.runGroup": {
-          const document = this.validated(message.document); const group = document.groups.find(({ id }) => id === message.groupId); if (group === undefined) throw new Error("El grupo ya no existe.");
           this.logger.prepareForExecution();
+          this.logger.info("[Automatizaciones] [INICIO] Preparando la ejecución del grupo.");
+          const document = this.validated(message.document); const group = document.groups.find(({ id }) => id === message.groupId); if (group === undefined) throw new Error("El grupo ya no existe.");
           await this.coordinator.runGroup(group); break;
         }
         case "automation.runProcess": {
+          this.logger.prepareForExecution();
+          this.logger.info("[Automatizaciones] [INICIO] Preparando la ejecución del proceso.");
           const document = this.validated(message.document); const group = document.groups.find(({ id }) => id === message.groupId); const process = group?.processes.find(({ id }) => id === message.processId);
-          if (group === undefined || process === undefined) throw new Error("El proceso ya no existe."); this.logger.prepareForExecution(); await this.coordinator.runProcess(group, process); break;
+          if (group === undefined || process === undefined) throw new Error("El proceso ya no existe."); await this.coordinator.runProcess(group, process); break;
         }
         case "automation.pause": this.coordinator.pause(); await this.notice("info", "La ejecución se pausará antes del siguiente nodo."); break;
         case "automation.resume": this.coordinator.resume(); await this.notice("info", "Ejecución reanudada."); break;
@@ -100,8 +103,11 @@ export class AutomationsPanelManager implements vscode.Disposable {
   private validated(document: Parameters<AutomationService["save"]>[0]) {
     const result = validateAutomationDocument(document, this.registry); if (!result.ok) throw new Error(result.error); return result.value;
   }
-  private validatedScope(document: Parameters<AutomationService["save"]>[0], scope: AutomationJsonScope) {
-    const validated = this.validated(document);
+  private validatedDraft(document: Parameters<AutomationService["save"]>[0]) {
+    const result = validateAutomationDocument(document, this.registry, { validateNodeConfigs: false }); if (!result.ok) throw new Error(result.error); return result.value;
+  }
+  private validatedScope(document: Parameters<AutomationService["save"]>[0], scope: AutomationJsonScope, validateNodeConfigs = true) {
+    const validated = validateNodeConfigs ? this.validated(document) : this.validatedDraft(document);
     if (validated.groups.length !== 1) throw new Error("El JSON seleccionado debe contener exactamente un grupo.");
     const group = validated.groups[0];
     if (group === undefined) throw new Error("El JSON seleccionado no contiene ningún grupo.");
@@ -118,7 +124,7 @@ export class AutomationsPanelManager implements vscode.Disposable {
     await this.state(await this.service.import(parsed.value.data)); await this.notice("success", `${groupCount} ${groupCount === 1 ? "grupo importado" : "grupos importados"} sin reemplazar los existentes.`);
   }
   private async exportDocument(document: Parameters<AutomationService["save"]>[0]): Promise<void> {
-    const exported = await this.files.write(this.documents.serialize(this.validated(document)), {
+    const exported = await this.files.write(this.documents.serialize(this.validatedDraft(document)), {
       suggestedName: document.name,
       suffix: ".automation.json",
       filterName: "Automatización",

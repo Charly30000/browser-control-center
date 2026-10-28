@@ -18,4 +18,4 @@ Los arrays se guardan individualmente en `globalStorageUri/arrays`, mientras `gl
 
 **Ver JSON** usa igualmente el contenido actual validado y muestra únicamente el array seleccionado. El JSON puede seleccionarse, copiarse y editarse. **Aplicar cambios** exige exactamente un array válido con el mismo ID y lo devuelve al editor como cambios sin guardar.
 
-Los documentos de importación/exportación usan el envelope común con `format`, `schemaVersion`, `extensionVersion`, `exportedAt` y `data`. Antes de guardar se validan todos los arrays del archivo. Si coincide el ID o el nombre, se regeneran ambos y nunca se sustituye el array existente.
+Los documentos de importación/exportación usan el envelope común con `format`, `schemaVersion`, `extensionVersion`, `exportedAt` y `data`. Antes de guardar se validan todos los arrays del archivo. Si coinciden el ID y todo el contenido serializado, se reutiliza el array existente. Si el ID coincide pero el contenido es distinto, o si únicamente colisiona el nombre, se generan un UUID y un nombre con sufijo nuevos; nunca se sustituye silenciosamente un array existente.

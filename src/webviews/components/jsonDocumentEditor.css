@@ -58,3 +58,8 @@
   .json-editor-dialog footer { flex-wrap: wrap; }
   .json-editor-dialog footer span { width: 100%; }
 }
+
+@media (forced-colors: active) {
+  .json-editor-dialog { border: 2px solid CanvasText; box-shadow: none; }
+  .json-editor-dialog :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}

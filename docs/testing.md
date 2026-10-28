@@ -16,11 +16,13 @@ La suite no descarga ni abre un navegador real. Usa adaptadores y dobles determi
 | Automatizaciones | schema, persistencia íntegra de la configuración de todos los nodos, validación, registro de nodos, grafos, variables y ejecución secuencial |
 | Confirmaciones | composición del mensaje y respeto de las respuestas de aceptación y cancelación antes de eliminar |
 | Importación/exportación | envelope y versiones, formatos incompatibles, IDs repetidos, colisiones de ID/nombre y reparación de conexiones importadas |
+| Límites documentales | medición UTF-8, aviso al 80 %, máximo de 100 MiB y comprobación previa a lectura/persistencia |
 | Editor JSON | mensajes tipados, recorte y reinserción de grupo/flujo externo, conservación del ID de destino, reparación de nodos/conexiones, paquetes Manual portátiles, deduplicación semántica y guardados repetidos sin duplicados |
 | Persistencia central | contratos DAO tipados, codecs de cada entidad, CRUD y conservación de rutas y claves de almacenamiento |
 | Validación de datos | rutas anidadas, existencia, regex, JSON y fuentes de red/storage/cookies |
 | Flow Canvas | selección, coordenadas, estado de conexión sugerida, confirmación/cancelación, copy/paste con IDs reparados, undo y redo |
 | Control de ejecución | estados, timeout, pausa, cancelación, stop y force stop |
+| Seguridad | CSP sin recursos remotos y redacción de credenciales en Output |
 | Fases previas | perfiles, recursos, arrays, generadores y validaciones |
 
 Comprobación completa:
@@ -57,3 +59,12 @@ Después de elegir un navegador disponible desde **Gestionar navegador**:
 19. abre simultáneamente tu Chrome personal y confirma que sus pestañas, perfil, cookies y sesión no cambian al iniciar, reiniciar o detener la extensión.
 
 La suite unitaria no abre VS Code ni hace capturas. Para regresiones de Pointer Events se usa una instancia aislada de `Extension Development Host` y se verifican posiciones, SVG, zoom, selección y errores de consola desde el protocolo de depuración de Chromium.
+
+La integración real de fórmulas está desactivada por defecto para no depender de Chrome en CI. Se habilita explícitamente con:
+
+```powershell
+$env:BCC_REAL_BROWSER_TESTS = "1"
+npm test -- --run test/formulaRealBrowser.integration.test.ts
+```
+
+Comprueba una fórmula async y el cierre duro de un loop infinito con el Chrome instalado. No genera screenshots ni reutiliza el perfil personal.

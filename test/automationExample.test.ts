@@ -9,7 +9,7 @@ describe("ejemplo completo de automatizaciones", () => {
   it("crea un proceso válido por tipo y termina con todos concatenados", () => {
     let sequence = 0;
     const group = createCompleteAutomationExample(() => `example-${sequence += 1}`);
-    const dedicatedTypes = ["request-override", "navigate", "click", "fill", "generate-value", "set-headers", "set-cookies", "set-storage", "wait", "assertion", "validate-data", "extract-value", "set-variable", "wait-user"] as const;
+    const dedicatedTypes = ["request-override", "navigate", "click", "fill", "fill", "set-headers", "set-cookies", "set-storage", "wait", "assertion", "validate-data", "extract-value", "set-variable", "wait-user"] as const;
     const concatenated = group.processes.at(-1);
 
     expect(group.processes).toHaveLength(dedicatedTypes.length + 3);
@@ -18,7 +18,7 @@ describe("ejemplo completo de automatizaciones", () => {
     dedicatedTypes.forEach((type, index) => expect(group.processes[index + 2]?.nodes.some((node) => node.type === type)).toBe(true));
     expect(concatenated?.viewport).toMatchObject({ width: 390, height: 844 });
     expect(concatenated?.variables.initialName).toBe("Ada");
-    expect(new Set(concatenated?.nodes.map(({ type }) => type))).toEqual(new Set(AUTOMATION_NODE_TYPES));
+    expect(new Set(concatenated?.nodes.map(({ type }) => type))).toEqual(new Set(AUTOMATION_NODE_TYPES.filter((type) => type !== "generate-value")));
     expect(group.processes.every((process) => process.edges.length === process.nodes.length - 1)).toBe(true);
     expect(group.processes.every((process) => process.nodes.find(({ type }) => type === "navigate")?.config.url === AUTOMATION_EXAMPLE_URL)).toBe(true);
     expect(group.processes.every((process) => validateAutomationProcess(process, createDefaultNodeRegistry()).ok)).toBe(true);

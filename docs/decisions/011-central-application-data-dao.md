@@ -1,6 +1,6 @@
 # DAO central de datos de la aplicación
 
-**Estado:** aceptado.
+**Estado:** decisión aplicada por requisitos del proyecto.
 
 Toda persistencia funcional pasa por una sola implementación pública: `VsCodeApplicationDataDao`. El objetivo es impedir que cada área vuelva a implementar lectura, escritura, rutas, tratamiento de errores o acceso a `globalState`.
 

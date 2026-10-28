@@ -28,6 +28,8 @@ export class AutomationImportService {
     const importedGroups: AutomationGroup[] = [];
 
     for (const sourceGroup of imported.groups) {
+      const existingGroup = current.groups.find(({ id }) => id === sourceGroup.id);
+      if (existingGroup !== undefined && JSON.stringify(existingGroup) === JSON.stringify(sourceGroup)) continue;
       const groupIdentity = resolveImportedIdentity(sourceGroup, occupiedIds, groupNames, createId);
       occupiedIds.add(groupIdentity.id);
       groupNames.push(groupIdentity.name);

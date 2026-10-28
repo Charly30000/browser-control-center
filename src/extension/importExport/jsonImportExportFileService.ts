@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
+import { MAX_DOCUMENT_BYTES, documentSizeLimitMessage } from "../../domain/importExport/documentSize";
 
-const DEFAULT_MAX_IMPORT_BYTES = 5 * 1024 * 1024;
+const DEFAULT_MAX_IMPORT_BYTES = MAX_DOCUMENT_BYTES;
 const RESERVED_WINDOWS_NAME = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
 export interface ImportDialogOptions {
@@ -31,10 +32,12 @@ export class JsonImportExportFileService {
     });
     const source = files?.[0];
     if (source === undefined) return null;
+    const metadata = await vscode.workspace.fs.stat(source);
+    if (metadata.size > this.maxImportBytes) throw new Error(documentSizeLimitMessage(metadata.size));
     const contents = await vscode.workspace.fs.readFile(source);
-    if (contents.byteLength > this.maxImportBytes) throw new Error(`El archivo supera el límite de ${Math.floor(this.maxImportBytes / 1024 / 1024)} MB.`);
+    if (contents.byteLength > this.maxImportBytes) throw new Error(documentSizeLimitMessage(contents.byteLength));
     try { return new TextDecoder("utf-8", { fatal: true }).decode(contents).replace(/^\uFEFF/, ""); }
-    catch { throw new Error("El archivo no contiene texto UTF-8 válido."); }
+    catch { throw new Error("El archivo JSON debe estar codificado en UTF-8 para evitar alterar caracteres durante la importación."); }
   }
 
   public async write(contents: string, options: ExportDialogOptions): Promise<boolean> {

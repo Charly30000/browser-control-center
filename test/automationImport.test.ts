@@ -60,6 +60,16 @@ describe("importación de automatizaciones", () => {
     expect(merged.groups[1]?.processes[0]).toMatchObject({ id: "process-imported", name: "Otro proceso" });
   });
 
+  it("reutiliza un grupo cuando coinciden su ID y todo su contenido", () => {
+    const current = currentDocument();
+    const imported = createAutomationDocument("document-imported");
+    imported.groups.push(structuredClone(current.groups[0]!));
+
+    const merged = new AutomationImportService().merge(current, imported, () => "unused");
+
+    expect(merged.groups).toEqual(current.groups);
+  });
+
   it("rechaza documentos sin grupos importables", () => {
     expect(() => new AutomationImportService().merge(
       currentDocument(),

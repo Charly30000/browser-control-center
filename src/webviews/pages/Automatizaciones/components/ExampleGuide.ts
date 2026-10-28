@@ -2,14 +2,14 @@ import { html, type TemplateResult } from "lit";
 
 const steps: readonly { readonly node: string; readonly explanation: string }[] = [
   { node: "Viewport", explanation: "Configura un viewport móvil de 390×844, táctil y con modo móvil; la propia página muestra y valida sus dimensiones." },
-  { node: "Variables iniciales", explanation: "Define initialName y expectedGreeting antes de ejecutar; después las interpola en Fill y Assertion mediante {nombre}." },
+  { node: "Variables iniciales", explanation: "Define initialName y expectedGreeting antes de ejecutar; después las interpola en Campo y Assertion mediante {nombre}." },
   { node: "Request Override", explanation: "Sirve la página HTML y la respuesta JSON de la API desde la propia automatización." },
   { node: "Set Headers", explanation: "Añade x-example-header a las peticiones; más adelante Validate Data comprueba su valor." },
   { node: "Set Cookies", explanation: "Crea example-cookie para el dominio virtual antes de navegar." },
   { node: "Navigate", explanation: "Abre https://browser-control.test/demo. No realiza una descarga real porque el override responde primero." },
   { node: "Set Storage", explanation: "Guarda un objeto JSON en localStorage y un texto en sessionStorage." },
-  { node: "Generate Value", explanation: "Genera un nombre y lo conserva en la variable demoName." },
-  { node: "Fill", explanation: "Introduce {demoName} en el campo #name." },
+  { node: "Campo con texto", explanation: "Introduce directamente el texto Ada en #name." },
+  { node: "Campo con generador", explanation: "Genera un nombre y lo introduce directamente en #name desde el mismo nodo." },
   { node: "Click", explanation: "Pulsa el botón de la página, actualiza el DOM y dispara la petición POST de ejemplo." },
   { node: "Wait", explanation: "Espera la response de la API y después deja un breve margen para que la página actualice su resultado." },
   { node: "Assertion", explanation: "Comprueba que el texto visible sea “Hola, {demoName}”." },

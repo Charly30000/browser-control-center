@@ -1,5 +1,7 @@
 # Página Manual
 
+Las acciones de navegador escriben su inicio y resultado en **Salida → Browser Automation**. Los avisos y errores abren automáticamente el panel para que una acción fallida nunca quede sin explicación. El registro solo describe la operación y pasa por la redacción común de credenciales: no vuelca valores de cookies, headers, storage ni otros datos sensibles.
+
 Las eliminaciones siempre requieren confirmación. Se aplica a perfiles, query params, headers, cookies, valores de localStorage y sessionStorage, overrides, headers internos de overrides y vínculos de generadores. Todas usan el diálogo modal de advertencia de VS Code con el botón explícito **Eliminar**; la webview espera la respuesta del Extension Host antes de modificar el borrador.
 
 ## Sesión y pestañas
@@ -30,7 +32,7 @@ Los Service Workers se bloquean en el contexto para que las rutas sean observabl
 
 ## Inputs y selector visual
 
-Los bindings pueden escribir `value`, `checked`, `textContent`, `innerText`, atributos o propiedades. El modo instantáneo usa `fill`; el secuencial simula teclas con retraso configurable.
+Los bindings pueden escribir `value`, `checked`, `textContent`, `innerText`, atributos o propiedades. El origen puede ser un texto fijo, uno de los generadores integrados, una fórmula o un array. El modo instantáneo usa `fill`; el secuencial simula teclas con retraso configurable.
 
 El picker resalta el elemento bajo el puntero, captura el click y genera un selector CSS estable priorizando ID y atributos de testing. Los selectores CSS atraviesan Shadow DOM abierto; no se intenta acceder a raíces cerradas y XPath no es la opción principal. `Escape` cancela la selección.
 

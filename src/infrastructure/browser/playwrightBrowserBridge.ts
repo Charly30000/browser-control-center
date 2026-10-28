@@ -41,7 +41,10 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
     private readonly lifecycle: BrowserLifecycleManager,
     private readonly logger: Logger
   ) {
-    this.lifecycle.onDidChange(() => this.emit());
+    this.lifecycle.onDidChange((state) => {
+      if (state === "stopped" || state === "crashed") this.clearSessionState();
+      this.emit();
+    });
   }
 
   public async start(options: BrowserLaunchOptions): Promise<BrowserSessionSnapshot> {
@@ -54,9 +57,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
 
   public async stop(mode: BrowserStopMode): Promise<void> {
     await this.lifecycle.stop(mode);
-    this.registry = null;
-    this.router = null;
-    this.originals = [];
+    this.clearSessionState();
     this.emit();
   }
 
@@ -163,6 +164,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
   }
 
   private async configureSession(session: BrowserRuntimeSession): Promise<void> {
+    this.clearSessionState();
     const registry = new BrowserPageRegistry(() => this.emit());
     this.registry = registry;
     this.router = new RequestOverrideRouter();
@@ -229,5 +231,12 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
   private emit(): void {
     const snapshot = this.getSnapshot();
     for (const listener of this.listeners) listener(snapshot);
+  }
+
+  private clearSessionState(): void {
+    this.registry?.dispose();
+    this.registry = null;
+    this.router = null;
+    this.originals = [];
   }
 }

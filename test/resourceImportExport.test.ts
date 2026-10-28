@@ -20,9 +20,18 @@ describe("importación y exportación de recursos", () => {
     expect(parsed.ok && parsed.value.data).toEqual([formula]);
   });
 
-  it("regenera ID y nombre cuando ambos ya existen, aunque el contenido sea idéntico", () => {
+  it("reutiliza el recurso cuando coinciden el ID y todo el contenido serializado", () => {
     const formula = createFormula("same", "test", "2026-01-01T00:00:00.000Z");
     const result = resolve([formula], [structuredClone(formula)]);
+
+    expect(result.resourcesToSave).toEqual([]);
+    expect(result.idMap.get("same")).toBe("same");
+  });
+
+  it("regenera ID y nombre cuando el ID existe con contenido diferente", () => {
+    const existing = createFormula("same", "test", "2026-01-01T00:00:00.000Z");
+    const imported = { ...existing, code: "function generate() { return 'distinto'; }" };
+    const result = resolve([existing], [imported]);
 
     expect(result.resourcesToSave[0]).toMatchObject({ id: "new-id", name: "test-1" });
     expect(result.idMap.get("same")).toBe("new-id");

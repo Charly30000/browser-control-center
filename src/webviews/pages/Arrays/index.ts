@@ -1,11 +1,13 @@
 import { LitElement, html, nothing } from "lit";
 import type { ArrayResource } from "../../../domain/arrays/arrayResource";
+import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import { parseArrayContent } from "../../../domain/arrays/arrayValidation";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ArrayToExtensionMessage, ExtensionToArrayMessage } from "../../../shared/messages/arrayMessages";
 import type { NoticeTone } from "../../components/statusNotice";
 import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
+import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import "../../components/jsonDocumentEditor";
 import { vscodeApi } from "../../vscodeApi";
 import "../../components";
@@ -25,6 +27,9 @@ class ArraysApp extends LitElement {
   private selectedIds = new Set<string>();
   private notice: { tone: NoticeTone; message: string } = { tone: "info", message: "" };
   private jsonDocument: string | null = null;
+  private pendingTransition: (() => void) | null = null;
+  private awaitingSaveTransition = false;
+  private unsavedMessage: string | null = null;
 
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "array.ready" }); }
@@ -40,9 +45,9 @@ class ArraysApp extends LitElement {
         <header class="page-header">
           <div><h1>Arrays</h1><p>Colecciones JSON globales y reutilizables.</p></div>
           <div class="toolbar">
-            <button @click=${() => this.post({ type: "array.new" })}>Agregar</button>
-            <button class="danger" @click=${() => this.post({ type: "array.deleteSelected", ids: [...this.selectedIds] })}>Eliminar seleccionados</button>
-            <button @click=${() => this.post({ type: "array.import" })}>Importar</button>
+            <button @click=${() => this.guardTransition(() => this.post({ type: "array.new" }), "¿Guardar el array antes de crear otro?")}>Agregar</button>
+            <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "array.deleteSelected", ids: [...this.selectedIds] }), "¿Guardar el array actual antes de eliminar la selección?")}>Eliminar seleccionados</button>
+            <button @click=${() => this.guardTransition(() => this.post({ type: "array.import" }), "¿Guardar el array antes de importar?")}>Importar</button>
           </div>
         </header>
         <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
@@ -52,7 +57,7 @@ class ArraysApp extends LitElement {
             ${this.resources.length === 0 ? html`<p class="empty-list">No hay arrays guardados.</p>` : html`
               <ul>${this.resources.map((item) => html`<li>
                 <input type="checkbox" aria-label=${`Seleccionar ${item.name}`} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
-                <button class=${item.id === this.resource?.id ? "resource-name current" : "resource-name"} @click=${() => this.post({ type: "array.select", id: item.id })}>${item.name}</button>
+                <button class=${item.id === this.resource?.id ? "resource-name current" : "resource-name"} @click=${() => this.guardTransition(() => this.post({ type: "array.select", id: item.id }), "¿Guardar el array antes de cambiar de selección?")}>${item.name}</button>
               </li>`)}</ul>
             `}
           </aside>
@@ -60,7 +65,7 @@ class ArraysApp extends LitElement {
             <h2>Editor</h2>
             <div class="editor-content">
               <label><span>Nombre</span><input .value=${this.resource.name} @input=${(event: Event) => this.changeName(fieldValue(event))}></label>
-              <label><span>Contenido JSON</span><textarea class="code-editor" spellcheck="false" .value=${this.content} @input=${(event: Event) => { this.content = fieldValue(event); this.requestUpdate(); }}></textarea></label>
+              <label><span>Contenido JSON</span><textarea class="code-editor" spellcheck="false" .value=${this.content} @input=${this.changeContent}></textarea></label>
               <div class=${validation.ok ? "result-panel success" : "result-panel error"}>${validationMessage}</div>
               <p class="execution-note">Probar selecciona aleatoriamente un elemento del contenido actual sin guardar el array.</p>
               <div class="editor-actions">
@@ -84,6 +89,7 @@ class ArraysApp extends LitElement {
         @json-editor-close=${this.closeJsonEditor}
         @json-editor-apply=${this.applyJson}
       ></json-document-editor>`}
+      ${this.unsavedMessage === null ? nothing : html`<unsaved-changes-dialog .message=${this.unsavedMessage} @unsaved-choice=${this.resolveUnsavedChoice}></unsaved-changes-dialog>`}
     `;
   }
 
@@ -95,6 +101,12 @@ class ArraysApp extends LitElement {
       this.content = JSON.stringify(this.resource.items, null, 2);
       this.savedContent = this.content;
       this.selectedIds = new Set([...this.selectedIds].filter((id) => this.resources.some((resource) => resource.id === id)));
+      if (this.awaitingSaveTransition) {
+        const transition = this.pendingTransition;
+        this.awaitingSaveTransition = false;
+        this.pendingTransition = null;
+        transition?.();
+      }
     } else if (event.data.type === "array.jsonDocument") {
       this.jsonDocument = event.data.serialized;
       this.notice = { tone: "info", message: "" };
@@ -104,6 +116,7 @@ class ArraysApp extends LitElement {
       this.jsonDocument = null;
     } else {
       this.notice = { tone: event.data.tone, message: event.data.message };
+      if (event.data.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
     }
     this.requestUpdate();
   };
@@ -122,6 +135,38 @@ class ArraysApp extends LitElement {
     this.requestUpdate();
   }
 
+  private guardTransition(transition: () => void, message: string): void {
+    if (this.resource === null || (!isResourceDirty(this.resource, this.savedResource) && this.content === this.savedContent)) { transition(); return; }
+    this.pendingTransition = transition;
+    this.unsavedMessage = message;
+    this.requestUpdate();
+  }
+
+  private readonly resolveUnsavedChoice = (event: CustomEvent<UnsavedChangesChoice>): void => {
+    this.unsavedMessage = null;
+    if (event.detail === "cancel") this.pendingTransition = null;
+    else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
+    else if (this.save()) this.awaitingSaveTransition = true;
+    else this.pendingTransition = null;
+    this.requestUpdate();
+  };
+
+  private readonly changeContent = (event: Event): void => {
+    if (!(event.currentTarget instanceof HTMLTextAreaElement)) return;
+    const candidate = event.currentTarget.value;
+    const size = assessDocumentSize(candidate);
+    if (size.exceedsLimit) {
+      event.currentTarget.value = this.content;
+      this.notice = { tone: "error", message: documentSizeLimitMessage(size.bytes) };
+    } else {
+      this.content = candidate;
+      this.notice = size.shouldWarn
+        ? { tone: "warning", message: `El array ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` }
+        : { tone: "info", message: "" };
+    }
+    this.requestUpdate();
+  };
+
   private readonly validate = (): void => {
     const validation = parseArrayContent(this.content);
     this.notice = validation.ok
@@ -130,11 +175,12 @@ class ArraysApp extends LitElement {
     this.requestUpdate();
   };
 
-  private readonly save = (): void => {
-    if (this.resource === null) return;
+  private readonly save = (): boolean => {
+    if (this.resource === null) return false;
     const validation = parseArrayContent(this.content);
-    if (!validation.ok) { this.notice = { tone: "error", message: validation.error }; this.requestUpdate(); return; }
+    if (!validation.ok) { this.notice = { tone: "error", message: validation.error }; this.requestUpdate(); return false; }
     this.post({ type: "array.save", resource: { ...this.resource, items: validation.value } });
+    return true;
   };
 
   private readonly test = (): void => {

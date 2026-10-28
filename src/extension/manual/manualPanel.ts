@@ -20,6 +20,7 @@ import {
 import { createWebviewHtml } from "../webview/createWebviewHtml";
 import { confirmDestructiveAction } from "../webview/confirmDestructiveAction";
 import { JsonImportExportFileService } from "../importExport/jsonImportExportFileService";
+import type { BrowserAutomationLogger } from "../logging/browserAutomationLogger";
 
 const decodeManualBundle = (value: unknown): Result<ManualProfileBundle> => {
   if (isManualProfile(value)) return success(createManualProfileBundle(value));
@@ -56,7 +57,8 @@ export class ManualPanelManager implements vscode.Disposable {
     private readonly browserActions: BrowserActionsService,
     private readonly formulaService: FormulaService,
     private readonly arrayService: ArrayResourceService,
-    private readonly onPortableResourcesChanged: () => void
+    private readonly onPortableResourcesChanged: () => void,
+    private readonly logger: BrowserAutomationLogger
   ) {
     this.portableResources = new ManualProfileBundleService(formulaService, arrayService);
     this.disposables.push(this.browserActions.onDidChange((browser) => { void this.post({ type: "browser.state", browser }); }));
@@ -80,14 +82,14 @@ export class ManualPanelManager implements vscode.Disposable {
     );
     this.panel = panel;
     panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "manual", "Manual Browser");
-    panel.onDidDispose(() => { this.panel = null; }, undefined, this.disposables);
-    panel.webview.onDidReceiveMessage((message: unknown) => {
+    const messageSubscription = panel.webview.onDidReceiveMessage((message: unknown) => {
       if (!isManualToExtensionMessage(message)) {
         void this.sendNotice("error", "Se recibió un mensaje no válido desde la vista Manual.");
         return;
       }
       void this.handleMessage(message);
-    }, undefined, this.disposables);
+    });
+    panel.onDidDispose(() => { messageSubscription.dispose(); this.panel = null; });
   }
 
   public dispose(): void {
@@ -102,6 +104,8 @@ export class ManualPanelManager implements vscode.Disposable {
 
   private async handleMessage(message: ManualToExtensionMessage): Promise<void> {
     try {
+      const browserAction = this.browserActionDescription(message);
+      if (browserAction !== null) this.logger.info(`[Manual] [INICIO] ${browserAction}`);
       switch (message.type) {
         case "ui.confirmDestructiveAction": {
           const confirmed = await confirmDestructiveAction(message.confirmation);
@@ -172,11 +176,13 @@ export class ManualPanelManager implements vscode.Disposable {
         case "browser.selectPage": {
           const result = await this.browserActions.selectPage(message.pageId);
           if (!result.ok) await this.sendNotice("warning", result.error);
+          else this.logger.info("[Manual] [OK] Pestaña seleccionada.");
           break;
         }
         case "browser.closePage": {
           const result = await this.browserActions.closePage(message.pageId);
           if (!result.ok) await this.sendNotice("warning", result.error);
+          else this.logger.info("[Manual] [OK] Pestaña cerrada.");
           break;
         }
         case "browser.apply": {
@@ -187,6 +193,7 @@ export class ManualPanelManager implements vscode.Disposable {
         case "browser.syncOverrides": {
           const result = await this.browserActions.syncOverrides(message.profile);
           if (!result.ok) await this.sendNotice("warning", result.error);
+          else this.logger.info("[Manual] [OK] Overrides sincronizados.");
           break;
         }
         case "browser.resetGenerators": {
@@ -198,6 +205,7 @@ export class ManualPanelManager implements vscode.Disposable {
           const result = await this.browserActions.selectElement();
           if (result.ok) {
             await this.post({ type: "browser.elementSelected", bindingId: message.bindingId, selector: result.value });
+            this.logger.info("[Manual] [OK] Elemento seleccionado.");
           } else {
             await this.sendNotice("warning", result.error);
           }
@@ -213,7 +221,10 @@ export class ManualPanelManager implements vscode.Disposable {
         }
       }
     } catch (error: unknown) {
-      await this.sendNotice("error", error instanceof Error ? error.message : "Se ha producido un error inesperado.");
+      const message = error instanceof Error ? error.message : "Se ha producido un error inesperado.";
+      this.logger.error(`[Manual] [ERROR] ${message}`, error);
+      this.logger.show();
+      await this.post({ type: "manual.notice", tone: "error", message });
     }
   }
 
@@ -274,7 +285,39 @@ export class ManualPanelManager implements vscode.Disposable {
   }
 
   private async sendNotice(tone: "info" | "success" | "warning" | "error", message: string): Promise<void> {
+    if (tone === "success") this.logger.info(`[Manual] [OK] ${message}`);
+    else if (tone === "warning") { this.logger.warn(`[Manual] [AVISO] ${message}`); this.logger.show(); }
+    else if (tone === "error") { this.logger.error(`[Manual] [ERROR] ${message}`); this.logger.show(); }
+    else this.logger.info(`[Manual] ${message}`);
     await this.post({ type: "manual.notice", tone, message });
+  }
+
+  private browserActionDescription(message: ManualToExtensionMessage): string | null {
+    switch (message.type) {
+      case "browser.open": return "Abriendo la URL del perfil.";
+      case "browser.start": return "Iniciando una sesión limpia del navegador.";
+      case "browser.restart": return "Reiniciando el navegador con una sesión limpia.";
+      case "browser.stop": return message.force ? "Deteniendo el navegador a la fuerza." : "Deteniendo el navegador.";
+      case "browser.selectPage": return "Cambiando la pestaña activa.";
+      case "browser.closePage": return "Cerrando una pestaña.";
+      case "browser.apply": return `Aplicando ${this.actionTargetLabel(message.target)}.`;
+      case "browser.syncOverrides": return "Sincronizando request overrides.";
+      case "browser.resetGenerators": return "Reseteando los valores aplicados a campos.";
+      case "browser.selectElement": return "Esperando la selección de un elemento en el navegador.";
+      case "browser.previewGenerator": return "Generando una muestra.";
+      default: return null;
+    }
+  }
+
+  private actionTargetLabel(target: "headers" | "cookies" | "localStorage" | "sessionStorage" | "overrides" | "generators"): string {
+    switch (target) {
+      case "headers": return "headers";
+      case "cookies": return "cookies";
+      case "localStorage": return "localStorage";
+      case "sessionStorage": return "sessionStorage";
+      case "overrides": return "request overrides";
+      case "generators": return "campos y generadores";
+    }
   }
 
   private async post(message: ExtensionToManualMessage): Promise<void> {

@@ -76,3 +76,7 @@ status-notice[tone="error"]::part(notice) { border-color: var(--vscode-errorFore
   .code-editor { min-height: 260px; }
   .dirty-state { width: 100%; margin-left: 0; }
 }
+@media (forced-colors: active) {
+  button, input, select, textarea { border: 1px solid CanvasText; }
+  :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}

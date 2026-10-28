@@ -5,7 +5,7 @@ export type MatcherType = "exact" | "glob" | "regex";
 export type HttpMethod = "ANY" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "HEAD" | "OPTIONS";
 export type OverrideAction = "fulfill" | "abort" | "continue-modified";
 export type SameSite = "Strict" | "Lax" | "None";
-export type GeneratorType = "firstName" | "lastName" | "email" | "phone" | "number" | "dni" | "nie" | "cif" | "formula" | "array";
+export type GeneratorType = "string" | "firstName" | "lastName" | "email" | "phone" | "number" | "dni" | "nie" | "cif" | "formula" | "array";
 export type TargetPropertyKind = "value" | "textContent" | "innerText" | "checked" | "attribute" | "property";
 export type InputMode = "instant" | "sequential";
 export type ViewportPresetId = "desktop" | "laptop" | "tabletPortrait" | "tabletLandscape" | "mobilePortrait" | "mobileLandscape" | "custom";
@@ -50,6 +50,8 @@ export interface GeneratorBinding {
   min: string;
   max: string;
   resourceId: string | null;
+  /** Texto fijo. Es opcional para mantener compatibles los perfiles v2 anteriores a este campo. */
+  literalValue?: string;
   inputMode: InputMode;
   delayMs: number;
   enabled: boolean;
@@ -116,4 +118,4 @@ export const createHeader = (id: string): HeaderEntry => ({ id, key: "", value: 
 export const createCookie = (id: string): CookieEntry => ({ id, name: "", value: "", domain: "", path: "/", expires: null, secure: false, httpOnly: false, sameSite: "Lax", enabled: true });
 export const createStorageEntry = (id: string): StorageEntry => ({ id, key: "", value: "", valueType: "string", enabled: true });
 export const createRequestOverride = (id: string): RequestOverrideEntry => ({ id, matcherType: "exact", matcher: "", method: "ANY", action: "fulfill", status: 200, headers: [], body: "", contentType: "application/json", enabled: true });
-export const createGeneratorBinding = (id: string): GeneratorBinding => ({ id, generatorType: "firstName", selector: "", propertyKind: "value", propertyName: "", min: "0", max: "100", resourceId: null, inputMode: "instant", delayMs: 0, enabled: true });
+export const createGeneratorBinding = (id: string): GeneratorBinding => ({ id, generatorType: "string", selector: "", propertyKind: "value", propertyName: "", min: "0", max: "100", resourceId: null, literalValue: "", inputMode: "instant", delayMs: 0, enabled: true });

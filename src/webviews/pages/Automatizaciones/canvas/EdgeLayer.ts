@@ -5,6 +5,7 @@ import { edgePath, NODE_HEIGHT, NODE_WIDTH } from "./geometry";
 interface EdgeLayerCallbacks {
   readonly onSelect: (event: PointerEvent, edgeId: string) => void;
   readonly onRemove: (event: PointerEvent, edgeId: string) => void;
+  readonly onKeyDown: (event: KeyboardEvent, edgeId: string) => void;
 }
 
 export const renderEdgeLayer = (
@@ -22,7 +23,7 @@ export const renderEdgeLayer = (
       if (source === undefined || target === undefined) return null;
       const start = port(source, true); const end = port(target, false); const path = edgePath(start, end); const selected = edge.id === selectedEdgeId;
       const midpoint = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 };
-      return svg`<g class=${selected ? "edge-group selected" : "edge-group"} data-edge-id=${edge.id}>
+      return svg`<g class=${selected ? "edge-group selected" : "edge-group"} data-edge-id=${edge.id} tabindex="0" role="button" aria-label=${`Conexión de ${source.type} a ${target.type}`} @keydown=${(event: KeyboardEvent) => callbacks.onKeyDown(event, edge.id)}>
         <path class="edge-hit-area" d=${path} @pointerdown=${(event: PointerEvent) => callbacks.onSelect(event, edge.id)}></path>
         <path class=${selected ? "flow-edge selected" : "flow-edge"} d=${path}></path>
         ${selected ? svg`<g class="edge-remove" transform=${`translate(${midpoint.x} ${midpoint.y})`} role="button" aria-label="Eliminar conexión" @pointerdown=${(event: PointerEvent) => callbacks.onRemove(event, edge.id)}><circle r="10"></circle><text x="0" y="1">×</text></g>` : null}

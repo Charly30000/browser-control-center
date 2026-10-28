@@ -1,5 +1,7 @@
+import extensionManifest from "../../../package.json";
+
 export const IMPORT_EXPORT_SCHEMA_VERSION = 1 as const;
-export const CURRENT_EXTENSION_VERSION = "0.4.0";
+export const CURRENT_EXTENSION_VERSION = extensionManifest.version;
 
 export type ImportExportFormat =
   | "browser-control-center/manual-profile"

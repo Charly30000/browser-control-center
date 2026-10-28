@@ -4,6 +4,7 @@ import {
   type ImportExportDocument,
   type ImportExportFormat
 } from "../../domain/importExport/importExportDocument";
+import { assessDocumentSize, documentSizeLimitMessage } from "../../domain/importExport/documentSize";
 import { failure, success, type Result } from "../../shared/result";
 
 export type ImportDataDecoder<T> = (value: unknown) => Result<T>;
@@ -17,10 +18,15 @@ export class ImportExportDocumentService<T> {
   ) {}
 
   public serialize(data: T): string {
-    return JSON.stringify(createImportExportDocument(this.format, data), null, 2);
+    const serialized = JSON.stringify(createImportExportDocument(this.format, data), null, 2);
+    const size = assessDocumentSize(serialized);
+    if (size.exceedsLimit) throw new Error(documentSizeLimitMessage(size.bytes));
+    return serialized;
   }
 
   public deserialize(serialized: string): Result<ImportExportDocument<T>> {
+    const size = assessDocumentSize(serialized);
+    if (size.exceedsLimit) return failure(documentSizeLimitMessage(size.bytes));
     let value: unknown;
     try { value = JSON.parse(serialized); }
     catch { return failure("El documento no contiene JSON válido."); }

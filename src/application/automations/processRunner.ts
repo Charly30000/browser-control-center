@@ -8,6 +8,7 @@ import { ExecutionCancelledError, ExecutionTimeoutError, withTimeout } from "./c
 import type { ExecutionControl } from "./cancellation";
 import { ExecutionContext } from "./executionContext";
 import type { NodeRegistry } from "./nodeRegistry";
+import { VariableStore } from "../../domain/automations/variables";
 
 export interface ProcessRunResult { readonly success: boolean; readonly cancelled: boolean; readonly variables: ExecutionContext["variables"]; }
 export type ProcessStateListener = (snapshot: ProcessExecutionSnapshot) => void;
@@ -44,7 +45,7 @@ export class ProcessRunner {
       for (const [id, state] of states) if (state.state === "queued") states.set(id, this.nodeState(id, "skipped"));
       emit();
       this.logger.error(`${processPrefix} [ERROR] No se pudo preparar el navegador: ${message}`, error);
-      throw error;
+      return { success: false, cancelled: false, variables: new VariableStore(process.variables) };
     }
     const context = new ExecutionContext({
       groupName, processName: process.name, browser, generators: this.generators, variables: process.variables, control, logger: this.logger,

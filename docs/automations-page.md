@@ -6,7 +6,9 @@ Una automatización contiene grupos; cada grupo contiene procesos. Un proceso po
 
 **Ver JSON** y **Exportar** comparten exactamente el mismo ámbito. Al seleccionar la cabecera de un grupo generan únicamente ese grupo con todos sus procesos; al seleccionar un proceso generan únicamente ese flujo dentro de su grupo. El nombre raíz y el nombre sugerido del archivo reflejan la selección. Al aplicar se validan el envelope, su versión, nodos, conexiones y configuraciones registradas, y solo se reinserta el grupo o flujo editado sin eliminar el resto del documento.
 
-El editor también admite pegar el JSON de otro grupo o flujo recibido por chat. No es necesario modificar sus IDs a mano: se conserva el ID del elemento de destino, se ignoran los IDs raíz y contenedores externos, se regeneran los IDs internos que colisionen y se reparan los extremos de las conexiones cuando cambia el ID de un nodo. Los nombres que colisionen reciben un sufijo. El resultado queda pendiente de **Guardar**, que vuelve a validar la automatización completa.
+El editor también admite pegar el JSON de otro grupo o flujo recibido por chat. No es necesario modificar sus IDs a mano: se conserva el ID del elemento de destino, se ignoran los IDs raíz y contenedores externos, se regeneran los IDs internos que colisionen y se reparan los extremos de las conexiones cuando cambia el ID de un nodo. Los nombres que colisionen reciben un sufijo. El resultado queda pendiente de **Guardar**.
+
+**Guardar**, **Ver JSON** y **Exportar** admiten borradores con campos de nodo todavía incompletos, siempre que la estructura, IDs, conexiones, viewport y variables sean seguros. La validación semántica estricta de cada configuración se aplica al ejecutar y al importar; así se puede conservar trabajo a medias sin permitir que un flujo inválido llegue al navegador.
 
 El documento usa `schemaVersion: 1` y se guarda en `globalStorageUri/automations/automation.json`. La exportación usa el envelope JSON común y versionado. Un flujo exportado sigue siendo un documento válido con un grupo y un proceso, por lo que puede importarse sin un formato paralelo. La importación añade el contenido al documento actual en vez de reemplazarlo. Si un grupo o proceso coincide por ID o nombre, regenera ambos; los IDs de nodos y conexiones que colisionen también se regeneran y las conexiones se reparan para apuntar a los nodos importados correctos. Los archivos históricos con el documento directo siguen siendo compatibles.
 
@@ -38,13 +40,17 @@ El viewport acepta presets o valores personalizados de ancho, alto, escala, modo
 
 ## Variables y recursos
 
-Los nodos pueden leer variables con `{nombre}` en cualquier nivel de su configuración. Si el texto completo es una variable, conserva su tipo JSON; dentro de una cadena se interpola como texto. `Generate Value`, `Extract Value` y `Set Variable` escriben variables para los nodos posteriores. Las fórmulas y arrays globales aparecen en el selector de recursos de `Generate Value`.
+Los nodos pueden leer variables con `{nombre}` en cualquier nivel de su configuración. Si el texto completo es una variable, conserva su tipo JSON; dentro de una cadena se interpola como texto. `Extract Value` y `Set Variable` escriben variables para los nodos posteriores.
+
+El nodo visible **Campo** concentra la introducción de datos: el usuario selecciona el elemento y escoge texto fijo, un generador integrado, una fórmula o un array como origen. También permite escritura instantánea o secuencial. Internamente conserva el tipo `fill` para mantener compatibles los documentos existentes. El antiguo `Generate Value` continúa registrado para ejecutar e importar flujos ya guardados, pero no se ofrece al crear nodos nuevos.
+
+Los datos compartidos con Manual utilizan también los mismos editores visuales. `Navigate` ofrece URL base y filas de query params; `Set Headers`, `Set Cookies` y `Set Storage` muestran entradas individuales con sus campos, tipos, atributos, activación y validación. `Request Override` ya reutiliza el mismo editor completo de Manual. El JSON interno de los nodos se mantiene compatible, pero no es necesario editarlo a mano.
 
 ## Ejecución
 
 Antes de ejecutar se validan nombres, IDs, viewport, configuración de nodos, variables, referencias y ciclos. Los nodos se ordenan topológicamente; dos ramas sin dependencia conservan el orden del documento. Un fallo marca como omitidos los nodos pendientes del proceso. En una ejecución de grupo, el siguiente proceso sí se intenta y el resumen acumula éxitos y fallos.
 
-Al ejecutar un proceso o grupo, VS Code limpia y muestra automáticamente el panel **Salida** sin retirar el foco del editor. La limpieza ocurre una sola vez al comenzar la acción: si se ejecuta un grupo, todos sus procesos permanecen juntos en el mismo registro. El canal seleccionado es `Browser Automation`; usa el lenguaje de salida `log` para conservar el resaltado de fecha y nivel sin recurrir a un canal persistente. No se utiliza la terminal ni la consola de depuración. El registro identifica el grupo, el proceso y la posición de cada nodo, y utiliza estas etiquetas:
+Al solicitar la ejecución de un proceso o grupo, VS Code limpia, abre y enfoca automáticamente el panel **Salida**, incluso si la validación impide que el navegador llegue a iniciarse. La limpieza ocurre una sola vez al comenzar la acción: si se ejecuta un grupo, todos sus procesos permanecen juntos en el mismo registro. El canal seleccionado es `Browser Automation`; usa el lenguaje de salida `log` para conservar el resaltado de fecha y nivel sin recurrir a un canal persistente. No se utiliza la terminal ni la consola de depuración. El registro identifica el grupo, el proceso y la posición de cada nodo, y utiliza estas etiquetas:
 
 - `[INICIO]`: comienza un grupo, proceso o nodo.
 - `[OK]`: el nodo o proceso terminó correctamente, incluyendo su duración.
@@ -64,7 +70,7 @@ Cuando se alcanza `Pause / Wait User`, los controles siguen apareciendo en el ba
 
 ## Nodos iniciales
 
-La versión inicial registra `Navigate`, `Click`, `Fill`, `Generate Value`, `Set Headers`, `Set Cookies`, `Set Storage`, `Request Override`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable` y `Pause / Wait User`.
+La paleta registra `Navigate`, `Click`, `Campo`, `Set Headers`, `Set Cookies`, `Set Storage`, `Request Override`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable` y `Pause / Wait User`. El registro interno conserva `Generate Value` exclusivamente para compatibilidad hacia atrás.
 
 ### Validación de datos del navegador
 
@@ -99,9 +105,9 @@ El formulario de overrides vive en `webviews/components/requestOverrideEditor` y
 
 El botón **Añadir ejemplo** crea un grupo adicional sin reemplazar el documento existente. El grupo contiene un proceso independiente para cada tipo de nodo registrado y termina con **Todos concatenados**, que reúne el recorrido completo. Todos los nodos de cada proceso ya están conectados y la página muestra una guía contextual para el proceso seleccionado.
 
-Los procesos generados son: `Viewport`, `Variables iniciales`, `Request Override`, `Navigate`, `Click`, `Fill`, `Generate Value`, `Set Headers`, `Set Cookies`, `Set Storage`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Pause / Wait User` y `Todos concatenados`.
+Los procesos generados son: `Viewport`, `Variables iniciales`, `Request Override`, `Navigate`, `Click`, `Campo con texto`, `Campo con generador`, `Set Headers`, `Set Cookies`, `Set Storage`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Pause / Wait User` y `Todos concatenados`.
 
-`Viewport` usa una configuración móvil personalizada de 390×844, táctil y con modo móvil. La sesión aplica esas dimensiones tanto al viewport como a la pantalla emulada para que `width=device-width` sea determinista. La página servida por el override imprime `window.innerWidth` y `window.innerHeight`, y una assertion confirma que coinciden con el proceso. `Variables iniciales` define `initialName` y `expectedGreeting`; el flujo usa `{initialName}` en `Fill` y `{expectedGreeting}` en `Assertion`. El proceso final aplica el mismo viewport y reutiliza también esas variables antes de continuar con los generadores y el resto de nodos.
+`Viewport` usa una configuración móvil personalizada de 390×844, táctil y con modo móvil. La sesión aplica esas dimensiones tanto al viewport como a la pantalla emulada para que `width=device-width` sea determinista. La página servida por el override imprime `window.innerWidth` y `window.innerHeight`, y una assertion confirma que coinciden con el proceso. `Variables iniciales` define `initialName` y `expectedGreeting`; el flujo usa `{initialName}` en `Campo` y `{expectedGreeting}` en `Assertion`. El proceso final aplica el mismo viewport y reutiliza también esas variables antes de continuar con los generadores y el resto de nodos.
 
 Antes y después de cada navegación se reaplica el tamaño mediante la API de página de Playwright. Esto evita que una ventana visible conserve temporalmente las dimensiones exteriores durante el cambio de documento. Si el DOM sigue informando otras medidas, el canal `Browser Automation` registra el viewport de Playwright, `inner`, `outer`, `screen`, `visualViewport`, su escala y el DPR. La página autocontenida actualiza además su indicador cuando recibe `resize`.
 

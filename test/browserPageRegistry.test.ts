@@ -10,6 +10,7 @@ class FakePage {
   public url(): string { return this.currentUrl; }
   public title(): Promise<string> { return Promise.resolve(this.currentTitle); }
   public on(event: string, listener: () => void): this { const values = this.listeners.get(event) ?? new Set(); values.add(listener); this.listeners.set(event, values); return this; }
+  public off(event: string, listener: () => void): this { this.listeners.get(event)?.delete(listener); return this; }
   public close(): Promise<void> { for (const listener of this.listeners.get("close") ?? []) listener(); return Promise.resolve(); }
   public emit(event: string): void { for (const listener of this.listeners.get(event) ?? []) listener(); }
 }

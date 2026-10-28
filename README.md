@@ -2,7 +2,7 @@
 
 Extensión de Visual Studio Code para preparar sesiones web, ejecutar testing manual asistido y controlar navegadores aislados mediante Playwright.
 
-La Fase 4 incluye:
+El estado actual incluye:
 
 - página **Manual** con perfiles persistentes;
 - recursos globales de **Fórmulas** y **Arrays**;
@@ -21,4 +21,4 @@ La Fase 4 incluye:
 
 Ningún navegador se descarga durante `npm install` ni se empaqueta con la extensión. Tras abrir el Extension Development Host, pulsa **Gestionar navegador** y selecciona Chrome instalado o instala Chromium administrado. Las sesiones son no persistentes y nunca utilizan el perfil personal del usuario.
 
-Consulta [la guía de Automatizaciones](docs/automations-page.md), [la guía de desarrollo](docs/development.md), [la arquitectura](docs/architecture.md), [la gestión de navegadores](docs/browser-runtime.md), [la seguridad de fórmulas](docs/formula-sandbox.md) y [la estrategia de pruebas](docs/testing.md).
+Consulta [la guía de Automatizaciones](docs/automations-page.md), [la guía de desarrollo](docs/development.md), [la arquitectura](docs/architecture.md), [el motor de navegador](docs/browser-engine.md), [importación/exportación](docs/import-export.md), [la seguridad de fórmulas](docs/formula-sandbox.md), [release](docs/release.md) y [la estrategia de pruebas](docs/testing.md).

@@ -12,6 +12,7 @@ import type { ArrayResource } from "../../domain/arrays/arrayResource";
 import type { AutomationDocument } from "../../domain/automations/automation";
 import { DEFAULT_BROWSER_PREFERENCES, type BrowserPreferences } from "../../domain/browser/browserProvider";
 import type { FormulaResource } from "../../domain/formulas/formula";
+import { MAX_DOCUMENT_BYTES, documentSizeLimitMessage, measureUtf8Bytes } from "../../domain/importExport/documentSize";
 import type { ManualProfile, ProfileSummary } from "../../domain/manual/manualProfile";
 import type { GlobalResourceSummary } from "../../domain/resources/globalResource";
 import { arrayResourceCodec } from "./arrayResourceSerializer";
@@ -124,10 +125,15 @@ class MementoStateDataDao<T> implements StateDataDao<T> {
   }
 }
 
-const readUtf8 = async (target: vscode.Uri): Promise<string> =>
-  new TextDecoder("utf-8", { fatal: true }).decode(await vscode.workspace.fs.readFile(target));
+const readUtf8 = async (target: vscode.Uri): Promise<string> => {
+  const metadata = await vscode.workspace.fs.stat(target);
+  if (metadata.size > MAX_DOCUMENT_BYTES) throw new Error(documentSizeLimitMessage(metadata.size));
+  return new TextDecoder("utf-8", { fatal: true }).decode(await vscode.workspace.fs.readFile(target));
+};
 
 const writeUtf8Atomically = async (target: vscode.Uri, serialized: string): Promise<void> => {
+  const bytes = measureUtf8Bytes(serialized);
+  if (bytes > MAX_DOCUMENT_BYTES) throw new Error(documentSizeLimitMessage(bytes));
   const temporary = target.with({ path: `${target.path}.tmp` });
   await vscode.workspace.fs.writeFile(temporary, new TextEncoder().encode(serialized));
   await vscode.workspace.fs.rename(temporary, target, { overwrite: true });

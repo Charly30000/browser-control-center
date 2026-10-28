@@ -67,6 +67,7 @@ export class BrowserLifecycleManager {
         headless: false,
         downloadsPath: join(sessionPath, "downloads")
       });
+      this.server = server;
       const browser = await browserType.connect(server.wsEndpoint());
       const context = await browser.newContext({
         viewport: { width: viewport.width, height: viewport.height },
@@ -76,14 +77,13 @@ export class BrowserLifecycleManager {
         isMobile: viewport.isMobile,
         serviceWorkers: "block"
       });
-      this.server = server;
       this.session = { browser, context };
       browser.once("disconnected", () => {
-        if (this.state !== "running") return;
+        if (this.state !== "running" || this.server !== server) return;
         this.session = null;
         this.server = null;
         this.setState("crashed");
-        void this.cleanSessionPath();
+        void this.cleanSessionPath().catch((error: unknown) => this.logger.error("No se pudo limpiar la sesión cerrada inesperadamente.", error));
         this.logger.error(`${configuration.displayName} se ha cerrado de forma inesperada.`);
       });
       this.setState("running");
@@ -110,8 +110,8 @@ export class BrowserLifecycleManager {
     try {
       await context?.close().catch(() => undefined);
       if (server !== null) {
-        if (mode === "force") await server.kill();
-        else await server.close();
+        if (mode === "force") await server.kill().catch((error: unknown) => this.logger.error("No se pudo terminar el proceso del navegador.", error));
+        else await this.closeServer(server);
       }
     } finally {
       await this.cleanSessionPath();
@@ -124,6 +124,21 @@ export class BrowserLifecycleManager {
     const target = this.sessionPath;
     this.sessionPath = null;
     if (target !== null) await rm(target, { recursive: true, force: true });
+  }
+
+  private async closeServer(server: BrowserServer): Promise<void> {
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        server.close(),
+        new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error("Timeout al cerrar el navegador.")), 3_000); })
+      ]);
+    } catch (error: unknown) {
+      this.logger.warn("El cierre normal del navegador falló; se intentará una parada forzada.");
+      await server.kill().catch((killError: unknown) => this.logger.error("No se pudo forzar el cierre del navegador.", killError ?? error));
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
   }
 
   private setState(state: BrowserLifecycleState): void {

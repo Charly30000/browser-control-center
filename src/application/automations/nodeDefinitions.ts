@@ -1,5 +1,6 @@
-import type { GeneratorType, HeaderEntry, CookieEntry, StorageEntry, RequestOverrideEntry, InputMode } from "../../domain/manual/manualProfile";
-import { isJsonValue, type JsonValue } from "../../domain/manual/storageValue";
+import type { GeneratorType, HeaderEntry, CookieEntry, StorageEntry, RequestOverrideEntry, InputMode, QueryParamEntry } from "../../domain/manual/manualProfile";
+import { buildUrlWithQueryParams } from "../../domain/manual/queryParams";
+import { isJsonValue, parseStorageValue, type JsonValue } from "../../domain/manual/storageValue";
 import { isRequestOverrideEntry, validateRequestOverride } from "../../domain/manual/requestOverride";
 import type { AutomationNodeConfig } from "../../domain/automations/automation";
 import { isVariableName } from "../../domain/automations/variables";
@@ -41,19 +42,67 @@ const asEntries = <T>(config: AutomationNodeConfig, validate: (value: unknown) =
 };
 
 const isHeader = (value: unknown): value is HeaderEntry => isRecord(value) && typeof value.id === "string" && typeof value.key === "string" && typeof value.value === "string" && typeof value.enabled === "boolean";
+const isQueryParam = (value: unknown): value is QueryParamEntry => isHeader(value);
 const isCookie = (value: unknown): value is CookieEntry => isRecord(value) && typeof value.id === "string" && typeof value.name === "string" && typeof value.value === "string" && typeof value.domain === "string" && !value.domain.includes("://") && typeof value.path === "string" && (value.expires === null || typeof value.expires === "string") && typeof value.secure === "boolean" && typeof value.httpOnly === "boolean" && ["Strict", "Lax", "None"].includes(String(value.sameSite)) && typeof value.enabled === "boolean";
-const isStorage = (value: unknown): value is StorageEntry => isRecord(value) && typeof value.id === "string" && typeof value.key === "string" && typeof value.value === "string" && ["string", "number", "boolean", "json", "null"].includes(String(value.valueType)) && typeof value.enabled === "boolean";
+const isStorage = (value: unknown): value is StorageEntry => isRecord(value) && typeof value.id === "string" && typeof value.key === "string" && typeof value.value === "string" && ["string", "number", "boolean", "json", "null"].includes(String(value.valueType)) && parseStorageValue(value.valueType as StorageEntry["valueType"], value.value).ok && typeof value.enabled === "boolean";
 const isOverride = (value: unknown): value is RequestOverrideEntry => isRequestOverrideEntry(value) && validateRequestOverride(value).ok;
 const validateEntryList = <T>(validate: (value: unknown) => value is T, extra?: (config: AutomationNodeConfig) => void) => validateConfig((config) => { asEntries(config, validate); extra?.(config); });
+const queryParamsFrom = (config: AutomationNodeConfig): QueryParamEntry[] => {
+  if (config.queryParams === undefined) return [];
+  if (!Array.isArray(config.queryParams)) throw new Error("Los query params no son válidos.");
+  const result: QueryParamEntry[] = [];
+  for (const entry of config.queryParams) {
+    if (!isQueryParam(entry)) throw new Error("Los query params no son válidos.");
+    result.push(structuredClone(entry));
+  }
+  return result;
+};
 
 const definition = (value: NodeDefinition): NodeDefinition => value;
+
+const generatorOptions: readonly { readonly value: GeneratorType; readonly label: string }[] = [
+  { value: "string", label: "Texto fijo" },
+  { value: "firstName", label: "Nombre" },
+  { value: "lastName", label: "Apellido" },
+  { value: "email", label: "Email" },
+  { value: "phone", label: "Teléfono" },
+  { value: "number", label: "Número" },
+  { value: "dni", label: "DNI" },
+  { value: "nie", label: "NIE" },
+  { value: "cif", label: "CIF" },
+  { value: "formula", label: "Fórmula" },
+  { value: "array", label: "Array" }
+];
+
+const generatorTypeFrom = (config: AutomationNodeConfig): GeneratorType => {
+  if (config.generatorType === undefined) return "string";
+  return oneOf(text(config, "generatorType"), generatorOptions.map(({ value }) => value), "origen del valor");
+};
+
+const validateGeneratorSelection = (config: AutomationNodeConfig, generatorType: GeneratorType): void => {
+  if ((generatorType === "formula" || generatorType === "array") && (typeof config.resourceId !== "string" || config.resourceId.trim() === "")) {
+    throw new Error("Selecciona una fórmula o array.");
+  }
+  if (generatorType === "number") {
+    text(config, "min");
+    text(config, "max");
+  }
+};
 
 export const createDefaultNodeRegistry = (): NodeRegistry => {
   const registry = new NodeRegistry();
   registry.register(definition({
     type: "navigate", title: "Navigate", category: "Navegación", defaultTimeoutMs: 30_000,
-    inspectorFields: [{ key: "url", label: "URL", kind: "text" }], validate: validateFields(["url"]),
-    execute: async (context, config, _nodeId, timeoutMs) => context.browser.navigate(text(context.resolveConfig(config), "url"), timeoutMs)
+    inspectorFields: [], validate: validateConfig((config) => {
+      required(text(config, "url"), "URL");
+      queryParamsFrom(config);
+    }),
+    execute: async (context, config, _nodeId, timeoutMs) => {
+      const resolved = context.resolveConfig(config);
+      const url = buildUrlWithQueryParams(text(resolved, "url"), queryParamsFrom(resolved));
+      if (!url.ok) throw new Error(url.error);
+      await context.browser.navigate(url.value, timeoutMs);
+    }
   }));
   registry.register(definition({
     type: "click", title: "Click", category: "Página", defaultTimeoutMs: 10_000,
@@ -61,16 +110,40 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
     execute: async (context, config, _nodeId, timeoutMs) => context.browser.click(text(context.resolveConfig(config), "selector"), timeoutMs)
   }));
   registry.register(definition({
-    type: "fill", title: "Fill", category: "Página", defaultTimeoutMs: 10_000,
+    type: "fill", title: "Campo", category: "Página", defaultTimeoutMs: 10_000,
     inspectorFields: [
-      { key: "selector", label: "Selector CSS", kind: "text" }, { key: "value", label: "Valor / {variable}", kind: "text" },
+      { key: "selector", label: "Selector CSS", kind: "text" },
+      { key: "generatorType", label: "Origen del valor", kind: "select", options: generatorOptions },
+      { key: "value", label: "Texto / {variable}", kind: "text", visibleWhen: { key: "generatorType", values: ["string"] } },
+      { key: "resourceId", label: "Fórmula / Array", kind: "resource" },
+      { key: "min", label: "Mínimo", kind: "text", visibleWhen: { key: "generatorType", values: ["number"] } },
+      { key: "max", label: "Máximo", kind: "text", visibleWhen: { key: "generatorType", values: ["number"] } },
       { key: "mode", label: "Escritura", kind: "select", options: [{ value: "instant", label: "Instantánea" }, { value: "sequential", label: "Secuencial" }] },
-      { key: "delayMs", label: "Retraso (ms)", kind: "number" }
-    ], validate: validateConfig((config) => { required(text(config, "selector"), "selector"); oneOf(text(config, "mode"), ["instant", "sequential"], "mode"); if (number(config, "delayMs") < 0) throw new Error("delayMs no puede ser negativo."); }),
-    execute: async (context, config, _nodeId, timeoutMs) => { const resolved = context.resolveConfig(config); const value = resolved.value; if (value === undefined) throw new Error("El valor es obligatorio."); await context.browser.fill(text(resolved, "selector"), value, text(resolved, "mode") as InputMode, number(resolved, "delayMs"), timeoutMs); }
+      { key: "delayMs", label: "Retraso (ms)", kind: "number", visibleWhen: { key: "mode", values: ["sequential"] } }
+    ], validate: validateConfig((config) => {
+      required(text(config, "selector"), "selector");
+      const generatorType = generatorTypeFrom(config);
+      validateGeneratorSelection(config, generatorType);
+      if (generatorType === "string" && config.value === undefined) throw new Error("El texto es obligatorio.");
+      oneOf(text(config, "mode"), ["instant", "sequential"], "mode");
+      if (number(config, "delayMs") < 0) throw new Error("delayMs no puede ser negativo.");
+    }),
+    execute: async (context, config, nodeId, timeoutMs) => {
+      const resolved = context.resolveConfig(config);
+      const generatorType = generatorTypeFrom(resolved);
+      let value = resolved.value;
+      if (generatorType !== "string") {
+        const generated = await context.generators.resolve({ id: nodeId, generatorType, selector: "", propertyKind: "value", propertyName: "", min: typeof resolved.min === "string" ? resolved.min : "0", max: typeof resolved.max === "string" ? resolved.max : "100", resourceId: typeof resolved.resourceId === "string" && resolved.resourceId !== "" ? resolved.resourceId : null, inputMode: "instant", delayMs: 0, enabled: true });
+        if (!generated.ok) throw new Error(generated.error);
+        value = generated.value;
+      }
+      if (value === undefined) throw new Error("El valor no puede ser undefined.");
+      await context.browser.fill(text(resolved, "selector"), value, text(resolved, "mode") as InputMode, number(resolved, "delayMs"), timeoutMs);
+    }
   }));
   registry.register(definition({
     type: "generate-value", title: "Generate Value", category: "Datos", defaultTimeoutMs: 5_000,
+    availableInPalette: false,
     inspectorFields: [
       { key: "generatorType", label: "Generador", kind: "select", options: ["firstName", "lastName", "email", "phone", "number", "dni", "nie", "cif", "formula", "array"].map((value) => ({ value, label: value })) },
       { key: "outputVariable", label: "Variable de salida", kind: "text" }, { key: "resourceId", label: "Fórmula / Array", kind: "resource" },
@@ -85,22 +158,22 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
   }));
   registry.register(definition({
     type: "set-headers", title: "Set Headers", category: "Sesión", defaultTimeoutMs: 5_000,
-    inspectorFields: [{ key: "entries", label: "Headers (JSON)", kind: "json" }], validate: validateEntryList(isHeader),
+    inspectorFields: [], validate: validateEntryList(isHeader),
     execute: async (context, config) => context.browser.setHeaders(asEntries(context.resolveConfig(config), isHeader))
   }));
   registry.register(definition({
     type: "set-cookies", title: "Set Cookies", category: "Sesión", defaultTimeoutMs: 5_000,
-    inspectorFields: [{ key: "entries", label: "Cookies (JSON, dominio sin protocolo)", kind: "json" }], validate: validateEntryList(isCookie),
+    inspectorFields: [], validate: validateEntryList(isCookie),
     execute: async (context, config) => context.browser.setCookies(asEntries(context.resolveConfig(config), isCookie))
   }));
   registry.register(definition({
     type: "set-storage", title: "Set Storage", category: "Sesión", defaultTimeoutMs: 5_000,
-    inspectorFields: [{ key: "scope", label: "Ámbito", kind: "select", options: [{ value: "local", label: "localStorage" }, { value: "session", label: "sessionStorage" }] }, { key: "entries", label: "Entradas (JSON)", kind: "json" }], validate: validateEntryList(isStorage, (config) => { oneOf(text(config, "scope"), ["local", "session"], "scope"); }),
+    inspectorFields: [], validate: validateEntryList(isStorage, (config) => { oneOf(text(config, "scope"), ["local", "session"], "scope"); }),
     execute: async (context, config) => { const resolved = context.resolveConfig(config); await context.browser.setStorage(text(resolved, "scope") as "local" | "session", asEntries(resolved, isStorage)); }
   }));
   registry.register(definition({
     type: "request-override", title: "Request Override", category: "Red", defaultTimeoutMs: 5_000,
-    inspectorFields: [{ key: "entries", label: "Overrides", kind: "json" }], validate: validateEntryList(isOverride),
+    inspectorFields: [], validate: validateEntryList(isOverride),
     execute: async (context, config) => context.browser.setRequestOverrides(asEntries(context.resolveConfig(config), isOverride))
   }));
   registry.register(definition({

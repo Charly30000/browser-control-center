@@ -64,13 +64,14 @@ const isRequestOverride = (value: unknown): value is RequestOverrideEntry =>
 const isGeneratorBinding = (value: unknown): value is GeneratorBinding =>
   isRecord(value) &&
   isString(value.id) &&
-  isOneOf(value.generatorType, ["firstName", "lastName", "email", "phone", "number", "dni", "nie", "cif", "formula", "array"] as const) &&
+  isOneOf(value.generatorType, ["string", "firstName", "lastName", "email", "phone", "number", "dni", "nie", "cif", "formula", "array"] as const) &&
   isString(value.selector) &&
   isOneOf(value.propertyKind, ["value", "textContent", "innerText", "checked", "attribute", "property"] as const) &&
   isString(value.propertyName) &&
   isString(value.min) &&
   isString(value.max) &&
   isStringOrNull(value.resourceId) &&
+  (value.literalValue === undefined || isString(value.literalValue)) &&
   isOneOf(value.inputMode, ["instant", "sequential"] as const) &&
   typeof value.delayMs === "number" && Number.isFinite(value.delayMs) && value.delayMs >= 0 &&
   isBoolean(value.enabled);

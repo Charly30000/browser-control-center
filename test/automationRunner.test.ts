@@ -36,6 +36,36 @@ const generators = { resolve: () => Promise.resolve(success<JsonValue | undefine
 const recordingLogger = () => ({ trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) satisfies Logger;
 
 describe("ProcessRunner", () => {
+  it("compone la navegación con query params igual que Manual", async () => {
+    const session = new FakeSession();
+    const navigate = vi.spyOn(session, "navigate");
+    const sessions: AutomationBrowserSessionFactory = { create: () => Promise.resolve(session) };
+    const process = createAutomationProcess("process");
+    const node = createAutomationNode("navigate", "navigate", { x: 0, y: 0 });
+    node.config = { url: "https://example.com/path?old=value", queryParams: [{ id: "query", key: "page", value: "2", enabled: true }] };
+    process.nodes.push(node);
+
+    const result = await new ProcessRunner(sessions, createDefaultNodeRegistry(), generators, silentLogger).run("group", process, new ExecutionControl(), () => undefined);
+
+    expect(result.success).toBe(true);
+    expect(navigate).toHaveBeenCalledWith("https://example.com/path?page=2", 30_000);
+  });
+
+  it("genera y escribe el valor desde un único nodo Campo", async () => {
+    const session = new FakeSession();
+    const fill = vi.spyOn(session, "fill");
+    const sessions: AutomationBrowserSessionFactory = { create: () => Promise.resolve(session) };
+    const process = createAutomationProcess("process");
+    const node = createAutomationNode("field", "fill", { x: 0, y: 0 });
+    node.config = { selector: "#name", generatorType: "firstName", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 };
+    process.nodes.push(node);
+
+    const result = await new ProcessRunner(sessions, createDefaultNodeRegistry(), generators, silentLogger).run("group", process, new ExecutionControl(), () => undefined);
+
+    expect(result.success).toBe(true);
+    expect(fill).toHaveBeenCalledWith("#name", "generated", "instant", 0, 10_000);
+  });
+
   it("ejecuta los nodos en orden y cierra la sesión", async () => {
     const calls: string[] = []; const session = new FakeSession(); const sessions: AutomationBrowserSessionFactory = { create: () => Promise.resolve(session) };
     const registry = new NodeRegistry().register(definition("navigate", () => { calls.push("navigate"); return Promise.resolve(); })).register(definition("click", () => { calls.push("click"); return Promise.resolve(); }));
@@ -88,6 +118,26 @@ describe("ProcessRunner", () => {
     expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("[ERROR] Grupo completado con 1 proceso(s) fallido(s)"));
   });
 
+  it("continúa el grupo si no se puede crear la sesión de un proceso", async () => {
+    const session = new FakeSession();
+    let attempts = 0;
+    const sessions: AutomationBrowserSessionFactory = {
+      create: () => { attempts += 1; return attempts === 1 ? Promise.reject(new Error("navegador cerrado")) : Promise.resolve(session); }
+    };
+    const registry = new NodeRegistry().register(definition("navigate", () => Promise.resolve()));
+    const first = createAutomationProcess("first", "Primero"); first.nodes.push(createAutomationNode("first-node", "navigate", { x: 0, y: 0 }));
+    const second = createAutomationProcess("second", "Segundo"); second.nodes.push(createAutomationNode("second-node", "navigate", { x: 0, y: 0 }));
+    const group = createAutomationGroup("group"); group.processes.push(first, second);
+    const logger = recordingLogger();
+    const coordinator = new AutomationExecutionCoordinator(new ProcessRunner(sessions, registry, generators, logger), { onProcess: () => undefined, onGroup: () => undefined }, logger);
+
+    await coordinator.runGroup(group);
+
+    expect(attempts).toBe(2);
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("No se pudo preparar el navegador"), expect.any(Error));
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("[Segundo] [OK]"));
+  });
+
   it("publica los estados de pausa y reanudación", async () => {
     const session = new FakeSession(); const sessions: AutomationBrowserSessionFactory = { create: () => Promise.resolve(session) }; let release: (() => void) | undefined;
     const registry = new NodeRegistry().register(definition("navigate", () => new Promise<void>((resolve) => { release = resolve; })));
@@ -109,5 +159,18 @@ describe("ProcessRunner", () => {
     expect(result.success).toBe(true);
     expect(prompt).toHaveBeenCalledWith("Comprueba el navegador");
     expect(hide).toHaveBeenCalled();
+  });
+
+  it("cancela Wait User si el control del navegador desaparece", async () => {
+    const session = new FakeSession();
+    vi.spyOn(session, "showUserPrompt").mockResolvedValue("dismissed");
+    const sessions: AutomationBrowserSessionFactory = { create: () => Promise.resolve(session) };
+    const process = createAutomationProcess("process");
+    const node = createAutomationNode("wait-user", "wait-user", { x: 0, y: 0 });
+    node.config = { message: "Comprueba el navegador" }; process.nodes.push(node);
+
+    const result = await new ProcessRunner(sessions, createDefaultNodeRegistry(), generators, silentLogger).run("group", process, new ExecutionControl(), () => undefined);
+
+    expect(result.cancelled).toBe(true);
   });
 });

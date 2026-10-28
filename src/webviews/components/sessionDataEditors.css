@@ -1,0 +1,24 @@
+.session-editor, .session-list { display: grid; gap: 7px; min-width: 0; }
+.session-row { display: grid; gap: 6px; align-items: center; }
+.query-param-row { grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto; }
+.header-row { grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto auto; }
+.storage-entry-row { grid-template-columns: minmax(80px, 1fr) 100px minmax(110px, 1.4fr) auto auto auto; }
+.session-check { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.session-check input { width: auto; margin: 0; }
+.session-check > span { display: inline; margin: 0; color: inherit; font-size: inherit; }
+.session-toolbar, .session-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.session-details { border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border)); background: var(--vscode-editorWidget-background); }
+.session-details > summary { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto; gap: 8px; align-items: center; min-height: 32px; padding: 5px 8px; cursor: pointer; }
+.session-details > summary small, .session-empty { color: var(--vscode-descriptionForeground); }
+.session-details > summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-details-grid { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 8px; padding: 9px; border-top: 1px solid var(--vscode-panel-border); }
+.session-actions { padding: 0 9px 9px; }
+.session-enabled { color: var(--vscode-testing-iconPassed); }
+.session-disabled { color: var(--vscode-disabledForeground); }
+.session-empty, .session-validation { margin: 3px 0; }
+.session-validation { grid-column: 1 / -1; color: var(--vscode-errorForeground); font-size: 11px; }
+@media (max-width: 700px) {
+  .query-param-row, .header-row, .storage-entry-row, .session-details-grid { grid-template-columns: 1fr; }
+  .session-details > summary { grid-template-columns: 1fr auto; }
+  .session-details > summary small { grid-column: 1 / -1; grid-row: 2; }
+}

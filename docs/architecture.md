@@ -20,6 +20,8 @@ Dominio ◄──── Adaptadores de infraestructura
 - `src/extension`: composición, comandos, paneles, diálogos y logging de VS Code.
 - `src/webviews`: páginas Lit. Cada vista central vive en `pages/<Vista>` y los componentes reutilizables en `components`.
 
+Los editores estructurados de query params, headers, cookies, storage y request overrides viven en `webviews/components` y son compartidos por Manual y Automatizaciones. De este modo ambas áreas validan y representan los mismos modelos sin mantener formularios divergentes.
+
 ## Automatizaciones
 
 El motor se diseñó antes que el canvas. `NodeRegistry` concentra metadatos, validación y ejecutor de cada tipo de nodo; la paleta y el inspector consumen descriptores derivados del mismo registro. `ProcessRunner` valida el grafo, calcula un orden topológico determinista, resuelve variables y ejecuta cada nodo con timeout y cancelación. `AutomationExecutionCoordinator` limita la ejecución a una tarea activa y encadena los procesos de un grupo.
@@ -62,9 +64,11 @@ La frontera de importación y exportación está centralizada por capas: `domain
 
 El componente reutilizable `json-document-editor` presenta ese mismo envelope sin crear archivos. La serialización y la validación siguen cruzando `ImportExportDocumentService`: la webview nunca acepta directamente el JSON editado. Aplicarlo actualiza solo el borrador visible, conserva su identidad y requiere el guardado normal de la pantalla para persistirlo.
 
+Los documentos se limitan a 100 MiB. La infraestructura comprueba el tamaño antes de leer o persistir, y las webviews avisan desde el 80 % y rechazan la mutación que superaría el máximo. Manual, Fórmulas, Arrays y Automatizaciones comparten además el diálogo Guardar/Descartar/Cancelar para transiciones internas que podrían perder un borrador. VS Code no permite cancelar programáticamente el cierre de un `WebviewPanel`; por ello los paneles conservan su contexto al quedar ocultos, pero cerrar explícitamente una pestaña descarta su borrador igual que cerrar un editor sin una API de veto disponible.
+
 `ManualProfileBundleService` crea paquetes portátiles con los recursos globales referenciados y resuelve tanto importaciones como JSON editado. Deduplica fórmulas por código y arrays por igualdad estructural, importa únicamente contenido nuevo y repara las referencias del perfil mediante el mapa de identidades resultante. Las funciones puras de `automationSelection` recortan y reinsertan grupos o procesos; Exportar y Ver JSON consumen el mismo resultado. La reinserción conserva la identidad del destino y normaliza de forma determinista procesos, nodos, conexiones y nombres externos que colisionen.
 
-Al importar nunca se sobrescribe una entidad existente. Si coincide el ID o el nombre —comparado sin distinguir mayúsculas ni espacios exteriores— se regeneran ambos. En automatizaciones se añaden los grupos al documento actual y se reparan las referencias entre nodos y conexiones. Los archivos históricos sin envelope de Manual y Automatizaciones, y los envelopes anteriores de Fórmulas y Arrays sin `exportedAt`, siguen siendo legibles.
+Al importar nunca se sobrescribe una entidad existente. Si coinciden el ID y el contenido serializado completo, se reutiliza la entidad. El mismo ID con contenido distinto genera una identidad nueva y actualiza las referencias; una colisión exclusiva de nombre genera igualmente una identidad y un nombre con sufijo nuevos. En automatizaciones se añaden los grupos al documento actual y se reparan las referencias entre nodos y conexiones. Los archivos históricos sin envelope de Manual y Automatizaciones, y los envelopes anteriores de Fórmulas y Arrays sin `exportedAt`, siguen siendo legibles.
 
 Los binarios no forman parte de la persistencia funcional: viven en `globalStorageUri/browser` y pueden eliminarse sin afectar perfiles o recursos.
 

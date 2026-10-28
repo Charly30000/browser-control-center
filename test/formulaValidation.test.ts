@@ -19,4 +19,8 @@ describe("contrato de fórmulas", () => {
   it("mantiene válido el ejemplo generado", () => {
     expect(validateFormula({ ...createFormula("1", "example"), code: EXAMPLE_FORMULA_CODE }).ok).toBe(true);
   });
+
+  it("acepta generate asíncrona sin parámetros", () => {
+    expect(validateFormula({ ...createFormula("1", "async"), code: "async function generate() { return await Promise.resolve(true); }" }).ok).toBe(true);
+  });
 });
