@@ -1,6 +1,7 @@
 import type { AutomationNodeConfig, AutomationNodeType } from "../../domain/automations/automation";
 import type { Result } from "../../shared/result";
 import type { ExecutionContext } from "./executionContext";
+import type { JsonValue } from "../../domain/manual/storageValue";
 
 export interface InspectorField {
   readonly key: string;
@@ -18,7 +19,7 @@ export interface NodeDefinition {
   readonly inspectorFields: readonly InspectorField[];
   readonly availableInPalette?: boolean;
   validate(config: unknown): Result<AutomationNodeConfig>;
-  execute(context: ExecutionContext, config: AutomationNodeConfig, nodeId: string, timeoutMs: number): Promise<void>;
+  execute(context: ExecutionContext, config: AutomationNodeConfig, nodeId: string, timeoutMs: number): Promise<void | JsonValue>;
 }
 
 export interface NodeDescriptor {

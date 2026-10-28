@@ -42,6 +42,33 @@ El viewport acepta presets o valores personalizados de ancho, alto, escala, modo
 
 Los nodos pueden leer variables con `{nombre}` en cualquier nivel de su configuración. Si el texto completo es una variable, conserva su tipo JSON; dentro de una cadena se interpola como texto. `Extract Value` y `Set Variable` escriben variables para los nodos posteriores.
 
+### Guardar un dato del nodo anterior o del DOM
+
+**Guardar dato**, en la categoría **Datos**, permite elegir el **Origen del dato**: salida del nodo anterior o elemento del DOM. La **Ruta JSON opcional** permite seleccionar una propiedad anidada (`body.usuario.id`) o un índice de array (`body.items.0.id`). Una ruta vacía guarda el valor completo. También puede recorrer texto que contenga JSON.
+
+Con origen **Elemento del DOM / campo de texto**, indica un selector CSS (puedes usar **Seleccionar**) y el **Tipo de lectura del elemento**:
+
+- **Valor de campo**: lee `value` de un input, textarea o select.
+- **Contenido de texto**: lee `textContent` del elemento.
+- **Texto visible**: lee `innerText`.
+- **Atributo del elemento**: lee el atributo indicado, por ejemplo `href`, `id` o `data-id`.
+
+El **Tipo del dato guardado** permite conservar el tipo original o convertirlo a texto, número, booleano, JSON o null. Las lecturas DOM devuelven texto: para guardar `42` como número, selecciona **Número**; para interpretar un documento completo, selecciona **JSON**. El booleano admite `true` o `false`; una conversión inválida detiene el nodo sin guardar la variable. La ruta JSON se aplica antes de convertir el resultado. Los nodos antiguos que no incluyen estas opciones conservan el origen anterior y el tipo original.
+
+Ejemplo de campo de texto: selecciona origen **Elemento del DOM**, selector `#name`, lectura **Valor de campo**, ruta vacía, tipo **Número** y variable `fieldNumber`. Si contiene `42`, otro nodo Campo puede escribir `Número leído: {fieldNumber}`. Para copiar un título, usa selector `h1`, lectura **Texto visible**, tipo **Texto** y variable `domTitle`; después utiliza `{domTitle}`. Para un elemento que contiene `{"item":{"id":42}}`, usa **Contenido de texto**, ruta `item.id` y tipo **Número**.
+
+Producen salidas `Campo` (el valor escrito), `Extract Value` (el dato extraído), `Set Variable`, el antiguo `Generate Value` y el propio `Guardar dato`. `Wait` de tipo `response` produce `{ url, status, headers, body }` de la respuesta que acaba de esperar; `body` contiene el JSON parseado o el texto original. La espera debe comenzar antes de que llegue esa respuesta. Los otros tipos de `Wait` y los nodos de acciones o validaciones no producen datos.
+
+Ejemplo: para una respuesta `{"item":{"id":42}}`, conecta **Wait (response) → Guardar dato → Campo**:
+
+1. En `Wait`, selecciona `response`, indica la URL de la API y el status esperado.
+2. En **Guardar dato**, escribe `body.item.id` como ruta e `itemId` como variable de salida, sin llaves.
+3. En **Campo**, selecciona el campo destino, elige **Texto fijo** y escribe `{itemId}`. Se introducirá `42`.
+
+**Añadir ejemplo** incluye el proceso **17 · Guardar dato**, que captura la respuesta HTTP, lee el valor del campo `#name` como número, el texto visible de `h1` y el atributo `id` del campo. Cada captura se reutiliza en Campo y se comprueba con Assertion. El proceso **Todos concatenados** también extrae `item.id` del JSON mostrado en `#api-result`, tanto desde la salida de `Extract Value` como leyendo directamente el DOM.
+
+Con origen **Salida del nodo anterior**, la conexión determina el dato, aunque otra rama se haya ejecutado entre ambos nodos; requiere exactamente un predecesor que produzca datos. Con origen **DOM**, lee la página del navegador del proceso y no necesita que el predecesor produzca una salida. Un atributo inexistente devuelve `null`. Si falta el elemento o la ruta, o la conversión no es válida, el nodo falla con un mensaje explicativo. Las variables pertenecen a la ejecución del proceso y pueden reutilizarse después mediante `{itemId}`; no se persisten automáticamente entre ejecuciones.
+
 El nodo visible **Campo** concentra la introducción de datos: el usuario selecciona el elemento y escoge texto fijo, un generador integrado, una fórmula o un array como origen. También permite escritura instantánea o secuencial. Internamente conserva el tipo `fill` para mantener compatibles los documentos existentes. El antiguo `Generate Value` continúa registrado para ejecutar e importar flujos ya guardados, pero no se ofrece al crear nodos nuevos.
 
 Los datos compartidos con Manual utilizan también los mismos editores visuales. `Navigate` ofrece URL base y filas de query params; `Set Headers`, `Set Cookies` y `Set Storage` muestran entradas individuales con sus campos, tipos, atributos, activación y validación. `Request Override` ya reutiliza el mismo editor completo de Manual. El JSON interno de los nodos se mantiene compatible, pero no es necesario editarlo a mano.
@@ -70,7 +97,7 @@ Cuando se alcanza `Pause / Wait User`, los controles siguen apareciendo en el ba
 
 ## Nodos iniciales
 
-La paleta registra `Navigate`, `Click`, `Campo`, `Set Headers`, `Set Cookies`, `Set Storage`, `Request Override`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable` y `Pause / Wait User`. El registro interno conserva `Generate Value` exclusivamente para compatibilidad hacia atrás.
+La paleta registra `Navigate`, `Click`, `Campo`, `Set Headers`, `Set Cookies`, `Set Storage`, `Request Override`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Guardar dato` y `Pause / Wait User`. El registro interno conserva `Generate Value` exclusivamente para compatibilidad hacia atrás.
 
 ### Validación de datos del navegador
 
@@ -105,7 +132,7 @@ El formulario de overrides vive en `webviews/components/requestOverrideEditor` y
 
 El botón **Añadir ejemplo** crea un grupo adicional sin reemplazar el documento existente. El grupo contiene un proceso independiente para cada tipo de nodo registrado y termina con **Todos concatenados**, que reúne el recorrido completo. Todos los nodos de cada proceso ya están conectados y la página muestra una guía contextual para el proceso seleccionado.
 
-Los procesos generados son: `Viewport`, `Variables iniciales`, `Request Override`, `Navigate`, `Click`, `Campo con texto`, `Campo con generador`, `Set Headers`, `Set Cookies`, `Set Storage`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Pause / Wait User` y `Todos concatenados`.
+Los procesos generados son: `Viewport`, `Variables iniciales`, `Request Override`, `Navigate`, `Click`, `Campo con texto`, `Campo con generador`, `Set Headers`, `Set Cookies`, `Set Storage`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Pause / Wait User`, `Guardar dato` y `Todos concatenados`.
 
 `Viewport` usa una configuración móvil personalizada de 390×844, táctil y con modo móvil. La sesión aplica esas dimensiones tanto al viewport como a la pantalla emulada para que `width=device-width` sea determinista. La página servida por el override imprime `window.innerWidth` y `window.innerHeight`, y una assertion confirma que coinciden con el proceso. `Variables iniciales` define `initialName` y `expectedGreeting`; el flujo usa `{initialName}` en `Campo` y `{expectedGreeting}` en `Assertion`. El proceso final aplica el mismo viewport y reutiliza también esas variables antes de continuar con los generadores y el resto de nodos.
 

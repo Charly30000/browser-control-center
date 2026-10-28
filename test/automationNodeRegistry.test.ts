@@ -18,6 +18,19 @@ describe("NodeRegistry de automatizaciones", () => {
     expect(registry.validate("fill", { selector: "#name", generatorType: "formula", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 }).ok).toBe(false);
   });
 
+  it("valida la ruta y el destino de Guardar dato", () => {
+    expect(registry.validate("capture-value", { path: "body.items.0.id", outputVariable: "itemId" }).ok).toBe(true);
+    expect(registry.validate("capture-value", { path: "", outputVariable: "fullValue" }).ok).toBe(true);
+    expect(registry.validate("capture-value", { path: "body..id", outputVariable: "itemId" }).ok).toBe(false);
+    expect(registry.validate("capture-value", { path: "id", outputVariable: "not-valid" }).ok).toBe(false);
+    expect(registry.validate("capture-value", { source: "dom", selector: "#name", property: "value", path: "", valueType: "number", outputVariable: "fieldNumber" }).ok).toBe(true);
+    expect(registry.validate("capture-value", { source: "dom", selector: "", property: "value", path: "", outputVariable: "value" }).ok).toBe(false);
+    expect(registry.validate("capture-value", { source: "dom", selector: "#name", property: "attribute", attribute: "", path: "", outputVariable: "value" }).ok).toBe(false);
+    expect(registry.validate("capture-value", { source: "dom", selector: "#name", property: "unknown", path: "", outputVariable: "value" }).ok).toBe(false);
+    expect(registry.validate("capture-value", { source: "unknown", path: "", outputVariable: "value" }).ok).toBe(false);
+    expect(registry.validate("capture-value", { path: "", valueType: "unknown", outputVariable: "value" }).ok).toBe(false);
+  });
+
   it("valida query params y valores de storage estructurados", () => {
     expect(registry.validate("navigate", { url: "https://example.com", queryParams: [{ id: "query", key: "page", value: "2", enabled: true }] }).ok).toBe(true);
     expect(registry.validate("navigate", { url: "https://example.com", queryParams: [{ id: "query", key: 1, value: "2", enabled: true }] }).ok).toBe(false);

@@ -23,7 +23,7 @@ class FakeSession implements AutomationBrowserSession {
   public setCookies(_entries: readonly CookieEntry[]): Promise<void> { return Promise.resolve(); }
   public setStorage(_scope: "local" | "session", _entries: readonly StorageEntry[]): Promise<void> { return Promise.resolve(); }
   public setRequestOverrides(_entries: readonly RequestOverrideEntry[]): Promise<void> { return Promise.resolve(); }
-  public wait(_kind: WaitKind, _options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void> { return Promise.resolve(); }
+  public wait(_kind: WaitKind, _options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void | JsonValue> { return Promise.resolve(); }
   public assert(_kind: AssertionKind, _options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void> { return Promise.resolve(); }
   public assertData(_source: DataAssertionSource, _operator: DataAssertionOperator, _options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void> { return Promise.resolve(); }
   public extract(_selector: string, _property: ExtractProperty, _attribute: string, _timeoutMs: number): Promise<JsonValue> { return Promise.resolve("value"); }
@@ -36,6 +36,88 @@ const generators = { resolve: () => Promise.resolve(success<JsonValue | undefine
 const recordingLogger = () => ({ trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }) satisfies Logger;
 
 describe("ProcessRunner", () => {
+  it.each([
+    ["value", "42", "", "number", 42],
+    ["innerText", "Título visible", "", "string", "Título visible"],
+    ["textContent", '{"item":{"id":42}}', "item.id", "number", 42],
+    ["attribute", "field-id", "", "string", "field-id"],
+    ["value", "false", "", "boolean", false],
+    ["textContent", '{"items":[1,2]}', "", "json", { items: [1, 2] }]
+  ] satisfies [ExtractProperty, string, string, string, JsonValue][])("captura %s del DOM y convierte el tipo para reutilizarlo", async (property, raw, path, valueType, expected) => {
+    const session = new FakeSession();
+    const extract = vi.spyOn(session, "extract").mockResolvedValue(raw);
+    const fill = vi.spyOn(session, "fill");
+    const capture = createAutomationNode("capture", "capture-value", { x: 0, y: 0 });
+    capture.config = { source: "dom", selector: "#origin", property, attribute: "data-id", path, valueType, outputVariable: "captured" };
+    const field = createAutomationNode("field", "fill", { x: 200, y: 0 });
+    field.config = { selector: "#target", value: "{captured}", mode: "instant", delayMs: 0 };
+    const process = createAutomationProcess("process");
+    process.nodes.push(capture, field);
+    process.edges.push({ id: "edge", sourceNodeId: capture.id, sourcePort: "out", targetNodeId: field.id, targetPort: "in" });
+    const result = await new ProcessRunner({ create: () => Promise.resolve(session) }, createDefaultNodeRegistry(), generators, silentLogger).run("group", process, new ExecutionControl(), () => undefined);
+    expect(result.success).toBe(true);
+    expect(extract).toHaveBeenCalledWith("#origin", property, "data-id", 10_000);
+    expect(fill).toHaveBeenCalledWith("#target", expected, "instant", 0, 10_000);
+  });
+
+  it.each(["number", "boolean", "json"])("rechaza un dato DOM incompatible con el tipo %s", async (valueType) => {
+    const session = new FakeSession();
+    vi.spyOn(session, "extract").mockResolvedValue("texto inválido");
+    const capture = createAutomationNode("capture", "capture-value", { x: 0, y: 0 });
+    capture.config = { source: "dom", selector: "#origin", property: "value", path: "", valueType, outputVariable: "captured" };
+    const process = createAutomationProcess("process");
+    process.nodes.push(capture);
+    const result = await new ProcessRunner({ create: () => Promise.resolve(session) }, createDefaultNodeRegistry(), generators, silentLogger).run("group", process, new ExecutionControl(), () => undefined);
+    expect(result.success).toBe(false);
+    expect(result.variables.snapshot()).not.toHaveProperty("captured");
+  });
+
+  it.each([
+    [{ body: { items: [{ id: 42 }] } }, "body.items.0.id", 42],
+    ['{"user":{"name":"Ada"}}', "user.name", "Ada"],
+    [false, "", false], [0, "", 0], [null, "", null],
+    [{ items: [1, 2] }, "", { items: [1, 2] }]
+  ] satisfies [JsonValue, string, JsonValue][])("guarda %j del predecesor y lo reutiliza conservando su tipo", async (output, path, expected) => {
+    const session = new FakeSession();
+    const fill = vi.spyOn(session, "fill");
+    vi.spyOn(session, "wait").mockResolvedValue(output);
+    const process = createAutomationProcess("process");
+    const previous = createAutomationNode("previous", "wait", { x: 0, y: 0 });
+    previous.config = { kind: "response", url: "/api", status: 200 };
+    const capture = createAutomationNode("capture", "capture-value", { x: 200, y: 0 });
+    capture.config = { path, outputVariable: "captured" };
+    const field = createAutomationNode("field", "fill", { x: 400, y: 0 });
+    field.config = { selector: "#target", value: "{captured}", mode: "instant", delayMs: 0 };
+    const unrelated = createAutomationNode("unrelated", "set-variable", { x: 100, y: 0 });
+    unrelated.config = { name: "other", value: "otra rama" };
+    process.nodes.push(previous, unrelated, capture, field);
+    process.edges.push(
+      { id: "first", sourceNodeId: previous.id, sourcePort: "out", targetNodeId: capture.id, targetPort: "in" },
+      { id: "second", sourceNodeId: capture.id, sourcePort: "out", targetNodeId: field.id, targetPort: "in" }
+    );
+    const result = await new ProcessRunner({ create: () => Promise.resolve(session) }, createDefaultNodeRegistry(), generators, silentLogger).run("group", process, new ExecutionControl(), () => undefined);
+    expect(result.success).toBe(true);
+    expect(fill).toHaveBeenCalledWith("#target", expected, "instant", 0, 10_000);
+  });
+
+  it.each(["missing-path", "no-output", "disconnected", "multiple-inputs"] as const)("rechaza Guardar dato con %s sin usar valores de otros nodos", async (scenario) => {
+    const session = new FakeSession();
+    const process = createAutomationProcess("process");
+    const previous = createAutomationNode("previous", "set-variable", { x: 0, y: 0 });
+    previous.config = { name: "initial", value: { id: 42 } };
+    const unrelated = createAutomationNode("unrelated", "set-variable", { x: 0, y: 100 });
+    unrelated.config = { name: "other", value: { id: 99 } };
+    const capture = createAutomationNode("capture", "capture-value", { x: 200, y: 0 });
+    capture.config = { path: scenario === "missing-path" ? "missing" : "id", outputVariable: "captured" };
+    if (scenario === "no-output") { previous.type = "click"; previous.config = { selector: "#button" }; }
+    process.nodes.push(previous, unrelated, capture);
+    if (scenario !== "disconnected") process.edges.push({ id: "first", sourceNodeId: previous.id, sourcePort: "out", targetNodeId: capture.id, targetPort: "in" });
+    if (scenario === "multiple-inputs") process.edges.push({ id: "second", sourceNodeId: unrelated.id, sourcePort: "out", targetNodeId: capture.id, targetPort: "in" });
+    const result = await new ProcessRunner({ create: () => Promise.resolve(session) }, createDefaultNodeRegistry(), generators, silentLogger).run("group", process, new ExecutionControl(), () => undefined);
+    expect(result.success).toBe(false);
+    expect(result.variables.snapshot()).not.toHaveProperty("captured");
+  });
+
   it("compone la navegación con query params igual que Manual", async () => {
     const session = new FakeSession();
     const navigate = vi.spyOn(session, "navigate");

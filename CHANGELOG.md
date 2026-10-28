@@ -2,6 +2,9 @@
 
 ## Sin publicar
 
+- Automatizaciones añade Guardar dato para extraer la salida del nodo anterior a una variable, con rutas JSON y un ejemplo integrado de respuesta HTTP reutilizada en un campo.
+- Guardar dato también permite leer campos, texto y atributos del DOM, seleccionar el tipo de dato y reutilizarlo en otros nodos; el ejemplo integrado demuestra estas lecturas.
+
 - Manual permite usar texto fijo como origen de un campo.
 - Automatizaciones unifica `Fill` y la generación directa en el nodo visible `Campo`, manteniendo compatibilidad con `Generate Value` en flujos anteriores.
 - Manual y Automatizaciones comparten editores estructurados para query params, headers, cookies, storage y request overrides.

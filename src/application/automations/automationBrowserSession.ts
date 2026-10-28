@@ -15,7 +15,7 @@ export interface AutomationBrowserSession {
   setCookies(entries: readonly CookieEntry[]): Promise<void>;
   setStorage(scope: "local" | "session", entries: readonly StorageEntry[]): Promise<void>;
   setRequestOverrides(entries: readonly RequestOverrideEntry[]): Promise<void>;
-  wait(kind: WaitKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void>;
+  wait(kind: WaitKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void | JsonValue>;
   assert(kind: AssertionKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void>;
   assertData(source: DataAssertionSource, operator: DataAssertionOperator, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void>;
   extract(selector: string, property: ExtractProperty, attribute: string, timeoutMs: number): Promise<JsonValue>;

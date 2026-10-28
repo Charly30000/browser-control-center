@@ -22,6 +22,22 @@ export class ExecutionContext {
   public readonly generators: GeneratorValueResolver;
   public readonly control: ExecutionControl;
   private readonly prefix: string;
+  private readonly nodeOutputs = new Map<string, JsonValue>();
+  private inputNodeIds: readonly string[] = [];
+
+  public setInputNodes(nodeIds: readonly string[]): void { this.inputNodeIds = nodeIds; }
+
+  public recordOutput(nodeId: string, value: void | JsonValue): void {
+    if (value !== undefined) this.nodeOutputs.set(nodeId, structuredClone(value));
+  }
+
+  public previousOutput(): JsonValue {
+    const [nodeId] = this.inputNodeIds;
+    if (this.inputNodeIds.length !== 1 || nodeId === undefined) throw new Error("Guardar dato necesita exactamente un nodo anterior conectado.");
+    const value = this.nodeOutputs.get(nodeId);
+    if (value === undefined) throw new Error("El nodo anterior no ha producido ningún dato.");
+    return structuredClone(value);
+  }
 
   public constructor(private readonly options: ExecutionContextOptions) {
     this.variables = new VariableStore(options.variables);

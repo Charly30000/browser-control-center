@@ -9,7 +9,7 @@ describe("ejemplo completo de automatizaciones", () => {
   it("crea un proceso válido por tipo y termina con todos concatenados", () => {
     let sequence = 0;
     const group = createCompleteAutomationExample(() => `example-${sequence += 1}`);
-    const dedicatedTypes = ["request-override", "navigate", "click", "fill", "fill", "set-headers", "set-cookies", "set-storage", "wait", "assertion", "validate-data", "extract-value", "set-variable", "wait-user"] as const;
+    const dedicatedTypes = ["request-override", "navigate", "click", "fill", "fill", "set-headers", "set-cookies", "set-storage", "wait", "assertion", "validate-data", "extract-value", "set-variable", "wait-user", "capture-value"] as const;
     const concatenated = group.processes.at(-1);
 
     expect(group.processes).toHaveLength(dedicatedTypes.length + 3);
@@ -43,5 +43,19 @@ describe("ejemplo completo de automatizaciones", () => {
     const repaired = repairCompleteAutomationExamples(document);
     const repairedEntries = repaired.groups[0]?.processes[0]?.nodes.find(({ type }) => type === "request-override")?.config.entries;
     expect(JSON.stringify(repairedEntries)).toContain("box-sizing: border-box");
+  });
+
+  it("incluye capturas de respuesta, campo, texto visible, atributo y JSON del DOM", () => {
+    let sequence = 0;
+    const group = createCompleteAutomationExample(() => `example-${sequence += 1}`);
+    const dedicated = group.processes.find(({ name }) => name === "17 · Guardar dato");
+    const captures = dedicated?.nodes.filter(({ type }) => type === "capture-value").map(({ config }) => config);
+    expect(captures).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: "body.item.id", outputVariable: "itemId" }),
+      expect.objectContaining({ source: "dom", selector: "#name", property: "value", valueType: "number", outputVariable: "fieldNumber" }),
+      expect.objectContaining({ source: "dom", selector: "h1", property: "innerText", valueType: "string" }),
+      expect.objectContaining({ source: "dom", selector: "#name", property: "attribute", attribute: "id" })
+    ]));
+    expect(group.processes.at(-1)?.nodes.some(({ type, config }) => type === "capture-value" && config.source === "dom" && config.property === "textContent" && config.path === "item.id")).toBe(true);
   });
 });

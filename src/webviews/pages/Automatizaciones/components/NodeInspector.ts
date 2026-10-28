@@ -53,6 +53,11 @@ export const renderNodeInspector = (
   if (node === null || descriptor === null) return html`<section class="node-inspector"><h2>Inspector</h2><p class="empty-hint">Selecciona un nodo.</p></section>`;
   const field = (key: string): JsonValue | undefined => {
     const value = node.config[key];
+    if (node.type === "capture-value" && value === undefined) {
+      if (key === "source") return "previous";
+      if (key === "property") return "value";
+      if (key === "valueType") return "auto";
+    }
     return node.type === "fill" && key === "generatorType" && value === undefined ? "string" : value;
   };
   const queryParams = collectionEntries<QueryParamEntry>(node, "queryParams");

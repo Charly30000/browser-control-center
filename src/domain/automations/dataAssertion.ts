@@ -46,7 +46,7 @@ export const readDataPath = (value: unknown, path: string): unknown => {
   let current = value;
   for (const segment of path.split(".").filter(Boolean)) {
     if (typeof current === "string") current = parseJson(current);
-    if (typeof current !== "object" || current === null || !(segment in current)) return undefined;
+    if (typeof current !== "object" || current === null || !Object.prototype.hasOwnProperty.call(current, segment)) return undefined;
     current = (current as Record<string, unknown>)[segment];
   }
   return current;

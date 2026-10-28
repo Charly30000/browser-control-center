@@ -15,6 +15,7 @@ const steps: readonly { readonly node: string; readonly explanation: string }[] 
   { node: "Assertion", explanation: "Comprueba que el texto visible sea “Hola, {demoName}”." },
   { node: "Validate Data", explanation: "Valida body y header de la request, JSON de la response, cookie, localStorage y sessionStorage." },
   { node: "Extract Value", explanation: "Lee el resultado JSON mostrado en #api-result y lo guarda en apiResult." },
+  { node: "Guardar dato", explanation: "Permite elegir salida del nodo anterior o elemento del DOM, la propiedad que se lee y el tipo guardado. El proceso dedicado captura body.item.id de una response, lee #name como número, el texto visible de h1 y el atributo id del campo; reutiliza cada variable en Campo y comprueba el resultado. Todos concatenados también extrae item.id del JSON mostrado en #api-result." },
   { node: "Set Variable", explanation: "Combina demoName y apiResult en la variable exampleSummary." },
   { node: "Pause / Wait User", explanation: "Mantiene el navegador abierto para inspeccionar el resultado; pulsa Continuar para finalizar." }
 ];

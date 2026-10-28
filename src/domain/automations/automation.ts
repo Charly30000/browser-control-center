@@ -7,9 +7,9 @@ export const AUTOMATION_SCHEMA_VERSION = 1 as const;
 export type AutomationNodeType =
   | "navigate" | "click" | "fill" | "generate-value"
   | "set-headers" | "set-cookies" | "set-storage" | "request-override"
-  | "wait" | "assertion" | "validate-data" | "extract-value" | "set-variable" | "wait-user";
+  | "wait" | "assertion" | "validate-data" | "extract-value" | "set-variable" | "capture-value" | "wait-user";
 
-export const AUTOMATION_NODE_TYPES: readonly AutomationNodeType[] = ["navigate", "click", "fill", "generate-value", "set-headers", "set-cookies", "set-storage", "request-override", "wait", "assertion", "validate-data", "extract-value", "set-variable", "wait-user"];
+export const AUTOMATION_NODE_TYPES: readonly AutomationNodeType[] = ["navigate", "click", "fill", "generate-value", "set-headers", "set-cookies", "set-storage", "request-override", "wait", "assertion", "validate-data", "extract-value", "set-variable", "capture-value", "wait-user"];
 
 export interface Point { x: number; y: number; }
 export type AutomationNodeConfig = Record<string, JsonValue>;
@@ -75,6 +75,7 @@ const defaultConfigs: Record<AutomationNodeType, AutomationNodeConfig> = {
   "validate-data": { source: "request", urlPattern: "", key: "", pathPreset: "url", path: "", operator: "exists", expected: "" },
   "extract-value": { selector: "", property: "textContent", attribute: "", outputVariable: "extractedValue" },
   "set-variable": { name: "variable", value: "" },
+  "capture-value": { source: "previous", selector: "", property: "value", attribute: "", path: "", valueType: "auto", outputVariable: "capturedValue" },
   "wait-user": { message: "Completa la acción en el navegador y pulsa Continuar." }
 };
 

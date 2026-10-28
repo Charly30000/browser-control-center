@@ -8,7 +8,7 @@ import { failure, success, type Result } from "../../shared/result";
 import type { AssertionKind, ExtractProperty, WaitKind } from "./automationBrowserSession";
 import type { NodeDefinition } from "./nodeRegistry";
 import { NodeRegistry } from "./nodeRegistry";
-import { DATA_ASSERTION_OPERATORS, DATA_ASSERTION_PATHS, DATA_ASSERTION_SOURCES, resolveDataAssertionPath, type DataAssertionOperator, type DataAssertionSource } from "../../domain/automations/dataAssertion";
+import { DATA_ASSERTION_OPERATORS, DATA_ASSERTION_PATHS, DATA_ASSERTION_SOURCES, readDataPath, resolveDataAssertionPath, type DataAssertionOperator, type DataAssertionSource } from "../../domain/automations/dataAssertion";
 
 type UnknownRecord = Record<string, unknown>;
 const isRecord = (value: unknown): value is UnknownRecord => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -139,6 +139,7 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
       }
       if (value === undefined) throw new Error("El valor no puede ser undefined.");
       await context.browser.fill(text(resolved, "selector"), value, text(resolved, "mode") as InputMode, number(resolved, "delayMs"), timeoutMs);
+      return value;
     }
   }));
   registry.register(definition({
@@ -154,6 +155,7 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
       const result = await context.generators.resolve({ id: nodeId, generatorType, selector: "", propertyKind: "value", propertyName: "", min: typeof resolved.min === "string" ? resolved.min : "0", max: typeof resolved.max === "string" ? resolved.max : "100", resourceId: typeof resolved.resourceId === "string" && resolved.resourceId !== "" ? resolved.resourceId : null, inputMode: "instant", delayMs: 0, enabled: true });
       if (!result.ok) throw new Error(result.error); if (result.value === undefined) throw new Error("El generador no devolvió ningún valor.");
       const stored = context.variables.set(text(resolved, "outputVariable"), result.value); if (!stored.ok) throw new Error(stored.error);
+      return result.value;
     }
   }));
   registry.register(definition({
@@ -183,7 +185,7 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
       { key: "durationMs", label: "Duración mínima", kind: "number" }, { key: "maxDurationMs", label: "Duración máxima", kind: "number" },
       { key: "selector", label: "Selector", kind: "text" }, { key: "url", label: "URL / patrón", kind: "text" }, { key: "status", label: "Status", kind: "number" }
     ], validate: validateConfig((config) => { const kind = oneOf(text(config, "kind"), ["fixed", "random", "element", "url", "navigation", "response"], "kind"); if ((kind === "fixed" || kind === "random") && number(config, "durationMs") < 0) throw new Error("La duración no puede ser negativa."); if (kind === "random" && number(config, "maxDurationMs") < number(config, "durationMs")) throw new Error("La duración máxima debe ser igual o mayor que la mínima."); if (kind === "element") required(text(config, "selector"), "selector"); if (kind === "url") required(text(config, "url"), "url"); if (kind === "response") { const status = number(config, "status"); if (!Number.isInteger(status) || status < 0 || status > 599) throw new Error("El status debe ser 0 o un entero HTTP válido."); } }),
-    execute: async (context, config, _nodeId, timeoutMs) => { const resolved = context.resolveConfig(config); await context.browser.wait(text(resolved, "kind") as WaitKind, resolved, timeoutMs); }
+    execute: async (context, config, _nodeId, timeoutMs) => { const resolved = context.resolveConfig(config); return context.browser.wait(text(resolved, "kind") as WaitKind, resolved, timeoutMs); }
   }));
   registry.register(definition({
     type: "assertion", title: "Assertion", category: "Validación", defaultTimeoutMs: 10_000,
@@ -233,12 +235,64 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
       { key: "selector", label: "Selector", kind: "text" }, { key: "property", label: "Propiedad", kind: "select", options: ["value", "textContent", "innerText", "attribute"].map((value) => ({ value, label: value })) },
       { key: "attribute", label: "Atributo", kind: "text" }, { key: "outputVariable", label: "Variable de salida", kind: "text" }
     ], validate: validateConfig((config) => { required(text(config, "selector"), "selector"); const property = oneOf(text(config, "property"), ["value", "textContent", "innerText", "attribute"], "property"); if (property === "attribute") required(text(config, "attribute"), "attribute"); if (!isVariableName(text(config, "outputVariable"))) throw new Error("La variable de salida no es válida."); }),
-    execute: async (context, config, _nodeId, timeoutMs) => { const resolved = context.resolveConfig(config); const value = await context.browser.extract(text(resolved, "selector"), text(resolved, "property") as ExtractProperty, typeof resolved.attribute === "string" ? resolved.attribute : "", timeoutMs); const stored = context.variables.set(text(resolved, "outputVariable"), value); if (!stored.ok) throw new Error(stored.error); }
+    execute: async (context, config, _nodeId, timeoutMs) => { const resolved = context.resolveConfig(config); const value = await context.browser.extract(text(resolved, "selector"), text(resolved, "property") as ExtractProperty, typeof resolved.attribute === "string" ? resolved.attribute : "", timeoutMs); const stored = context.variables.set(text(resolved, "outputVariable"), value); if (!stored.ok) throw new Error(stored.error); return value; }
   }));
   registry.register(definition({
     type: "set-variable", title: "Set Variable", category: "Datos", defaultTimeoutMs: 1_000,
     inspectorFields: [{ key: "name", label: "Nombre", kind: "text" }, { key: "value", label: "Valor", kind: "text" }], validate: validateConfig((config) => { if (!isVariableName(text(config, "name"))) throw new Error("El nombre de variable no es válido."); }),
-    execute: (context, config) => { const resolved = context.resolveConfig(config); const value: JsonValue = resolved.value ?? null; const stored = context.variables.set(text(resolved, "name"), value); return stored.ok ? Promise.resolve() : Promise.reject(new Error(stored.error)); }
+    execute: (context, config) => { const resolved = context.resolveConfig(config); const value: JsonValue = resolved.value ?? null; const stored = context.variables.set(text(resolved, "name"), value); return stored.ok ? Promise.resolve(value) : Promise.reject(new Error(stored.error)); }
+  }));
+  registry.register(definition({
+    type: "capture-value", title: "Guardar dato", category: "Datos", defaultTimeoutMs: 10_000,
+    inspectorFields: [
+      { key: "source", label: "Origen del dato", kind: "select", options: [{ value: "previous", label: "Salida del nodo anterior" }, { value: "dom", label: "Elemento del DOM / campo de texto" }] },
+      { key: "selector", label: "Selector CSS", kind: "text", visibleWhen: { key: "source", values: ["dom"] } },
+      { key: "property", label: "Tipo de lectura del elemento", kind: "select", options: [
+        { value: "value", label: "Valor de campo (input, textarea, select)" },
+        { value: "textContent", label: "Contenido de texto (textContent)" },
+        { value: "innerText", label: "Texto visible (innerText)" },
+        { value: "attribute", label: "Atributo del elemento" }
+      ], visibleWhen: { key: "source", values: ["dom"] } },
+      { key: "attribute", label: "Nombre del atributo (si se lee un atributo)", kind: "text", visibleWhen: { key: "source", values: ["dom"] } },
+      { key: "path", label: "Ruta JSON opcional (vacía = valor completo)", kind: "text" },
+      { key: "valueType", label: "Tipo del dato guardado", kind: "select", options: [
+        { value: "auto", label: "Conservar tipo original" }, { value: "string", label: "Texto" },
+        { value: "number", label: "Número" }, { value: "boolean", label: "Booleano (true / false)" },
+        { value: "json", label: "JSON" }, { value: "null", label: "Null" }
+      ] },
+      { key: "outputVariable", label: "Variable de salida", kind: "text" }
+    ],
+    validate: validateConfig((config) => {
+      const source = oneOf(config.source === undefined ? "previous" : text(config, "source"), ["previous", "dom"], "origen");
+      if (source === "dom") {
+        required(text(config, "selector"), "Selector CSS");
+        const property = oneOf(config.property === undefined ? "value" : text(config, "property"), ["value", "textContent", "innerText", "attribute"], "tipo de lectura");
+        if (property === "attribute") required(text(config, "attribute"), "Nombre del atributo");
+      }
+      oneOf(config.valueType === undefined ? "auto" : text(config, "valueType"), ["auto", "string", "number", "boolean", "json", "null"], "tipo del dato");
+      const path = text(config, "path");
+      if (path !== "" && path.split(".").some((segment) => segment.trim() === "")) throw new Error("La ruta debe contener propiedades o índices separados por puntos.");
+      if (!isVariableName(text(config, "outputVariable"))) throw new Error("La variable de salida no es válida.");
+    }),
+    execute: async (context, config, _nodeId, timeoutMs) => {
+      const resolved = context.resolveConfig(config);
+      const input = resolved.source === "dom"
+        ? await context.browser.extract(text(resolved, "selector"), (resolved.property ?? "value") as ExtractProperty, typeof resolved.attribute === "string" ? resolved.attribute : "", timeoutMs)
+        : context.previousOutput();
+      const selectedValue = readDataPath(input, text(resolved, "path"));
+      if (selectedValue === undefined) throw new Error("La ruta no existe en el dato de origen.");
+      if (!isJsonValue(selectedValue)) throw new Error("El dato seleccionado no es un valor JSON válido.");
+      let value: JsonValue = selectedValue;
+      const valueType = oneOf(resolved.valueType === undefined ? "auto" : text(resolved, "valueType"), ["auto", "string", "number", "boolean", "json", "null"], "tipo del dato");
+      if (valueType !== "auto") {
+        const converted = parseStorageValue(valueType, typeof value === "string" ? value : JSON.stringify(value));
+        if (!converted.ok) throw new Error(`No se puede guardar el dato como ${valueType}: ${converted.error}`);
+        value = converted.value;
+      }
+      const stored = context.variables.set(text(resolved, "outputVariable"), value);
+      if (!stored.ok) throw new Error(stored.error);
+      return value;
+    }
   }));
   registry.register(definition({
     type: "wait-user", title: "Pause / Wait User", category: "Control", defaultTimeoutMs: 3_600_000,

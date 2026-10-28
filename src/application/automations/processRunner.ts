@@ -79,7 +79,9 @@ export class ProcessRunner {
         const nodeStartedAt = Date.now();
         try {
           context.info(nodeLabel, `[INICIO] Ejecutando (timeout: ${timeoutMs} ms).`);
-          await withTimeout(definition.execute(context, validated.value, node.id, timeoutMs), timeoutMs, control);
+          context.setInputNodes(predecessorIds(node.id, process.edges));
+          const output = await withTimeout(definition.execute(context, validated.value, node.id, timeoutMs), timeoutMs, control);
+          context.recordOutput(node.id, output);
           const running = states.get(node.id); states.set(node.id, { ...(running ?? this.nodeState(node.id, "running")), state: "success", finishedAt: new Date().toISOString() });
           context.info(nodeLabel, `[OK] Completado en ${this.elapsed(nodeStartedAt)}.`); emit();
         } catch (error: unknown) {

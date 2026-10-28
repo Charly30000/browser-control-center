@@ -188,7 +188,25 @@ export const createCompleteAutomationExample = (createId: () => string): Automat
   addProcess("14 · Extract Value", (add) => { addOverrides(add); addNavigate(add); add("extract-value", { selector: "h1", property: "textContent", attribute: "", outputVariable: "pageTitle" }); add("fill", { selector: "#name", value: "{pageTitle}", mode: "instant", delayMs: 0 }); add("assertion", { kind: "value-equals", selector: "#name", expected: "Ejemplo local de Automatizaciones" }); });
   addProcess("15 · Set Variable", (add) => { addOverrides(add); addNavigate(add); add("set-variable", { name: "exampleValue", value: "Ada" }); add("fill", { selector: "#name", value: "{exampleValue}", mode: "instant", delayMs: 0 }); add("assertion", { kind: "value-equals", selector: "#name", expected: "Ada" }); });
   addProcess("16 · Pause / Wait User", (add) => { addOverrides(add); addNavigate(add); add("wait-user", { message: "Inspecciona la página servida por el override y pulsa Continuar." }); });
-  addProcess("17 · Todos concatenados", (add) => {
+  addProcess("17 · Guardar dato", (add) => {
+    addOverrides(add); addNavigate(add);
+    add("fill", { selector: "#name", value: "Ada", mode: "instant", delayMs: 0 });
+    add("click", { selector: "#apply" });
+    add("wait", { kind: "response", url: "/api/example", status: 200 });
+    add("capture-value", { path: "body.item.id", outputVariable: "itemId" });
+    add("fill", { selector: "#name", value: "{itemId}", mode: "instant", delayMs: 0 });
+    add("assertion", { kind: "value-equals", selector: "#name", expected: "42" });
+    add("capture-value", { source: "dom", selector: "#name", property: "value", path: "", valueType: "number", outputVariable: "fieldNumber" });
+    add("fill", { selector: "#name", value: "Número leído: {fieldNumber}", mode: "instant", delayMs: 0 });
+    add("assertion", { kind: "value-equals", selector: "#name", expected: "Número leído: 42" });
+    add("capture-value", { source: "dom", selector: "h1", property: "innerText", path: "", valueType: "string", outputVariable: "domTitle" });
+    add("fill", { selector: "#name", value: "{domTitle}", mode: "instant", delayMs: 0 });
+    add("assertion", { kind: "value-equals", selector: "#name", expected: "Ejemplo local de Automatizaciones" });
+    add("capture-value", { source: "dom", selector: "#name", property: "attribute", attribute: "id", path: "", valueType: "string", outputVariable: "fieldId" });
+    add("fill", { selector: "#name", value: "{fieldId}", mode: "instant", delayMs: 0 });
+    add("assertion", { kind: "value-equals", selector: "#name", expected: "name" });
+  });
+  addProcess("18 · Todos concatenados", (add) => {
     addOverrides(add); addHeaders(add); addCookie(add); addNavigate(add); addLocalStorage(add); addSessionStorage(add);
     add("fill", { selector: "#name", value: "{initialName}", mode: "instant", delayMs: 0 });
     add("assertion", { kind: "value-equals", selector: "#name", expected: "{initialName}" });
@@ -198,7 +216,11 @@ export const createCompleteAutomationExample = (createId: () => string): Automat
     add("assertion", { kind: "text-equals", selector: "#result", expected: "Hola, {demoName}" });
     addDataValidations(add, "{demoName}");
     add("extract-value", { selector: "#api-result", property: "textContent", attribute: "", outputVariable: "apiResult" });
+    add("capture-value", { path: "item.id", outputVariable: "itemId" });
+    add("capture-value", { source: "dom", selector: "#api-result", property: "textContent", path: "item.id", valueType: "number", outputVariable: "domItemId" });
     add("set-variable", { name: "exampleSummary", value: "Inicial: {initialName}; Nombre generado: {demoName}; API: {apiResult}" });
+    add("fill", { selector: "#name", value: "{itemId}", mode: "instant", delayMs: 0 });
+    add("assertion", { kind: "value-equals", selector: "#name", expected: "42" });
     add("wait-user", { message: "Revisa la página local, los nodos completados y pulsa Continuar para cerrar el ejemplo." });
   }, (process) => { applyExampleViewport(process); applyExampleVariables(process); });
 

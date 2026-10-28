@@ -81,7 +81,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
     await this.page.evaluate(({ storageScope, storageEntries }) => { const storage = storageScope === "local" ? localStorage : sessionStorage; for (const entry of storageEntries) storage.setItem(entry.key, entry.value); }, { storageScope: scope, storageEntries: values });
   }
   public setRequestOverrides(entries: readonly RequestOverrideEntry[]): Promise<void> { this.router.update(entries.filter(({ enabled }) => enabled)); return Promise.resolve(); }
-  public async wait(kind: WaitKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void> {
+  public async wait(kind: WaitKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void | JsonValue> {
     switch (kind) {
       case "fixed": await this.page.waitForTimeout(Math.max(0, optionNumber(options, "durationMs"))); return;
       case "random": {
@@ -94,7 +94,11 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
       case "response": {
         const pattern = optionText(options, "url"); const status = optionNumber(options, "status", 0);
         const response = await this.page.waitForResponse((candidate) => (pattern === "" || candidate.url().includes(pattern)) && (status === 0 || candidate.status() === status), { timeout: timeoutMs });
-        this.lastResponseStatus = response.status(); return;
+        this.lastResponseStatus = response.status();
+        const rawBody = await response.text();
+        let body: JsonValue = rawBody;
+        try { body = JSON.parse(rawBody) as JsonValue; } catch { /* Las respuestas de texto conservan su contenido original. */ }
+        return { url: response.url(), status: response.status(), headers: response.headers(), body };
       }
     }
   }
