@@ -5,7 +5,7 @@ import { createContentSecurityPolicy } from "./contentSecurityPolicy";
 export const createWebviewHtml = (
   webview: vscode.Webview,
   extensionUri: vscode.Uri,
-  entryName: "manual" | "sidebar" | "formulas" | "arrays" | "browserManagement" | "automations",
+  entryName: "manual" | "sidebar" | "formulas" | "arrays" | "browserManagement" | "automations" | "aiDocumentation",
   title: string
 ): string => {
   const nonce = createNonce();

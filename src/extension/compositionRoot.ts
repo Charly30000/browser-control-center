@@ -25,6 +25,7 @@ import { FormulasPanelManager } from "./formulas/formulasPanel";
 import { BrowserAutomationLogger } from "./logging/browserAutomationLogger";
 import { ManualPanelManager } from "./manual/manualPanel";
 import { AutomationsPanelManager } from "./automations/automationsPanel";
+import { AiDocumentationPanel } from "./documentation/aiDocumentationPanel";
 
 export interface ApplicationServices {
   readonly dataDao: ApplicationDataDao;
@@ -40,6 +41,7 @@ export interface ApplicationServices {
   readonly arraysPanel: ArraysPanelManager;
   readonly browserManagement: BrowserManagementPanel;
   readonly automationsPanel: AutomationsPanelManager;
+  readonly aiDocumentationPanel: AiDocumentationPanel;
   readonly logger: BrowserAutomationLogger;
 }
 
@@ -77,5 +79,6 @@ export const createApplicationServices = (context: vscode.ExtensionContext): App
   }, logger);
   panels.manual = manualPanel;
   const browserManagement = new BrowserManagementPanel(context.extensionUri, browserBinaries, browserSelection, browserActions);
-  return { dataDao, profileService, formulaService, arrayService, automationService, browserActions, browserBinaries, browserSelection, manualPanel, formulasPanel, arraysPanel, browserManagement, automationsPanel, logger };
+  const aiDocumentationPanel = new AiDocumentationPanel(context.extensionUri);
+  return { dataDao, profileService, formulaService, arrayService, automationService, browserActions, browserBinaries, browserSelection, manualPanel, formulasPanel, arraysPanel, browserManagement, automationsPanel, aiDocumentationPanel, logger };
 };

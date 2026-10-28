@@ -2,6 +2,8 @@
 
 ## Sin publicar
 
+- Documentación para IA es la quinta página de la navegación lateral: reúne guías copiables de Manual, Fórmulas, Arrays y Automatizaciones, con formatos y ejemplos JSON completos para pegar o importar.
+
 - Automatizaciones añade Guardar dato para extraer la salida del nodo anterior a una variable, con rutas JSON y un ejemplo integrado de respuesta HTTP reutilizada en un campo.
 - Guardar dato también permite leer campos, texto y atributos del DOM, seleccionar el tipo de dato y reutilizarlo en otros nodos; el ejemplo integrado demuestra estas lecturas.
 

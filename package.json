@@ -25,6 +25,7 @@
     "onCommand:browserControl.openFormulas",
     "onCommand:browserControl.openArrays",
     "onCommand:browserControl.openAutomations",
+    "onCommand:browserControl.openAiDocumentation",
     "onCommand:browserControl.manageBrowser"
   ],
   "contributes": {
@@ -44,6 +45,10 @@
       {
         "command": "browserControl.openAutomations",
         "title": "Browser Control: Abrir Automatizaciones"
+      },
+      {
+        "command": "browserControl.openAiDocumentation",
+        "title": "Browser Control: Abrir Documentación para IA"
       },
       {
         "command": "browserControl.manageBrowser",

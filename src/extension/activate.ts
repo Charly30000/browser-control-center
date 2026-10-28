@@ -18,6 +18,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     services.arraysPanel,
     services.browserManagement,
     services.automationsPanel,
+    services.aiDocumentationPanel,
     services.logger,
     sidebar,
     { dispose: () => { void services.browserActions.stop(true); } },
@@ -25,6 +26,7 @@ export const activate = async (context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("browserControl.openFormulas", () => services.formulasPanel.open()),
     vscode.commands.registerCommand("browserControl.openArrays", () => services.arraysPanel.open()),
     vscode.commands.registerCommand("browserControl.openAutomations", () => services.automationsPanel.open()),
+    vscode.commands.registerCommand("browserControl.openAiDocumentation", () => services.aiDocumentationPanel.open()),
     vscode.commands.registerCommand("browserControl.manageBrowser", () => services.browserManagement.open()),
     vscode.window.registerWebviewViewProvider(SidebarProvider.viewId, sidebar)
   );

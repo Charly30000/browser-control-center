@@ -19,5 +19,5 @@ export const isSidebarToExtensionMessage = (value: unknown): value is SidebarToE
   if (typeof value !== "object" || value === null || !("type" in value)) return false;
   const record = value as Record<string, unknown>;
   return record.type === "sidebar.ready" || record.type === "sidebar.manageBrowser" ||
-    (record.type === "sidebar.openPage" && ["manual", "formulas", "arrays", "automations"].includes(String(record.pageId)));
+    (record.type === "sidebar.openPage" && ["manual", "formulas", "arrays", "automations", "aiDocumentation"].includes(String(record.pageId)));
 };
