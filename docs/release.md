@@ -22,4 +22,4 @@ Antes de publicar se debe inspeccionar el listado del VSIX y confirmar que conti
 
 `vsce ls --tree` permite inspeccionar el contenido sin generar el VSIX. `playwright-core` se conserva completo porque carga recursos internos de forma dinámica; contiene librería y herramientas de soporte, pero no ejecutables de Chromium.
 
-Queda pendiente aportar un icono PNG de Marketplace y confirmar repositorio, homepage y bugs antes de la primera publicación.
+El manifiesto incluye los enlaces de repositorio, homepage y bugs de GitHub y el icono de Marketplace `resources/marketplace-icon.png` (256 × 256). El icono SVG de la barra lateral se conserva por separado.
