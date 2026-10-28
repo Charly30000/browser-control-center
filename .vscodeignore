@@ -9,7 +9,7 @@
 .codex-*.mjs
 src/**
 test/**
-docs/decisions/**
+docs/**
 node_modules/**
 !node_modules/playwright-core/**
 coverage/**
