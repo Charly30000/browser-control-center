@@ -3,6 +3,7 @@ import type { ArrayResource } from "../../../domain/arrays/arrayResource";
 import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import { parseArrayContent } from "../../../domain/arrays/arrayValidation";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
+import { isAutoSaveEnabled } from "../../../domain/resources/editorPreferences";
 import { reconcileSavedResource } from "../../../domain/resources/reconcileSavedResource";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ArrayToExtensionMessage, ExtensionToArrayMessage } from "../../../shared/messages/arrayMessages";
@@ -14,6 +15,7 @@ import { vscodeApi } from "../../vscodeApi";
 import { AutoSaveController } from "../../components/autoSaveController";
 import { renderAutoSaveControl } from "../../components/autoSaveControl";
 import { SaveRequestTracker } from "../../components/saveRequestTracker";
+import { renderSectionIcon } from "../../components/sectionIcon";
 import "../../components";
 import "./arrays.css";
 
@@ -37,7 +39,7 @@ class ArraysApp extends LitElement {
   private changingResource = false;
   private readonly saves = new SaveRequestTracker<{ resource: ArrayResource; content: string }>("array");
   private readonly autoSave = new AutoSaveController(this, {
-    enabled: () => this.resource?.preferences?.autoSaveEnabled ?? false,
+    enabled: () => isAutoSaveEnabled(this.resource?.preferences),
     canSave: () => !this.saves.pending && !this.changingResource && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null && parseArrayContent(this.content).ok,
     dirty: () => this.hasUnsavedChanges(),
     save: () => { this.save(); }
@@ -53,12 +55,12 @@ class ArraysApp extends LitElement {
     const dirty = isResourceDirty(this.resource, this.savedResource) || this.content !== this.savedContent;
     const validationMessage = validation.ok ? `JSON válido · ${validation.value.length} elementos` : validation.error;
     return html`
-      <main class="resource-shell">
-        ${renderAutoSaveControl(this.resource.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
+      <main class="resource-shell arrays-page">
+        ${renderAutoSaveControl(isAutoSaveEnabled(this.resource.preferences), this.toggleAutoSave)}
         <header class="page-header">
-          <div><h1>Arrays</h1><p>Colecciones JSON globales y reutilizables.</p></div>
+          <div class="page-title"><span class="resource-icon">${renderSectionIcon("arrays")}</span><div><h1>Arrays</h1><p>Colecciones JSON globales y reutilizables.</p></div></div>
           <div class="toolbar">
-            <button @click=${() => this.guardTransition(() => this.post({ type: "array.new" }), "¿Guardar el array antes de crear otro?")}>Agregar</button>
+            <button class="primary" @click=${() => this.guardTransition(() => this.post({ type: "array.new" }), "¿Guardar el array antes de crear otro?")}>Agregar</button>
             <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "array.deleteSelected", ids: [...this.selectedIds] }), "¿Guardar el array actual antes de eliminar la selección?")}>Eliminar seleccionados</button>
             <button @click=${() => this.guardTransition(() => this.post({ type: "array.import" }), "¿Guardar el array antes de importar?")}>Importar</button>
           </div>
@@ -66,19 +68,20 @@ class ArraysApp extends LitElement {
         <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
         <div class="resource-layout">
           <aside class="resource-list">
-            <h2>Lista</h2>
+            <header class="resource-section-header"><div><h2>Mis arrays</h2><p>Colecciones guardadas</p></div><span class="resource-count" aria-label=${`${this.resources.length} arrays guardados`}>${this.resources.length}</span></header>
             ${this.resources.length === 0 ? html`<p class="empty-list">No hay arrays guardados.</p>` : html`
-              <ul>${this.resources.map((item) => html`<li>
+              <ul>${this.resources.map((item) => html`<li class=${item.id === this.resource?.id ? "resource-item current" : "resource-item"}>
                 <input type="checkbox" aria-label=${`Seleccionar ${item.name}`} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
-                <button class=${item.id === this.resource?.id ? "resource-name current" : "resource-name"} @click=${() => this.guardTransition(() => this.post({ type: "array.select", id: item.id }), "¿Guardar el array antes de cambiar de selección?")}>${item.name}</button>
+                <button class="resource-name" title=${item.name} aria-current=${item.id === this.resource?.id ? "true" : nothing} @click=${() => this.guardTransition(() => this.post({ type: "array.select", id: item.id }), "¿Guardar el array antes de cambiar de selección?")}><span class="resource-item-icon">${renderSectionIcon("arrays")}</span><span class="resource-item-title">${item.name}</span></button>
               </li>`)}</ul>
             `}
+            ${this.selectedIds.size === 0 ? nothing : html`<p class="selection-summary">${this.selectedIds.size} ${this.selectedIds.size === 1 ? "array seleccionado" : "arrays seleccionados"}</p>`}
           </aside>
           <section class="resource-editor">
-            <h2>Editor</h2>
+            <header class="resource-section-header editor-header"><div><h2>Editor del array</h2><p>Prepara los valores que quieres reutilizar</p></div><div class="editor-header-meta"><span class="resource-type">JSON</span><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span></div></header>
             <div class="editor-content">
-              <label><span>Nombre</span><input .value=${this.resource.name} @input=${(event: Event) => this.changeName(fieldValue(event))}></label>
-              <label><span>Contenido JSON</span><textarea class="code-editor" spellcheck="false" .value=${this.content} @input=${this.changeContent}></textarea></label>
+              <label class="resource-name-field"><span>Nombre del array</span><input .value=${this.resource.name} @input=${(event: Event) => this.changeName(fieldValue(event))}></label>
+              <label class="resource-code-field"><span>Contenido JSON</span><textarea class="code-editor" spellcheck="false" .value=${this.content} @input=${this.changeContent}></textarea></label>
               <div class=${validation.ok ? "result-panel success" : "result-panel error"}>${validationMessage}</div>
               <p class="execution-note">Probar selecciona aleatoriamente un elemento del contenido actual sin guardar el array.</p>
               <div class="editor-actions">
@@ -87,7 +90,6 @@ class ArraysApp extends LitElement {
                 <button class="primary" ?disabled=${!validation.ok || this.saves.pending} @click=${this.save}>Guardar</button>
                 <button @click=${this.exportResource}>Exportar</button>
                 <button @click=${this.viewJson}>Ver JSON</button>
-                <span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
             </div>
@@ -248,7 +250,7 @@ class ArraysApp extends LitElement {
 
   private readonly toggleAutoSave = (): void => {
     if (this.resource === null) return;
-    this.resource = { ...this.resource, preferences: { ...this.resource.preferences, autoSaveEnabled: !this.resource.preferences?.autoSaveEnabled } };
+    this.resource = { ...this.resource, preferences: { ...this.resource.preferences, autoSaveEnabled: !isAutoSaveEnabled(this.resource.preferences) } };
     this.autoSave.activity();
     this.requestUpdate();
   };

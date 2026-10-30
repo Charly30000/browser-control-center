@@ -48,13 +48,13 @@ Las cabeceras de las secciones se distinguen por su icono, acento de color y tí
 
 ### Guardado automático opcional
 
-El interruptor **Guardado automático** está al principio de la pantalla, por encima del título, igual que en Arrays, Fórmulas y Automatizaciones. Permite alternarlo para el perfil actual y está desactivado si no se ha configurado. Al activarlo, los cambios se guardan después de **5 segundos sin interactuar con controles**: escribir o usar el teclado en un campo, pulsar botones u otros controles y arrastrar elementos reinicia la espera. Mover el ratón, pasar sobre campos, desplazar la página o pulsar el fondo no la reinicia. Durante un arrastre, la cuenta empieza al terminarlo. Solo guarda si hay cambios, incluidas las preferencias de expansión. No aplica valores ni envía formularios.
+El interruptor **Guardado automático** está al principio de la pantalla, por encima del título, igual que en Arrays, Fórmulas y Automatizaciones. Permite alternarlo para el perfil actual y está activado si no se ha configurado. Al activarlo, los cambios se guardan después de **5 segundos sin interactuar con controles**: escribir o usar el teclado en un campo, pulsar botones u otros controles y arrastrar elementos reinicia la espera. Mover el ratón, pasar sobre campos, desplazar la página o pulsar el fondo no la reinicia. Durante un arrastre, la cuenta empieza al terminarlo. Solo guarda si hay cambios, incluidas las preferencias de expansión. No aplica valores ni envía formularios.
 
 **Guardar** sigue disponible para guardar inmediatamente. Desactivar el guardado automático cancela la espera pendiente; pulsa Guardar para conservar también esa desactivación. La preferencia se incluye en el perfil y su JSON como `preferences: { "autoSaveEnabled": true }` o `false` dentro de ese objeto.
 
 El guardado automático se pausa mientras se edita Ver JSON, se decide qué hacer con cambios sin guardar o se cambia de perfil. Aplicar cambios del editor JSON vuelve a iniciar la espera. Las ediciones realizadas mientras se guarda se conservan como cambios pendientes y se guardan después de su propia espera. Si falla el guardado, el borrador permanece y se muestra un aviso; no hay reintentos continuos sin actividad nueva.
 
-Los perfiles antiguos sin `expanded` ni `preferences` siguen siendo válidos: cookies cerradas, overrides y generadores abiertos, y guardado automático desactivado. Guardar conserva estas preferencias usando el formato v2 existente.
+Los perfiles antiguos sin `expanded` ni `preferences` siguen siendo válidos: cookies cerradas, overrides y generadores abiertos, y guardado automático activado. Guardar conserva estas preferencias usando el formato v2 existente.
 
 ### Ordenar filas con drag and drop
 

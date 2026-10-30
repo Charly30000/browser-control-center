@@ -17,6 +17,19 @@ const post = (page: Page, message: unknown) => page.evaluate((serialized) => win
 const messages = (page: Page) => page.evaluate(() => (window as unknown as { messages: { type: string }[] }).messages);
 const requests = async (page: Page) => (await messages(page)).filter(({ type }) => type.endsWith(".save")) as SaveRequest[];
 
+const resourcePreviewPalette = (dark: boolean) => `:root {
+  --vscode-font-family: 'Segoe UI', sans-serif; --vscode-font-size: 13px; --vscode-editor-font-family: Consolas, monospace; --vscode-editor-font-size: 13px;
+  --vscode-foreground: ${dark ? "#e6e8ef" : "#273244"}; --vscode-descriptionForeground: ${dark ? "#a3aab9" : "#566175"};
+  --vscode-editor-background: ${dark ? "#151921" : "#f5f7fa"}; --vscode-editorWidget-background: ${dark ? "#1d2430" : "#fff"}; --vscode-sideBar-background: ${dark ? "#181e28" : "#fff"};
+  --vscode-panel-border: ${dark ? "#344051" : "#ccd4df"}; --vscode-editorWidget-border: ${dark ? "#344051" : "#ccd4df"};
+  --vscode-input-foreground: ${dark ? "#e6e8ef" : "#273244"}; --vscode-input-background: ${dark ? "#111720" : "#fff"};
+  --vscode-button-secondaryForeground: ${dark ? "#dfe7f4" : "#273244"}; --vscode-button-secondaryBackground: ${dark ? "#303b4e" : "#e3e9f1"};
+  --vscode-button-background: #2778b8; --vscode-button-foreground: #fff; --vscode-focusBorder: #66a9ff;
+  --vscode-list-inactiveSelectionBackground: ${dark ? "#253349" : "#e9f1fc"}; --vscode-list-hoverBackground: ${dark ? "#303b4e" : "#eef2f8"};
+  --vscode-testing-iconPassed: ${dark ? "#63c598" : "#247947"}; --vscode-editorWarning-foreground: ${dark ? "#e5c07b" : "#895c0d"};
+  --vscode-charts-blue: ${dark ? "#6ba9ec" : "#2675b9"}; --vscode-symbolIcon-functionForeground: ${dark ? "#b68cdd" : "#8251b5"};
+}`;
+
 const editorState = (prefix: string, value: ArrayResource | FormulaResource | AutomationDocument) => prefix === "automation"
   ? { document: value, descriptors: [], resources: { formulas: [], arrays: [] } }
   : { state: { resource: value, savedResource: value, resources: [{ id: value.id, name: value.name, updatedAt: value.updatedAt }] } };
@@ -64,13 +77,28 @@ realBrowserSuite("guardado automático compartido", () => {
     return page;
   };
 
+  it.each(cases)("$page: guarda por defecto sin tocar el interruptor", async ({ page: name, prefix, editor }) => {
+    const page = await open(name, prefix);
+    try {
+      await page.locator(editor).first().fill("Cambio con guardado predeterminado");
+      await page.clock.runFor(4_999);
+      expect(await requests(page)).toHaveLength(0);
+      await page.clock.runFor(1);
+      const saves = await requests(page);
+      expect(saves).toHaveLength(1);
+      await acknowledge(page, prefix, saves[0]!);
+      expect(await page.locator(".dirty-state").textContent()).toBe("Guardado");
+    } finally { await page.close(); }
+  });
+
   it.each(cases)("$page: switch al principio, espera reiniciable, errores y ediciones durante el guardado", async ({ page: name, prefix, editor }) => {
     const page = await open(name, prefix);
     try {
       const control = page.getByRole("switch", { name: "Guardado automático", exact: true });
       expect(await control.count()).toBe(1);
       expect(await page.locator("main > :first-child").getAttribute("class")).toBe("auto-save-bar");
-      expect(await control.isChecked()).toBe(false);
+      expect(await control.isChecked()).toBe(true);
+      await control.uncheck();
       const field = page.locator(editor).first();
       await field.fill("Primer cambio");
       await page.clock.runFor(6_000);
@@ -113,9 +141,27 @@ realBrowserSuite("guardado automático compartido", () => {
       expect(third.resource?.preferences ?? third.document?.preferences).toEqual({ autoSaveEnabled: false });
       await acknowledge(page, prefix, third);
       expect(await page.locator(".dirty-state").textContent()).toBe("Guardado");
+      await post(page, { type: `${prefix}.state`, ...editorState(prefix, third.resource ?? third.document!) });
+      expect(await control.isChecked()).toBe(false);
       await page.clock.runFor(10_000);
       expect(await requests(page)).toHaveLength(3);
       expect((await messages(page)).some(({ type }) => type.endsWith(".test") || type.includes(".run"))).toBe(false);
+      if (process.env.BCC_CAPTURE_PREVIEWS === "1" && prefix !== "automation") {
+        await post(page, { type: `${prefix}.notice`, tone: "info", message: "" });
+        const preview = prefix === "array"
+          ? { ...third.resource as ArrayResource, name: "Ciudades para formularios", items: ["Madrid", "Barcelona", "Valencia", "Sevilla"] }
+          : { ...third.resource as FormulaResource, name: "Generar emails de prueba", code: 'function generate() {\n  const id = Math.floor(Math.random() * 10000);\n  return "usuario" + id + "@example.test";\n}' };
+        await post(page, { type: `${prefix}.state`, ...editorState(prefix, preview) });
+        await post(page, { type: `${prefix}.resources`, resources: [preview, { ...preview, id: "other", name: prefix === "array" ? "Códigos postales de las oficinas de prueba" : "Nombres para completar formularios de registro" }, { ...preview, id: "third", name: prefix === "array" ? "Tipos de cuenta disponibles" : "Generar identificadores de pedidos" }] });
+        await page.getByRole("checkbox", { name: `Seleccionar ${preview.name}`, exact: true }).check();
+        for (const theme of ["dark", "light"] as const) {
+          await page.emulateMedia({ colorScheme: theme });
+          await page.setViewportSize({ width: 1320, height: 1020 });
+          const palette = await page.addStyleTag({ content: resourcePreviewPalette(theme === "dark") });
+          await page.screenshot({ path: join(process.cwd(), `test-results/${prefix}-design-${theme}.png`), fullPage: true });
+          await palette.evaluate((element) => element.parentNode?.removeChild(element));
+        }
+      }
     } finally { await page.close(); }
   });
 

@@ -13,6 +13,7 @@ import type { NoticeTone } from "../../components/statusNotice";
 import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
 import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
+import { isAutoSaveEnabled } from "../../../domain/resources/editorPreferences";
 import { reconcileSavedResource } from "../../../domain/resources/reconcileSavedResource";
 import { AutoSaveController } from "../../components/autoSaveController";
 import { renderAutoSaveControl } from "../../components/autoSaveControl";
@@ -67,7 +68,7 @@ class AutomationsApp extends LitElement {
   private readonly saves = new SaveRequestTracker<AutomationDocument>("automation");
   private readonly treeReorder = new RowReorderController();
   private readonly autoSave = new AutoSaveController(this, {
-    enabled: () => this.document?.preferences?.autoSaveEnabled ?? false,
+    enabled: () => isAutoSaveEnabled(this.document?.preferences),
     canSave: () => !this.saves.pending && !this.changingDocument && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null,
     dirty: () => this.hasUnsavedChanges(),
     save: () => this.save()
@@ -100,7 +101,7 @@ class AutomationsApp extends LitElement {
       moveProcess: (source, processId, target) => this.moveProcess(source, processId, target), removeProcess: (groupId, processId) => { void this.removeProcess(groupId, processId); }
     };
     return html`<main class="automations-shell">
-      ${renderAutoSaveControl(document.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
+      ${renderAutoSaveControl(isAutoSaveEnabled(document.preferences), this.toggleAutoSave)}
       <header class="automation-header"><div><h1>Automatizaciones</h1><p>Procesos visuales ejecutados en sesiones limpias e independientes del navegador seleccionado.</p></div><div class="toolbar">
         <button class="primary" @click=${this.newGroup}>Nuevo grupo</button><button @click=${this.addExample}>Añadir ejemplo</button><button @click=${() => this.guardTransition(() => this.post({ type: "automation.import" }), "¿Guardar la automatización antes de importar?")}>Importar</button><button @click=${this.exportSelection}>Exportar</button><button @click=${this.viewJson}>Ver JSON</button>
         ${this.copiedProcess !== null && group !== null ? html`<button @click=${() => this.pasteProcess(group.id)}>Pegar proceso</button>` : nothing}
@@ -324,7 +325,7 @@ class AutomationsApp extends LitElement {
   private hasUnsavedChanges(): boolean { return this.document !== null && isResourceDirty(this.document, this.savedDocument); }
 
   private readonly toggleAutoSave = (): void => {
-    this.mutate((document) => { document.preferences = { ...document.preferences, autoSaveEnabled: !document.preferences?.autoSaveEnabled }; });
+    this.mutate((document) => { document.preferences = { ...document.preferences, autoSaveEnabled: !isAutoSaveEnabled(document.preferences) }; });
   };
   private guardTransition(transition: () => void, message: string): void {
     this.autoSave.cancel();

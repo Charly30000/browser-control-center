@@ -1,6 +1,6 @@
 # Página Automatizaciones
 
-El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está desactivado por defecto; al activarlo, guarda el documento completo de grupos tras **5 segundos sin actividad**. Cada interacción reinicia la espera. Respeta las mismas validaciones de borrador que Guardar, conserva las ediciones hechas durante un guardado y nunca ejecuta los procesos. Se pausa mientras se edita Ver JSON o se resuelve una decisión sobre cambios sin guardar; si falla, conserva el borrador.
+El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está activado por defecto y guarda el documento completo de grupos tras **5 segundos sin actividad**. Cada interacción reinicia la espera. Respeta las mismas validaciones de borrador que Guardar, conserva las ediciones hechas durante un guardado y nunca ejecuta los procesos. Se pausa mientras se edita Ver JSON o se resuelve una decisión sobre cambios sin guardar; si falla, conserva el borrador.
 
 La preferencia del documento se incluye como `preferences: { "autoSaveEnabled": true }` o con `false`, también en el JSON de una selección. Aplicar un JSON que incluya esta preferencia la actualiza; si falta, mantiene la actual. Importar grupos conserva la preferencia del documento de destino. Los documentos antiguos siguen siendo válidos. Al desactivarlo cancela la espera pendiente; pulsa Guardar para conservar la desactivación.
 

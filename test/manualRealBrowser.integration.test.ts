@@ -169,6 +169,22 @@ realBrowserSuite("Manual con navegador real", () => {
     } finally { await page.close(); }
   });
 
+  it("guarda por defecto sin tocar el interruptor en perfiles sin preferencia", async () => {
+    const page = await openProfile(createEmptyManualProfile("default-auto-save", "Perfil sin preferencia"));
+    try {
+      await freezeClock(page);
+      await page.locator(".profile-name input").fill("Cambio con guardado predeterminado");
+      await page.clock.runFor(4_999);
+      expect(await savedRequests(page)).toHaveLength(0);
+      await page.clock.runFor(1);
+      const requests = await savedRequests(page);
+      expect(requests).toHaveLength(1);
+      expect(requests[0]!.profile.name).toBe("Cambio con guardado predeterminado");
+      await acknowledgeSave(page, requests[0]!);
+      expect(await page.locator(".save-state").textContent()).toBe("Guardado");
+    } finally { await page.close(); }
+  });
+
   it("guarda tras 5 segundos de inactividad, conserva ediciones durante el guardado y se puede desactivar", async () => {
     const profile = createEmptyManualProfile("auto-save", "Guardado automático");
     profile.generatorBindings = [{ ...createGeneratorBinding("input"), expanded: false }];
@@ -176,6 +192,8 @@ realBrowserSuite("Manual con navegador real", () => {
     try {
       await freezeClock(page);
       const name = page.locator(".profile-name input");
+      expect(await page.getByRole("switch", { name: "Guardado automático", exact: true }).isChecked()).toBe(true);
+      await page.getByRole("switch", { name: "Guardado automático", exact: true }).uncheck();
       await name.fill("Sin guardado automático");
       await page.clock.runFor(6_000);
       expect(await savedRequests(page)).toHaveLength(0);

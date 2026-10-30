@@ -1,0 +1,52 @@
+:root input[type="checkbox"]:not([role="switch"]) {
+  appearance: none;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid var(--vscode-checkbox-border, var(--vscode-descriptionForeground));
+  border-radius: 4px;
+  background: var(--vscode-checkbox-background, var(--vscode-input-background));
+  color: var(--vscode-button-foreground, #fff);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+:root input[type="checkbox"]:not([role="switch"])::before {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-1px) rotate(-45deg) scale(0);
+}
+
+:root input[type="checkbox"]:not([role="switch"]):checked,
+:root input[type="checkbox"]:not([role="switch"]):indeterminate {
+  border-color: var(--vscode-button-background);
+  background: var(--vscode-button-background);
+}
+
+:root input[type="checkbox"]:not([role="switch"]):checked::before { transform: translateY(-1px) rotate(-45deg); }
+:root input[type="checkbox"]:not([role="switch"]):indeterminate::before { height: 2px; border: 0; border-radius: 1px; background: currentColor; transform: none; }
+:root input[type="checkbox"]:not([role="switch"]):hover:not(:disabled) { border-color: var(--vscode-focusBorder); }
+:root input[type="checkbox"]:not([role="switch"]):focus-visible { outline: 2px solid var(--vscode-focusBorder); outline-offset: 3px; }
+:root input[type="checkbox"]:not([role="switch"]):disabled { opacity: .5; cursor: not-allowed; }
+
+:root :is(.check-label, .session-check, .override-check, .check-field) { gap: 8px; min-height: 28px; cursor: pointer; }
+.node-inspector label.check { display: inline-flex; align-items: center; gap: 8px; min-height: 28px; cursor: pointer; }
+.node-inspector label.check > span { margin: 0; color: inherit; }
+
+@media (forced-colors: active) {
+  :root input[type="checkbox"]:not([role="switch"]) { border-color: CanvasText; background: Canvas; color: HighlightText; }
+  :root input[type="checkbox"]:not([role="switch"]):checked,
+  :root input[type="checkbox"]:not([role="switch"]):indeterminate { border-color: Highlight; background: Highlight; forced-color-adjust: none; }
+  :root input[type="checkbox"]:not([role="switch"]):focus-visible { outline-color: Highlight; }
+  :root input[type="checkbox"]:not([role="switch"]):disabled { border-color: GrayText; }
+}

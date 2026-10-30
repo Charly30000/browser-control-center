@@ -1,8 +1,10 @@
 import { svg, type SVGTemplateResult } from "lit";
 
-export type SectionIcon = "url" | "headers" | "cookies" | "localStorage" | "sessionStorage" | "overrides" | "viewport" | "generators";
+export type SectionIcon = "url" | "headers" | "cookies" | "localStorage" | "sessionStorage" | "overrides" | "viewport" | "generators" | "arrays" | "formulas";
 
 const paths: Readonly<Record<SectionIcon, SVGTemplateResult>> = {
+  arrays: svg`<rect x="3" y="3" width="18" height="5" rx="1.5"/><rect x="3" y="10" width="18" height="5" rx="1.5"/><path d="M3 19h18M7 5.5h.01M7 12.5h.01"/>`,
+  formulas: svg`<path d="M8 3H6a2 2 0 0 0-2 2v4a3 3 0 0 1-2 3 3 3 0 0 1 2 3v4a2 2 0 0 0 2 2h2M16 3h2a2 2 0 0 1 2 2v4a3 3 0 0 0 2 3 3 3 0 0 0-2 3v4a2 2 0 0 1-2 2h-2M10 9l-2 3 2 3M14 9l2 3-2 3"/>`,
   url: svg`<path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 2 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0"/>`,
   headers: svg`<path d="M9 5h11M9 12h11M9 19h11"/><rect x="3" y="3" width="3" height="4" rx=".5"/><rect x="3" y="10" width="3" height="4" rx=".5"/><rect x="3" y="17" width="3" height="4" rx=".5"/>`,
   cookies: svg`<path d="M20.6 13A5 5 0 0 1 15 7a4 4 0 0 1-5-4A9 9 0 1 0 21 13Z"/><path d="M7 10h.01M9 16h.01M15 15h.01" stroke-width="3"/>`,

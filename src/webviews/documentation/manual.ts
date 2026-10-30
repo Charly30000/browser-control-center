@@ -12,7 +12,7 @@ export const manualDocumentation = (): string => `${introduction("Manual")}
 6. Resetear en la sección de campos restaura los valores capturados antes de aplicar durante la sesión actual; no equivale a limpiar el perfil ni el navegador.
 7. Detener intenta cerrar normalmente, Forzar cierre termina un navegador que no responde y Reinicio limpio crea una sesión nueva sin cookies/storage previos. Guardar mantiene la configuración del perfil, no una sesión de autenticación viva.
 8. Importar/Exportar transporta el perfil y sus recursos referenciados. Ver JSON permite editar el paquete sin archivo. Aplicar cambios conserva profile.id y carga el borrador; usa Guardar o el guardado automático para persistirlo. Las fórmulas se reutilizan por código equivalente y los arrays por contenido equivalente al resolver el paquete.
-9. El interruptor Guardado automático está al principio de la pantalla, por encima del título. Se activa/desactiva por perfil y está desactivado por defecto. Activado, guarda los cambios tras 5 segundos sin actividad del usuario en Manual; cada nueva interacción reinicia la espera. No aplica datos al navegador. Si lo desactivas, pulsa Guardar para conservar esa desactivación. No guarda durante la edición de Ver JSON ni durante una decisión sobre cambios sin guardar. Al aplicar el JSON vuelve a programar el guardado. Los errores conservan el borrador, sin reintentos continuos; las ediciones durante un guardado no se sobrescriben.
+9. El interruptor Guardado automático está al principio de la pantalla, por encima del título. Se activa/desactiva por perfil y está activado por defecto. Activado, guarda los cambios tras 5 segundos sin actividad del usuario en Manual; cada nueva interacción reinicia la espera. No aplica datos al navegador. Si lo desactivas, pulsa Guardar para conservar esa desactivación. No guarda durante la edición de Ver JSON ni durante una decisión sobre cambios sin guardar. Al aplicar el JSON vuelve a programar el guardado. Los errores conservan el borrador, sin reintentos continuos; las ediciones durante un guardado no se sobrescriben.
 
 ## Aplicar sin automatismos
 
@@ -34,7 +34,7 @@ format: browser-control-center/manual-profile.
 data: {bundleVersion:1, profile:{...}, formulas:[...], arrays:[...]}.
 profile: {schemaVersion:2, id, name, url, queryParams, headers, cookies, localStorage, sessionStorage, requestOverrides, generatorBindings, viewport, createdAt, updatedAt}.
 Todas las colecciones deben existir aunque sean []. id/name/url/fechas son strings. Mantén profile.id al editar Ver JSON. No confundas profile.schemaVersion:2 con schemaVersion:1 del documento exterior.
-Opcionalmente profile.preferences es {autoSaveEnabled: true|false}; si falta, el guardado automático está desactivado. Las filas de cookies, requestOverrides y generatorBindings admiten expanded: true|false para conservar su preferencia visual. Si falta, cookies empieza cerrado y overrides/generadores abiertos. Estas preferencias no cambian cómo se aplican los datos y no requieren cambiar schemaVersion.
+Opcionalmente profile.preferences es {autoSaveEnabled: true|false}; si falta, el guardado automático está activado. Las filas de cookies, requestOverrides y generatorBindings admiten expanded: true|false para conservar su preferencia visual. Si falta, cookies empieza cerrado y overrides/generadores abiertos. Estas preferencias no cambian cómo se aplican los datos y no requieren cambiar schemaVersion.
 
 ## Campos y generadores de Manual
 

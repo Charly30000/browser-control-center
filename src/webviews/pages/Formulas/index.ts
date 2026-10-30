@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 import type { FormulaResource } from "../../../domain/formulas/formula";
 import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
+import { isAutoSaveEnabled } from "../../../domain/resources/editorPreferences";
 import { reconcileSavedResource } from "../../../domain/resources/reconcileSavedResource";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToFormulaMessage, FormulaToExtensionMessage } from "../../../shared/messages/formulaMessages";
@@ -13,6 +14,7 @@ import { vscodeApi } from "../../vscodeApi";
 import { AutoSaveController } from "../../components/autoSaveController";
 import { renderAutoSaveControl } from "../../components/autoSaveControl";
 import { SaveRequestTracker } from "../../components/saveRequestTracker";
+import { renderSectionIcon } from "../../components/sectionIcon";
 import "../../components";
 import "./formulas.css";
 
@@ -34,7 +36,7 @@ class FormulasApp extends LitElement {
   private changingResource = false;
   private readonly saves = new SaveRequestTracker<FormulaResource>("formula");
   private readonly autoSave = new AutoSaveController(this, {
-    enabled: () => this.resource?.preferences?.autoSaveEnabled ?? false,
+    enabled: () => isAutoSaveEnabled(this.resource?.preferences),
     canSave: () => !this.saves.pending && !this.changingResource && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null,
     dirty: () => this.hasUnsavedChanges(),
     save: () => this.save()
@@ -48,12 +50,12 @@ class FormulasApp extends LitElement {
     if (this.resource === null) return html`<main class="resource-shell loading">Cargando fórmulas…</main>`;
     const dirty = isResourceDirty(this.resource, this.savedResource);
     return html`
-      <main class="resource-shell">
-        ${renderAutoSaveControl(this.resource.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
+      <main class="resource-shell formulas-page">
+        ${renderAutoSaveControl(isAutoSaveEnabled(this.resource.preferences), this.toggleAutoSave)}
         <header class="page-header">
-          <div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en el navegador seleccionado, en modo headless y aislado.</p></div>
+          <div class="page-title"><span class="resource-icon">${renderSectionIcon("formulas")}</span><div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en el navegador seleccionado, en modo headless y aislado.</p></div></div>
           <div class="toolbar">
-            <button @click=${() => this.guardTransition(() => this.post({ type: "formula.new" }), "¿Guardar la fórmula antes de crear otra?")}>Agregar</button>
+            <button class="primary" @click=${() => this.guardTransition(() => this.post({ type: "formula.new" }), "¿Guardar la fórmula antes de crear otra?")}>Agregar</button>
             <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "formula.deleteSelected", ids: [...this.selectedIds] }), "¿Guardar la fórmula actual antes de eliminar la selección?")}>Eliminar seleccionadas</button>
             <button title="Carga una fórmula de ejemplo sin ejecutarla" @click=${() => this.guardTransition(() => this.post({ type: "formula.generateExample" }), "¿Guardar la fórmula antes de cargar el ejemplo?")}>Generar ejemplo</button>
             <button @click=${() => this.guardTransition(() => this.post({ type: "formula.import" }), "¿Guardar la fórmula antes de importar?")}>Importar</button>
@@ -62,26 +64,26 @@ class FormulasApp extends LitElement {
         <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
         <div class="resource-layout">
           <aside class="resource-list">
-            <h2>Lista</h2>
+            <header class="resource-section-header"><div><h2>Mis fórmulas</h2><p>Funciones guardadas</p></div><span class="resource-count" aria-label=${`${this.resources.length} fórmulas guardadas`}>${this.resources.length}</span></header>
             ${this.resources.length === 0 ? html`<p class="empty-list">No hay fórmulas guardadas.</p>` : html`
-              <ul>${this.resources.map((item) => html`<li>
+              <ul>${this.resources.map((item) => html`<li class=${item.id === this.resource?.id ? "resource-item current" : "resource-item"}>
                 <input type="checkbox" aria-label=${`Seleccionar ${item.name}`} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
-                <button class=${item.id === this.resource?.id ? "resource-name current" : "resource-name"} @click=${() => this.guardTransition(() => this.post({ type: "formula.select", id: item.id }), "¿Guardar la fórmula antes de cambiar de selección?")}>${item.name}</button>
+                <button class="resource-name" title=${item.name} aria-current=${item.id === this.resource?.id ? "true" : nothing} @click=${() => this.guardTransition(() => this.post({ type: "formula.select", id: item.id }), "¿Guardar la fórmula antes de cambiar de selección?")}><span class="resource-item-icon">${renderSectionIcon("formulas")}</span><span class="resource-item-title">${item.name}</span></button>
               </li>`)}</ul>
             `}
+            ${this.selectedIds.size === 0 ? nothing : html`<p class="selection-summary">${this.selectedIds.size} ${this.selectedIds.size === 1 ? "fórmula seleccionada" : "fórmulas seleccionadas"}</p>`}
           </aside>
           <section class="resource-editor">
-            <h2>Editor</h2>
+            <header class="resource-section-header editor-header"><div><h2>Editor de la fórmula</h2><p>Genera datos con tu función JavaScript</p></div><div class="editor-header-meta"><span class="resource-type">JavaScript</span><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span></div></header>
             <div class="editor-content">
-              <label><span>Nombre</span><input .value=${this.resource.name} @input=${(event: Event) => this.change((resource) => { resource.name = fieldValue(event); })}></label>
-              <label><span>Código — contrato: function generate() sin parámetros</span><textarea class="code-editor" spellcheck="false" .value=${this.resource.code} @input=${this.changeCode}></textarea></label>
+              <label class="resource-name-field"><span>Nombre de la fórmula</span><input .value=${this.resource.name} @input=${(event: Event) => this.change((resource) => { resource.name = fieldValue(event); })}></label>
+              <label class="resource-code-field"><span>Código — contrato: function generate() sin parámetros</span><textarea class="code-editor" spellcheck="false" .value=${this.resource.code} @input=${this.changeCode}></textarea></label>
               <p class="execution-note">Probar ejecuta la fórmula sin red ni acceso a Node/VS Code y aplica un timeout duro de 2 segundos.</p>
               <div class="editor-actions">
                 <button @click=${() => this.post({ type: "formula.test", resource: this.resource! })}>Probar</button>
                 <button class="primary" ?disabled=${this.saves.pending} @click=${this.save}>Guardar</button>
                 <button @click=${() => this.post({ type: "formula.export", resource: this.resource! })}>Exportar</button>
                 <button @click=${() => this.post({ type: "formula.viewJson", resource: this.resource! })}>Ver JSON</button>
-                <span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
             </div>
@@ -187,7 +189,7 @@ class FormulasApp extends LitElement {
   private hasUnsavedChanges(): boolean { return this.resource !== null && isResourceDirty(this.resource, this.savedResource); }
 
   private readonly toggleAutoSave = (): void => {
-    this.change((resource) => { resource.preferences = { ...resource.preferences, autoSaveEnabled: !resource.preferences?.autoSaveEnabled }; });
+    this.change((resource) => { resource.preferences = { ...resource.preferences, autoSaveEnabled: !isAutoSaveEnabled(resource.preferences) }; });
   };
 
   private guardTransition(transition: () => void, message: string): void {

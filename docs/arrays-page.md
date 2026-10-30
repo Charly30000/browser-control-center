@@ -1,5 +1,7 @@
 # Página Arrays
 
+La lista **Mis arrays** muestra el número de colecciones guardadas y destaca la que estás editando. Las casillas permiten marcar varios arrays y muestran cuántos has seleccionado para eliminarlos. El editor tiene una cabecera propia con el tipo JSON y el estado **Guardado / Cambios sin guardar / Guardando…**, un campo amplio para el nombre y una zona de contenido más espaciosa. **Agregar** es la acción principal de la cabecera.
+
 ## Modelo y validación
 
 Cada array global contiene ID estable, nombre único, elementos JSON, fechas y versión de esquema. El texto del editor debe ser JSON válido y su raíz debe ser un array. Los elementos pueden ser strings, números finitos, booleanos, `null`, arrays u objetos JSON.
@@ -14,9 +16,9 @@ El botón **Probar** valida y utiliza el JSON que se encuentra actualmente en el
 
 ## Persistencia y acciones
 
-El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está desactivado por defecto y guarda el array actual tras **5 segundos sin actividad**, reiniciando la espera con cada interacción. No guarda contenido JSON inválido ni ejecuta Probar. Conserva las ediciones realizadas mientras se guarda; un fallo mantiene el borrador. Se pausa mientras se edita Ver JSON o se decide si guardar los cambios antes de cambiar de recurso.
+El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está activado por defecto y guarda el array actual tras **5 segundos sin actividad**, reiniciando la espera con cada interacción. No guarda contenido JSON inválido ni ejecuta Probar. Conserva las ediciones realizadas mientras se guarda; un fallo mantiene el borrador. Se pausa mientras se edita Ver JSON o se decide si guardar los cambios antes de cambiar de recurso.
 
-La preferencia de cada array se conserva en su JSON como `preferences: { "autoSaveEnabled": true }` o con `false`. Si falta, permanece desactivado; los archivos anteriores siguen siendo válidos. Al desactivarlo se cancela la espera pendiente y hay que pulsar Guardar para persistir esa desactivación.
+La preferencia de cada array se conserva en su JSON como `preferences: { "autoSaveEnabled": true }` o con `false`. Si falta, permanece activado; los archivos anteriores siguen siendo válidos. Al desactivarlo se cancela la espera pendiente y hay que pulsar Guardar para persistir esa desactivación.
 
 Los arrays se guardan individualmente en `globalStorageUri/arrays`, mientras `globalState` conserva catálogo y selección. Validar no guarda; Guardar solo se habilita con contenido válido. Exportar utiliza el contenido actual validado del editor.
 

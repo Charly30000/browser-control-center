@@ -25,6 +25,7 @@ import {
   VIEWPORT_PRESETS
 } from "../../../domain/manual/manualProfile";
 import { isProfileDirty } from "../../../domain/manual/dirtyState";
+import { isAutoSaveEnabled } from "../../../domain/resources/editorPreferences";
 import { reconcileSavedProfile } from "../../../domain/manual/reconcileSavedProfile";
 import { buildUrlWithQueryParams } from "../../../domain/manual/queryParams";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
@@ -89,7 +90,7 @@ class ManualApp extends LitElement {
   private changingProfile = false;
   private pendingSave: { requestId: string; profile: ManualProfile; resources: ManualPortableResources | null } | null = null;
   private readonly autoSave = new AutoSaveController(this, {
-    enabled: () => this.profile?.preferences?.autoSaveEnabled ?? false,
+    enabled: () => isAutoSaveEnabled(this.profile?.preferences),
     canSave: () => this.pendingSave === null && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null && !this.changingProfile,
     dirty: () => this.hasUnsavedChanges(),
     save: () => this.saveProfile()
@@ -125,7 +126,7 @@ class ManualApp extends LitElement {
 
     return html`
       <main class="manual-shell">
-        ${renderAutoSaveControl(this.profile.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
+        ${renderAutoSaveControl(isAutoSaveEnabled(this.profile.preferences), this.toggleAutoSave)}
         <header class="page-header">
           <div>
             <h1>Manual Browser</h1>
@@ -500,7 +501,7 @@ class ManualApp extends LitElement {
   };
 
   private readonly toggleAutoSave = (): void => {
-    this.mutate((profile) => { profile.preferences = { ...profile.preferences, autoSaveEnabled: !profile.preferences?.autoSaveEnabled }; });
+    this.mutate((profile) => { profile.preferences = { ...profile.preferences, autoSaveEnabled: !isAutoSaveEnabled(profile.preferences) }; });
   };
 
   private readonly onUserActivity = (): void => { this.autoSave.activity(); };
