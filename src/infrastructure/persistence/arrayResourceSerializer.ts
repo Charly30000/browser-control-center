@@ -2,6 +2,7 @@ import { ARRAY_RESOURCE_SCHEMA_VERSION, type ArrayResource } from "../../domain/
 import { isJsonValue } from "../../domain/manual/storageValue";
 import { failure, success, type Result } from "../../shared/result";
 import type { DataCodec } from "../../application/persistence/applicationDataDao";
+import { isOptionalEditorPreferences } from "../../domain/resources/editorPreferences";
 
 export const isArrayResource = (value: unknown): value is ArrayResource => {
   if (typeof value !== "object" || value === null) return false;
@@ -9,6 +10,7 @@ export const isArrayResource = (value: unknown): value is ArrayResource => {
   return record.schemaVersion === ARRAY_RESOURCE_SCHEMA_VERSION &&
     typeof record.id === "string" && record.id.length > 0 &&
     typeof record.name === "string" &&
+    isOptionalEditorPreferences(record.preferences) &&
     Array.isArray(record.items) && record.items.every(isJsonValue) &&
     typeof record.createdAt === "string" && typeof record.updatedAt === "string";
 };

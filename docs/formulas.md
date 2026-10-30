@@ -1,5 +1,9 @@
 # Fórmulas
 
+El interruptor **Guardado automático** está arriba del todo, antes del título. Es opcional y está desactivado por defecto. Guarda los cambios de la fórmula actual tras **5 segundos sin actividad**, reiniciando la espera con cada interacción. Usa las validaciones habituales de Guardar y nunca ejecuta la fórmula. Si falla, mantiene el código del editor; si se sigue editando durante un guardado, conserva esas ediciones.
+
+La preferencia se incluye en el JSON de cada fórmula como `preferences: { "autoSaveEnabled": true }` o con `false`. Los documentos antiguos sin este campo siguen siendo válidos. Al desactivarlo cancela la espera; pulsa Guardar para conservar la desactivación. Se pausa al editar Ver JSON y durante las decisiones sobre cambios sin guardar.
+
 Una fórmula declara `function generate()` sin parámetros. Puede devolver string, number, boolean, object, array, `null` o `undefined`, y puede ser asíncrona.
 
 Cada prueba se ejecuta en un proceso headless desechable del navegador seleccionado. La sesión está offline, bloquea requests, WebSockets y service workers, y dispone de un timeout duro de dos segundos. Un timeout mata el proceso aislado, no el Extension Host.

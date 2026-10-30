@@ -38,7 +38,9 @@ export class ArraysPanelManager implements vscode.Disposable {
   }
 
   public dispose(): void { this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }
-  public async refreshState(): Promise<void> { if (this.panel !== null) await this.state(await this.service.getInitialState()); }
+  public async refreshResourceCatalogs(): Promise<void> {
+    if (this.panel !== null) await this.post({ type: "array.resources", resources: this.service.getSummaries() });
+  }
 
   private async handle(message: ArrayToExtensionMessage): Promise<void> {
     try {
@@ -47,7 +49,7 @@ export class ArraysPanelManager implements vscode.Disposable {
         case "array.new": await this.state(this.service.createDraft()); break;
         case "array.select": await this.state(await this.service.select(message.id)); break;
         case "array.save":
-          await this.state(await this.service.save(message.resource));
+          await this.state(await this.service.save(message.resource), message.requestId);
           this.onResourcesChanged();
           await this.notice("success", "Array guardado.");
           break;
@@ -78,18 +80,21 @@ export class ArraysPanelManager implements vscode.Disposable {
         }
       }
     } catch (error: unknown) {
+      if (message.type === "array.save" && message.requestId !== undefined) {
+        await this.post({ type: "array.saveFailed", requestId: message.requestId, error: error instanceof Error ? error.message : "No se pudo guardar." });
+      }
       await this.notice("error", error instanceof Error ? error.message : "Error inesperado en Arrays.");
     }
   }
 
   private async deleteSelected(ids: readonly string[]): Promise<void> {
-    if (ids.length === 0) { await this.notice("info", "Selecciona al menos un array."); return; }
+    if (ids.length === 0) { await this.post({ type: "array.operationCanceled" }); await this.notice("info", "Selecciona al menos un array."); return; }
     const answer = await vscode.window.showWarningMessage(
       `¿Eliminar ${ids.length === 1 ? "el array seleccionado" : `los ${ids.length} arrays seleccionados`}?`,
       { modal: true, detail: "Las referencias desde Manual quedarán marcadas como no disponibles." },
       "Eliminar"
     );
-    if (answer !== "Eliminar") return;
+    if (answer !== "Eliminar") { await this.post({ type: "array.operationCanceled" }); return; }
     await this.state(await this.service.deleteSelected(ids));
     this.onResourcesChanged();
     await this.notice("success", "Arrays eliminados.");
@@ -97,7 +102,7 @@ export class ArraysPanelManager implements vscode.Disposable {
 
   private async importResources(): Promise<void> {
     const contents = await this.files.read({ filterName: "Documento de arrays", openLabel: "Importar arrays" });
-    if (contents === null) return;
+    if (contents === null) { await this.post({ type: "array.operationCanceled" }); return; }
     const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) { await this.notice("error", parsed.error); return; }
     await this.state(await this.service.importMany(parsed.value.data));
@@ -111,7 +116,9 @@ export class ArraysPanelManager implements vscode.Disposable {
     await this.notice("success", "Array exportado.");
   }
 
-  private async state(state: Awaited<ReturnType<ArrayResourceService["getInitialState"]>>): Promise<void> { await this.post({ type: "array.state", state }); }
+  private async state(state: Awaited<ReturnType<ArrayResourceService["getInitialState"]>>, requestId?: string): Promise<void> {
+    await this.post(requestId === undefined ? { type: "array.state", state } : { type: "array.saved", requestId, state });
+  }
   private async notice(tone: "info" | "success" | "warning" | "error", message: string): Promise<void> { await this.post({ type: "array.notice", tone, message }); }
   private async post(message: ExtensionToArrayMessage): Promise<void> { await this.panel?.webview.postMessage(message); }
 }

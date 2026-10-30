@@ -1,6 +1,7 @@
 import type { ViewportConfiguration } from "../manual/manualProfile";
-import { defaultViewport } from "../manual/manualProfile";
+import { defaultViewport, DEFAULT_SEQUENTIAL_DELAY_MS } from "../manual/manualProfile";
 import type { JsonValue } from "../manual/storageValue";
+import type { EditorPreferences } from "../resources/editorPreferences";
 
 export const AUTOMATION_SCHEMA_VERSION = 1 as const;
 
@@ -42,6 +43,8 @@ export interface AutomationProcess {
 export interface AutomationGroup {
   readonly id: string;
   name: string;
+  /** Los documentos anteriores sin esta preferencia se muestran expandidos. */
+  expanded?: boolean;
   processes: AutomationProcess[];
 }
 
@@ -52,6 +55,7 @@ export interface AutomationDocument {
   groups: AutomationGroup[];
   createdAt: string;
   updatedAt: string;
+  preferences?: EditorPreferences;
 }
 
 export const createAutomationDocument = (id: string, now = new Date().toISOString()): AutomationDocument => ({
@@ -64,7 +68,7 @@ export const createAutomationProcess = (id: string, name = "Nuevo proceso"): Aut
 const defaultConfigs: Record<AutomationNodeType, AutomationNodeConfig> = {
   navigate: { url: "https://example.com", queryParams: [] },
   click: { selector: "" },
-  fill: { selector: "", generatorType: "string", value: "", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: 0 },
+  fill: { selector: "", generatorType: "string", value: "", resourceId: null, min: "0", max: "100", mode: "instant", delayMs: DEFAULT_SEQUENTIAL_DELAY_MS },
   "generate-value": { generatorType: "firstName", outputVariable: "generatedValue", min: "0", max: "100", resourceId: null },
   "set-headers": { entries: [] },
   "set-cookies": { entries: [] },

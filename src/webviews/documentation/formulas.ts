@@ -10,6 +10,7 @@ export const formulasDocumentation = (): string => `${introduction("Fórmulas")}
 4. Probar ejecuta el código actual aunque no se haya guardado y muestra valor, tipo y duración o el error. Guardar conserva la fórmula para que aparezca en los desplegables de Manual y Campo en Automatizaciones.
 5. Exportar y Ver JSON contienen exactamente la fórmula seleccionada en una lista data de un elemento. Importar admite una lista de varias fórmulas. Eliminar una fórmula puede dejar referencias no disponibles en perfiles o flujos que la usaban.
 6. Para pegar una respuesta de IA en Ver JSON conserva el id de la fórmula abierta; pulsa Aplicar cambios y después Guardar. Si solo necesitas código, pégalo en Código y prueba antes de guardar.
+7. Arriba del todo tienes el interruptor Guardado automático. Es una preferencia de la fórmula actual y se incluye en su JSON como preferences: {autoSaveEnabled: true|false}. Guarda tras 5 segundos sin actividad, con las mismas validaciones de Guardar, y nunca ejecuta el código automáticamente. Si un guardado falla, conserva el código del editor para corregirlo.
 
 ## Contrato y límites de una fórmula
 

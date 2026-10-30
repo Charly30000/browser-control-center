@@ -3,6 +3,7 @@ import type { ArrayResource } from "../../../domain/arrays/arrayResource";
 import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import { parseArrayContent } from "../../../domain/arrays/arrayValidation";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
+import { reconcileSavedResource } from "../../../domain/resources/reconcileSavedResource";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ArrayToExtensionMessage, ExtensionToArrayMessage } from "../../../shared/messages/arrayMessages";
 import type { NoticeTone } from "../../components/statusNotice";
@@ -10,6 +11,9 @@ import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor"
 import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import "../../components/jsonDocumentEditor";
 import { vscodeApi } from "../../vscodeApi";
+import { AutoSaveController } from "../../components/autoSaveController";
+import { renderAutoSaveControl } from "../../components/autoSaveControl";
+import { SaveRequestTracker } from "../../components/saveRequestTracker";
 import "../../components";
 import "./arrays.css";
 
@@ -30,6 +34,14 @@ class ArraysApp extends LitElement {
   private pendingTransition: (() => void) | null = null;
   private awaitingSaveTransition = false;
   private unsavedMessage: string | null = null;
+  private changingResource = false;
+  private readonly saves = new SaveRequestTracker<{ resource: ArrayResource; content: string }>("array");
+  private readonly autoSave = new AutoSaveController(this, {
+    enabled: () => this.resource?.preferences?.autoSaveEnabled ?? false,
+    canSave: () => !this.saves.pending && !this.changingResource && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null && parseArrayContent(this.content).ok,
+    dirty: () => this.hasUnsavedChanges(),
+    save: () => { this.save(); }
+  });
 
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "array.ready" }); }
@@ -42,6 +54,7 @@ class ArraysApp extends LitElement {
     const validationMessage = validation.ok ? `JSON válido · ${validation.value.length} elementos` : validation.error;
     return html`
       <main class="resource-shell">
+        ${renderAutoSaveControl(this.resource.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
         <header class="page-header">
           <div><h1>Arrays</h1><p>Colecciones JSON globales y reutilizables.</p></div>
           <div class="toolbar">
@@ -71,10 +84,10 @@ class ArraysApp extends LitElement {
               <div class="editor-actions">
                 <button @click=${this.validate}>Validar</button>
                 <button ?disabled=${!validation.ok} @click=${this.test}>Probar</button>
-                <button class="primary" ?disabled=${!validation.ok} @click=${this.save}>Guardar</button>
+                <button class="primary" ?disabled=${!validation.ok || this.saves.pending} @click=${this.save}>Guardar</button>
                 <button @click=${this.exportResource}>Exportar</button>
                 <button @click=${this.viewJson}>Ver JSON</button>
-                <span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
+                <span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
             </div>
@@ -95,6 +108,9 @@ class ArraysApp extends LitElement {
 
   private readonly onMessage = (event: MessageEvent<ExtensionToArrayMessage>): void => {
     if (event.data.type === "array.state") {
+      this.autoSave.cancel();
+      this.saves.reset();
+      this.changingResource = false;
       this.resource = structuredClone(event.data.state.resource);
       this.savedResource = event.data.state.savedResource === null ? null : structuredClone(event.data.state.savedResource);
       this.resources = event.data.state.resources;
@@ -107,21 +123,47 @@ class ArraysApp extends LitElement {
         this.pendingTransition = null;
         transition?.();
       }
+    } else if (event.data.type === "array.saved") {
+      const submitted = this.saves.complete(event.data.requestId);
+      const saved = event.data.state.resource;
+      if (submitted === null || this.resource?.id !== saved.id) return;
+      this.resource = reconcileSavedResource(this.resource, submitted.resource, saved);
+      this.savedResource = structuredClone(event.data.state.savedResource);
+      this.resources = event.data.state.resources;
+      this.savedContent = JSON.stringify(saved.items, null, 2);
+      if (this.content === submitted.content) this.content = this.savedContent;
+      const parsed = parseArrayContent(this.content);
+      this.resource.items = parsed.ok ? parsed.value : structuredClone(saved.items);
+      this.finishSaveTransition();
+      this.autoSave.schedule();
+    } else if (event.data.type === "array.saveFailed") {
+      if (this.saves.complete(event.data.requestId) === null) return;
+      this.autoSave.cancel();
+      this.awaitingSaveTransition = false;
+      this.pendingTransition = null;
+      this.notice = { tone: "error", message: event.data.error };
+    } else if (event.data.type === "array.resources") {
+      this.resources = event.data.resources;
+    } else if (event.data.type === "array.operationCanceled") {
+      this.changingResource = false;
+      this.autoSave.activity();
     } else if (event.data.type === "array.jsonDocument") {
+      this.autoSave.cancel();
       this.jsonDocument = event.data.serialized;
       this.notice = { tone: "info", message: "" };
     } else if (event.data.type === "array.jsonApplied") {
       this.resource = structuredClone(event.data.resource);
       this.content = JSON.stringify(this.resource.items, null, 2);
       this.jsonDocument = null;
+      this.autoSave.activity();
     } else {
       this.notice = { tone: event.data.tone, message: event.data.message };
-      if (event.data.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
+      if (event.data.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; this.changingResource = false; }
     }
     this.requestUpdate();
   };
 
-  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.requestUpdate(); };
+  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.autoSave.activity(); this.requestUpdate(); };
   private readonly changeJson = (event: CustomEvent<JsonEditorApplyDetail>): void => { this.jsonDocument = event.detail.serialized; };
 
   private readonly applyJson = (event: CustomEvent<JsonEditorApplyDetail>): void => {
@@ -132,12 +174,15 @@ class ArraysApp extends LitElement {
   private changeName(name: string): void {
     if (this.resource === null) return;
     this.resource = { ...this.resource, name };
+    this.autoSave.activity();
     this.requestUpdate();
   }
 
   private guardTransition(transition: () => void, message: string): void {
-    if (this.resource === null || (!isResourceDirty(this.resource, this.savedResource) && this.content === this.savedContent)) { transition(); return; }
-    this.pendingTransition = transition;
+    this.autoSave.cancel();
+    const begin = () => { this.changingResource = true; this.autoSave.cancel(); transition(); };
+    if (!this.hasUnsavedChanges()) { begin(); return; }
+    this.pendingTransition = begin;
     this.unsavedMessage = message;
     this.requestUpdate();
   }
@@ -148,6 +193,7 @@ class ArraysApp extends LitElement {
     else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
     else if (this.save()) this.awaitingSaveTransition = true;
     else this.pendingTransition = null;
+    this.autoSave.schedule();
     this.requestUpdate();
   };
 
@@ -160,6 +206,7 @@ class ArraysApp extends LitElement {
       this.notice = { tone: "error", message: documentSizeLimitMessage(size.bytes) };
     } else {
       this.content = candidate;
+      this.autoSave.activity();
       this.notice = size.shouldWarn
         ? { tone: "warning", message: `El array ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` }
         : { tone: "info", message: "" };
@@ -177,10 +224,33 @@ class ArraysApp extends LitElement {
 
   private readonly save = (): boolean => {
     if (this.resource === null) return false;
+    if (this.saves.pending) return true;
     const validation = parseArrayContent(this.content);
     if (!validation.ok) { this.notice = { tone: "error", message: validation.error }; this.requestUpdate(); return false; }
-    this.post({ type: "array.save", resource: { ...this.resource, items: validation.value } });
+    this.autoSave.cancel();
+    const request = this.saves.start({ resource: { ...this.resource, items: validation.value }, content: this.content });
+    if (request === null) return false;
+    this.post({ type: "array.save", resource: request.value.resource, requestId: request.requestId });
+    this.requestUpdate();
     return true;
+  };
+
+  private hasUnsavedChanges(): boolean { return this.resource !== null && (isResourceDirty(this.resource, this.savedResource) || this.content !== this.savedContent); }
+
+  private finishSaveTransition(): void {
+    if (!this.awaitingSaveTransition) return;
+    if (this.hasUnsavedChanges()) { this.save(); return; }
+    const transition = this.pendingTransition;
+    this.awaitingSaveTransition = false;
+    this.pendingTransition = null;
+    transition?.();
+  }
+
+  private readonly toggleAutoSave = (): void => {
+    if (this.resource === null) return;
+    this.resource = { ...this.resource, preferences: { ...this.resource.preferences, autoSaveEnabled: !this.resource.preferences?.autoSaveEnabled } };
+    this.autoSave.activity();
+    this.requestUpdate();
   };
 
   private readonly test = (): void => {

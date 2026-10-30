@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 import type { FormulaResource } from "../../../domain/formulas/formula";
 import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
 import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
+import { reconcileSavedResource } from "../../../domain/resources/reconcileSavedResource";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToFormulaMessage, FormulaToExtensionMessage } from "../../../shared/messages/formulaMessages";
 import type { NoticeTone } from "../../components/statusNotice";
@@ -9,6 +10,9 @@ import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor"
 import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import "../../components/jsonDocumentEditor";
 import { vscodeApi } from "../../vscodeApi";
+import { AutoSaveController } from "../../components/autoSaveController";
+import { renderAutoSaveControl } from "../../components/autoSaveControl";
+import { SaveRequestTracker } from "../../components/saveRequestTracker";
 import "../../components";
 import "./formulas.css";
 
@@ -27,6 +31,14 @@ class FormulasApp extends LitElement {
   private pendingTransition: (() => void) | null = null;
   private awaitingSaveTransition = false;
   private unsavedMessage: string | null = null;
+  private changingResource = false;
+  private readonly saves = new SaveRequestTracker<FormulaResource>("formula");
+  private readonly autoSave = new AutoSaveController(this, {
+    enabled: () => this.resource?.preferences?.autoSaveEnabled ?? false,
+    canSave: () => !this.saves.pending && !this.changingResource && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null,
+    dirty: () => this.hasUnsavedChanges(),
+    save: () => this.save()
+  });
 
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "formula.ready" }); }
@@ -37,6 +49,7 @@ class FormulasApp extends LitElement {
     const dirty = isResourceDirty(this.resource, this.savedResource);
     return html`
       <main class="resource-shell">
+        ${renderAutoSaveControl(this.resource.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
         <header class="page-header">
           <div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en el navegador seleccionado, en modo headless y aislado.</p></div>
           <div class="toolbar">
@@ -65,10 +78,10 @@ class FormulasApp extends LitElement {
               <p class="execution-note">Probar ejecuta la fórmula sin red ni acceso a Node/VS Code y aplica un timeout duro de 2 segundos.</p>
               <div class="editor-actions">
                 <button @click=${() => this.post({ type: "formula.test", resource: this.resource! })}>Probar</button>
-                <button class="primary" @click=${this.save}>Guardar</button>
+                <button class="primary" ?disabled=${this.saves.pending} @click=${this.save}>Guardar</button>
                 <button @click=${() => this.post({ type: "formula.export", resource: this.resource! })}>Exportar</button>
                 <button @click=${() => this.post({ type: "formula.viewJson", resource: this.resource! })}>Ver JSON</button>
-                <span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
+                <span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
             </div>
@@ -89,6 +102,9 @@ class FormulasApp extends LitElement {
 
   private readonly onMessage = (event: MessageEvent<ExtensionToFormulaMessage>): void => {
     if (event.data.type === "formula.state") {
+      this.autoSave.cancel();
+      this.saves.reset();
+      this.changingResource = false;
       this.resource = structuredClone(event.data.state.resource);
       this.savedResource = event.data.state.savedResource === null ? null : structuredClone(event.data.state.savedResource);
       this.resources = event.data.state.resources;
@@ -99,20 +115,50 @@ class FormulasApp extends LitElement {
         this.pendingTransition = null;
         transition?.();
       }
+    } else if (event.data.type === "formula.saved") {
+      const submitted = this.saves.complete(event.data.requestId);
+      const saved = event.data.state.resource;
+      if (submitted === null || this.resource?.id !== saved.id) return;
+      this.resource = reconcileSavedResource(this.resource, submitted, saved);
+      this.savedResource = structuredClone(event.data.state.savedResource);
+      this.resources = event.data.state.resources;
+      if (this.awaitingSaveTransition) {
+        if (this.hasUnsavedChanges()) this.save();
+        else {
+          const transition = this.pendingTransition;
+          this.awaitingSaveTransition = false;
+          this.pendingTransition = null;
+          transition?.();
+        }
+      }
+      this.autoSave.schedule();
+    } else if (event.data.type === "formula.saveFailed") {
+      if (this.saves.complete(event.data.requestId) === null) return;
+      this.autoSave.cancel();
+      this.awaitingSaveTransition = false;
+      this.pendingTransition = null;
+      this.notice = { tone: "error", message: event.data.error };
+    } else if (event.data.type === "formula.resources") {
+      this.resources = event.data.resources;
+    } else if (event.data.type === "formula.operationCanceled") {
+      this.changingResource = false;
+      this.autoSave.activity();
     } else if (event.data.type === "formula.jsonDocument") {
+      this.autoSave.cancel();
       this.jsonDocument = event.data.serialized;
       this.notice = { tone: "info", message: "" };
     } else if (event.data.type === "formula.jsonApplied") {
       this.resource = structuredClone(event.data.resource);
       this.jsonDocument = null;
+      this.autoSave.activity();
     } else {
       this.notice = { tone: event.data.tone, message: event.data.message };
-      if (event.data.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
+      if (event.data.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; this.changingResource = false; }
     }
     this.requestUpdate();
   };
 
-  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.requestUpdate(); };
+  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.autoSave.activity(); this.requestUpdate(); };
   private readonly changeJson = (event: CustomEvent<JsonEditorApplyDetail>): void => { this.jsonDocument = event.detail.serialized; };
 
   private readonly applyJson = (event: CustomEvent<JsonEditorApplyDetail>): void => {
@@ -125,14 +171,30 @@ class FormulasApp extends LitElement {
     const resource = structuredClone(this.resource);
     change(resource);
     this.resource = resource;
+    this.autoSave.activity();
     this.requestUpdate();
   }
 
-  private readonly save = (): void => { if (this.resource !== null) this.post({ type: "formula.save", resource: this.resource }); };
+  private readonly save = (): void => {
+    if (this.resource === null) return;
+    const request = this.saves.start(this.resource);
+    if (request === null) return;
+    this.autoSave.cancel();
+    this.post({ type: "formula.save", resource: request.value, requestId: request.requestId });
+    this.requestUpdate();
+  };
+
+  private hasUnsavedChanges(): boolean { return this.resource !== null && isResourceDirty(this.resource, this.savedResource); }
+
+  private readonly toggleAutoSave = (): void => {
+    this.change((resource) => { resource.preferences = { ...resource.preferences, autoSaveEnabled: !resource.preferences?.autoSaveEnabled }; });
+  };
 
   private guardTransition(transition: () => void, message: string): void {
-    if (this.resource === null || !isResourceDirty(this.resource, this.savedResource)) { transition(); return; }
-    this.pendingTransition = transition;
+    this.autoSave.cancel();
+    const begin = () => { this.changingResource = true; this.autoSave.cancel(); transition(); };
+    if (!this.hasUnsavedChanges()) { begin(); return; }
+    this.pendingTransition = begin;
     this.unsavedMessage = message;
     this.requestUpdate();
   }
@@ -142,6 +204,7 @@ class FormulasApp extends LitElement {
     if (event.detail === "cancel") this.pendingTransition = null;
     else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
     else { this.awaitingSaveTransition = true; this.save(); }
+    this.autoSave.schedule();
     this.requestUpdate();
   };
 

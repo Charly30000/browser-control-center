@@ -2,7 +2,7 @@ import { html, nothing, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
 import type { NodeDescriptor } from "../../../../application/automations/nodeRegistry";
 import type { AutomationNode } from "../../../../domain/automations/automation";
-import { createCookie, createHeader, createQueryParam, createRequestOverride, createStorageEntry, type CookieEntry, type HeaderEntry, type QueryParamEntry, type RequestOverrideEntry, type StorageEntry } from "../../../../domain/manual/manualProfile";
+import { createCookie, createHeader, createQueryParam, createRequestOverride, createStorageEntry, DEFAULT_SEQUENTIAL_DELAY_MS, type CookieEntry, type HeaderEntry, type QueryParamEntry, type RequestOverrideEntry, type StorageEntry } from "../../../../domain/manual/manualProfile";
 import { buildUrlWithQueryParams } from "../../../../domain/manual/queryParams";
 import { isRequestOverrideEntry } from "../../../../domain/manual/requestOverride";
 import type { JsonValue } from "../../../../domain/manual/storageValue";
@@ -106,7 +106,7 @@ export const renderNodeInspector = (
         if (typeof dependency !== "string" || !item.visibleWhen.values.includes(dependency)) return nothing;
       }
       const value = field(item.key);
-      if (item.kind === "select") { const selected = typeof value === "string" ? value : ""; return html`<label><span>${item.label}</span><select .value=${live(selected)} @change=${(event: Event) => update((draft) => { draft.config[item.key] = valueFrom(event); if (item.key === "generatorType") draft.config.resourceId = null; })}>${item.options?.map((option) => html`<option value=${option.value} .selected=${option.value === selected}>${option.label}</option>`)}</select></label>`; }
+      if (item.kind === "select") { const selected = typeof value === "string" ? value : ""; return html`<label><span>${item.label}</span><select .value=${live(selected)} @change=${(event: Event) => update((draft) => { const next = valueFrom(event); if (draft.type === "fill" && item.key === "mode" && next === "sequential" && draft.config.mode !== "sequential" && draft.config.delayMs === 0) draft.config.delayMs = DEFAULT_SEQUENTIAL_DELAY_MS; draft.config[item.key] = next; if (item.key === "generatorType") draft.config.resourceId = null; })}>${item.options?.map((option) => html`<option value=${option.value} .selected=${option.value === selected}>${option.label}</option>`)}</select></label>`; }
       if (item.kind === "textarea") return html`<label class="wide"><span>${item.label}</span><textarea rows="4" .value=${live(typeof value === "string" ? value : "")} @input=${(event: Event) => update((draft) => { draft.config[item.key] = valueFrom(event); })}></textarea></label>`;
       if (item.kind === "json") return html`<label class="wide"><span>${item.label}</span><textarea rows="4" .value=${live(JSON.stringify(value, null, 2) ?? "")} @change=${(event: Event) => update((draft) => { try { const parsed: unknown = JSON.parse(valueFrom(event)); if (parsed === null || typeof parsed === "string" || typeof parsed === "boolean" || typeof parsed === "number" || Array.isArray(parsed) || typeof parsed === "object") draft.config[item.key] = parsed as JsonValue; } catch { /* El documento conserva el último JSON válido. */ } })}></textarea></label>`;
       if (item.kind === "resource") {

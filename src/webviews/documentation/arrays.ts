@@ -10,6 +10,7 @@ export const arraysDocumentation = (): string => `${introduction("Arrays")}
 4. Guardar requiere contenido válido y lo deja disponible en Manual y Automatizaciones. Exportar y Ver JSON usan el contenido actual validado; no dependen de haberlo guardado antes.
 5. La lista lateral cambia el recurso activo; sus casillas permiten Eliminar seleccionados con confirmación. Eliminar puede dejar referencias no disponibles en perfiles o flujos.
 6. En Ver JSON conserva el ID del array abierto y exactamente un recurso en data. Aplicar cambios carga el borrador; pulsa Guardar después. Importar desde archivo admite varios recursos.
+7. Arriba del todo tienes el interruptor Guardado automático. Es una preferencia del array actual y se incluye en su JSON como preferences: {autoSaveEnabled: true|false}. No guarda mientras Contenido JSON sea inválido; corregirlo reinicia la espera de 5 segundos. No realiza selecciones aleatorias por sí solo.
 
 ## Valores aceptados y comportamiento
 

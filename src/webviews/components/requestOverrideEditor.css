@@ -3,6 +3,8 @@
 .request-override-row { border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border)); background: var(--vscode-editorWidget-background); }
 .request-override-row > summary { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, auto) auto; gap: 8px; align-items: center; min-height: 32px; padding: 5px 8px; cursor: pointer; }
 .request-override-row > summary.has-collapsed-apply { grid-template-columns: minmax(120px, 1fr) minmax(120px, auto) auto auto; }
+.request-override-row[data-reorder-row] > summary { grid-template-columns: 28px minmax(120px, 1fr) minmax(100px, auto) auto; }
+.request-override-row[data-reorder-row] > summary.has-collapsed-apply { grid-template-columns: 28px minmax(120px, 1fr) minmax(100px, auto) auto auto; }
 .request-override-row > summary small,
 .request-override-empty { color: var(--vscode-descriptionForeground); }
 .override-enabled { color: var(--vscode-testing-iconPassed); }
@@ -16,6 +18,7 @@
 .request-override-headers { margin: 0 9px 9px; padding: 8px; border: 1px solid var(--vscode-panel-border); }
 .request-override-headers h4 { margin: 0 0 8px; }
 .request-override-header-row { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(100px, 1fr) auto auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.request-override-header-row[data-reorder-row] { grid-template-columns: 28px minmax(100px, 1fr) minmax(100px, 1fr) auto auto; }
 .request-override-check { display: inline-flex; align-items: center; gap: 5px; }
 .request-override-check input { width: auto; }
 .request-override-actions,
@@ -26,3 +29,11 @@
 @media (max-width: 850px) { .request-override-grid { grid-template-columns: repeat(2, minmax(120px, 1fr)); } }
 @media (max-width: 600px) { .request-override-grid, .request-override-header-row { grid-template-columns: 1fr; } .request-override-row > summary { grid-template-columns: 1fr auto; } .request-override-row > summary small { grid-column: 1 / -1; grid-row: 2; } }
 @media (max-width: 600px) { .request-override-row > summary.has-collapsed-apply { grid-template-columns: minmax(0, 1fr) auto auto; } }
+@media (max-width: 600px) {
+  .request-override-row[data-reorder-row] > summary { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .request-override-row[data-reorder-row] > summary.has-collapsed-apply { grid-template-columns: 28px minmax(0, 1fr) auto auto; }
+  .request-override-row[data-reorder-row] > summary small { grid-column: 2 / -1; }
+  .request-override-header-row[data-reorder-row] { grid-template-columns: 28px minmax(0, 1fr); }
+  .request-override-header-row[data-reorder-row] > :not(.row-drag-handle) { grid-column: 2; }
+  .request-override-header-row[data-reorder-row] > .row-drag-handle { grid-column: 1; grid-row: 1; }
+}

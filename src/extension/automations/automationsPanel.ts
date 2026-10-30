@@ -52,7 +52,13 @@ export class AutomationsPanelManager implements vscode.Disposable {
           break;
         }
         case "automation.ready": await this.state(this.service.get()); break;
-        case "automation.save": await this.state(await this.service.save(message.document)); await this.notice("success", "Automatización guardada."); break;
+        case "automation.save": {
+          const document = await this.service.save(message.document);
+          if (message.requestId === undefined) await this.state(document);
+          else await this.post({ type: "automation.saved", requestId: message.requestId, document });
+          await this.notice("success", "Automatización guardada.");
+          break;
+        }
         case "automation.import": await this.importDocument(); break;
         case "automation.export": await this.exportDocument(message.document); break;
         case "automation.viewJson": {
@@ -94,9 +100,12 @@ export class AutomationsPanelManager implements vscode.Disposable {
         case "automation.validateNode": { const result = this.registry.validate(message.nodeType, message.config); await this.post({ type: "automation.nodeValidation", requestId: message.requestId, nodeId: message.nodeId, error: result.ok ? null : result.error }); break; }
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "La acción de automatización ha fallado.";
-      this.logger.error(`[Automatizaciones] [ERROR] ${message}`, error);
-      await this.notice("error", message);
+      const errorMessage = error instanceof Error ? error.message : "La acción de automatización ha fallado.";
+      this.logger.error(`[Automatizaciones] [ERROR] ${errorMessage}`, error);
+      if (message.type === "automation.save" && message.requestId !== undefined) {
+        await this.post({ type: "automation.saveFailed", requestId: message.requestId, error: errorMessage });
+      }
+      await this.notice("error", errorMessage);
     }
   }
 
@@ -118,7 +127,7 @@ export class AutomationsPanelManager implements vscode.Disposable {
   }
   private async importDocument(): Promise<void> {
     const contents = await this.files.read({ filterName: "Automatización", openLabel: "Importar automatización" });
-    if (contents === null) return;
+    if (contents === null) { await this.post({ type: "automation.operationCanceled" }); return; }
     const parsed = this.documents.deserialize(contents); if (!parsed.ok) throw new Error(parsed.error);
     const groupCount = parsed.value.data.groups.length;
     await this.state(await this.service.import(parsed.value.data)); await this.notice("success", `${groupCount} ${groupCount === 1 ? "grupo importado" : "grupos importados"} sin reemplazar los existentes.`);

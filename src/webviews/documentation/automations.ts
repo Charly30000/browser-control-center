@@ -15,13 +15,22 @@ export const automationsDocumentation = (): string => `${introduction("Automatiz
 
 ## Dónde pegar el JSON y alcance de la edición
 
+La lista lateral muestra cabeceras de Grupo con contador y procesos indentados con etiqueta Proceso y estado. Puedes renombrar cada grupo y proceso directamente en su campo de la lista o en los campos amplios Nombre del grupo / Nombre del proceso del editor. Al añadir un proceso, su nombre provisional queda seleccionado para escribir el definitivo. Guardar o el guardado automático conserva los nombres en el JSON; renombrar no cambia IDs ni ejecuta procesos.
+
+Las asas de puntos permiten arrastrar grupos completos y ordenar procesos dentro de un grupo o moverlos a otro. Soltar un proceso sobre otro permite insertarlo antes/después según la línea indicadora; sobre una cabecera o el espacio de la lista de un grupo lo añade al final, también si está vacío o plegado. No se cambian IDs, nodos, conexiones ni variables. Alt+↑/↓ sobre un asa ordena con teclado dentro de su lista. La flecha de la cabecera pliega/despliega el grupo y conserva sus acciones visibles; no desactiva sus procesos. Añadir un proceso despliega su grupo para editar el nombre. El orden y la expansión se guardan con Guardar o guardado automático y viajan en el JSON; el orden de los procesos se respeta al ejecutar su grupo, pero arrastrar o plegar no ejecuta nada.
+
+El interruptor Guardado automático está arriba del todo. Guarda el documento completo de grupos tras 5 segundos sin actividad; respeta las mismas validaciones de borrador que Guardar y no ejecuta ningún proceso. La preferencia del documento se incluye como preferences: {autoSaveEnabled: true|false}, también al exportar una selección. Aplicar un JSON de selección que incluya preferences actualiza esta preferencia; si no la incluye, conserva la actual. Importar añade grupos y conserva la preferencia del documento de destino.
+
 Selecciona un grupo o un proceso y pulsa Ver JSON. Si seleccionas un proceso, data.groups debe tener exactamente un grupo con exactamente un proceso; si seleccionas un grupo, debe tener exactamente un grupo y puede contener varios procesos. La aplicación aplica el resultado sobre esa selección y conserva su identidad; otras selecciones no se reemplazan. Conviene conservar los IDs del documento copiado y mantener consistentes todas las conexiones. No pegues varios grupos en ese diálogo.
 Aplicar cambios valida y devuelve al canvas como borrador; pulsa Guardar para persistirlo. Para añadir grupos nuevos en vez de reemplazar la selección, guarda el documento completo en un archivo y usa Importar. Los documentos de importación pueden tener varios grupos; las colisiones se resuelven sin sobrescrituras silenciosas. Exportar usa también el grupo/proceso seleccionado.
 
 ## Estructura JSON exacta
 
+Puedes usar la rueda del ratón mientras sostienes el asa de un grupo o proceso para desplazar la página o la lista lateral; el indicador y el destino se actualizan con el scroll. Escape cancela sin modificar el orden. El guardado automático espera hasta soltar el elemento.
+
 format: browser-control-center/automations; data es {schemaVersion:1, id, name, groups, createdAt, updatedAt}.
 Cada grupo es {id, name, processes:[...]}.
+Opcionalmente cada grupo incluye expanded booleano: true muestra su lista y false la pliega. Si falta, se muestra abierto; no cambies schemaVersion. Se conserva al importar/exportar y al guardar. Aplicar un JSON de grupo que no lo incluya conserva la preferencia actual.
 Cada proceso es {id, name, viewport, nodes:[...], edges:[...], variables:{...}}.
 Cada nodo es {id, type, position:{x,y}, config:{...}, timeoutMs:null}. x/y son números finitos para colocarlo en el canvas; timeoutMs null usa el valor predeterminado o indica milisegundos positivos. No cambies type por el título visible: Campo usa fill; Guardar dato usa capture-value.
 Cada conexión es {id, sourceNodeId, sourcePort:"out", targetNodeId, targetPort:"in"}. Sus IDs de nodo deben existir en el mismo proceso. Usa IDs únicos para documento, grupos, procesos, nodos y conexiones. Incluye listas vacías donde corresponda, nombres no vacíos y fechas ISO. No agregues campos inventados para bucles, condiciones o funciones personalizadas: no existen nodos para ello.

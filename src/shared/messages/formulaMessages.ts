@@ -1,12 +1,13 @@
 import type { FormulaResource } from "../../domain/formulas/formula";
 import type { ResourceEditorState } from "../../domain/resources/globalResource";
+import type { GlobalResourceSummary } from "../../domain/resources/globalResource";
 import { isFormulaResource } from "../../infrastructure/persistence/formulaSerializer";
 
 export type FormulaToExtensionMessage =
   | { readonly type: "formula.ready" }
   | { readonly type: "formula.new" }
   | { readonly type: "formula.select"; readonly id: string }
-  | { readonly type: "formula.save"; readonly resource: FormulaResource }
+  | { readonly type: "formula.save"; readonly resource: FormulaResource; readonly requestId?: string }
   | { readonly type: "formula.deleteSelected"; readonly ids: readonly string[] }
   | { readonly type: "formula.import" }
   | { readonly type: "formula.export"; readonly resource: FormulaResource }
@@ -16,7 +17,11 @@ export type FormulaToExtensionMessage =
   | { readonly type: "formula.generateExample" };
 
 export type ExtensionToFormulaMessage =
+  | { readonly type: "formula.resources"; readonly resources: readonly GlobalResourceSummary[] }
+  | { readonly type: "formula.operationCanceled" }
   | { readonly type: "formula.state"; readonly state: ResourceEditorState<FormulaResource> }
+  | { readonly type: "formula.saved"; readonly requestId: string; readonly state: ResourceEditorState<FormulaResource> }
+  | { readonly type: "formula.saveFailed"; readonly requestId: string; readonly error: string }
   | { readonly type: "formula.jsonDocument"; readonly serialized: string }
   | { readonly type: "formula.jsonApplied"; readonly resource: FormulaResource }
   | { readonly type: "formula.notice"; readonly tone: "info" | "success" | "warning" | "error"; readonly message: string };
@@ -37,6 +42,7 @@ export const isFormulaToExtensionMessage = (value: unknown): value is FormulaToE
     case "formula.deleteSelected":
       return Array.isArray(message.ids) && message.ids.every((id) => typeof id === "string");
     case "formula.save":
+      return isFormulaResource(message.resource) && (message.requestId === undefined || typeof message.requestId === "string");
     case "formula.export":
     case "formula.viewJson":
     case "formula.test":

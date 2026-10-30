@@ -1,0 +1,30 @@
+.row-drag-handle {
+  display: grid;
+  place-items: center;
+  flex: none;
+  justify-self: start;
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  color: var(--vscode-descriptionForeground);
+  background: transparent;
+  cursor: grab;
+  touch-action: none;
+}
+.row-drag-handle:hover { color: var(--vscode-foreground); border-color: var(--vscode-focusBorder); }
+.row-drag-handle:active { cursor: grabbing; }
+.row-is-dragging { opacity: .5; }
+.row-drag-active, .row-drag-active * { cursor: grabbing !important; user-select: none !important; }
+.row-drag-preview { position: fixed; z-index: 20000; pointer-events: none; max-width: min(320px, 80vw); padding: 7px 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid var(--vscode-focusBorder); border-radius: 4px; color: var(--vscode-foreground); background: var(--vscode-editorWidget-background); box-shadow: 0 2px 8px var(--vscode-widget-shadow); }
+.row-drop-before { box-shadow: 0 -3px 0 var(--vscode-focusBorder); }
+.row-drop-after { box-shadow: 0 3px 0 var(--vscode-focusBorder); }
+.row-drop-inside { outline: 2px dashed var(--vscode-focusBorder); outline-offset: -3px; }
+@media (forced-colors: active) {
+  .row-drag-preview { color: CanvasText; background: Canvas; border-color: Highlight; }
+  .row-drag-handle { color: ButtonText; }
+  .row-drop-before { border-top: 3px solid Highlight; }
+  .row-drop-after { border-bottom: 3px solid Highlight; }
+  .row-drop-inside { outline-color: Highlight; }
+}

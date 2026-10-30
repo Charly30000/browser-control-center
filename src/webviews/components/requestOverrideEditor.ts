@@ -1,5 +1,7 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
+import { repeat } from "lit/directives/repeat.js";
+import { renderRowDragHandle, reorderableRow, type RowReorderOptions } from "./rowReorder";
 import { createHeader, type RequestOverrideEntry } from "../../domain/manual/manualProfile";
 import type { ConfirmDestructiveAction } from "./confirmDestructiveAction";
 import type { CollapsibleEntryState } from "./collapsibleEntryState";
@@ -13,6 +15,8 @@ export interface RequestOverrideEditorCallbacks {
   readonly apply?: (id: string) => void;
   readonly applyAll?: () => void;
   readonly expansion?: CollapsibleEntryState;
+  readonly reorder?: RowReorderOptions;
+  readonly reorderHeaders?: (overrideId: string) => RowReorderOptions;
 }
 
 const controlValue = (event: Event): string => {
@@ -28,12 +32,14 @@ export const renderRequestOverrideEditor = (
 ): TemplateResult => html`
   <div class="request-override-editor">
     <div class="request-override-list">
-      ${entries.map((override) => {
+      ${repeat(entries, (override) => override.id, (override) => {
         const expanded = callbacks.expansion?.isOpen(override.id, true) ?? true;
+        const headerReorder = callbacks.reorderHeaders?.(override.id);
         const apply = () => html`<button type="button" @click=${(event: Event) => { event.stopPropagation(); callbacks.apply?.(override.id); }}>Aplicar</button>`;
         return html`
-        <details class="request-override-row" .open=${expanded} @toggle=${(event: Event) => callbacks.expansion?.toggle(override.id, true, event)}>
+        <details class="request-override-row" ${reorderableRow(callbacks.reorder, override.id)} .open=${expanded} @toggle=${(event: Event) => callbacks.expansion?.toggle(override.id, true, event)}>
           <summary class=${!expanded && callbacks.apply !== undefined ? "has-collapsed-apply" : ""}>
+            ${renderRowDragHandle(callbacks.reorder, override.id, override.matcher || "override")}
             <span>${override.matcher || "Matcher sin definir"}</span>
             <small>${override.method} · ${override.action}</small>
             <span class=${override.enabled ? "override-enabled" : "override-disabled"}>${override.enabled ? "Activo" : "Inactivo"}</span>
@@ -50,8 +56,9 @@ export const renderRequestOverrideEditor = (
           </div>
           <div class="request-override-headers">
             <h4>Headers de respuesta</h4>
-            ${override.headers.map((header) => html`
-              <div class="request-override-header-row">
+            ${repeat(override.headers, (header) => header.id, (header) => html`
+              <div class="request-override-header-row" ${reorderableRow(headerReorder, header.id)}>
+                ${renderRowDragHandle(headerReorder, header.id, header.key || "header del override")}
                 <input aria-label="Clave" placeholder="Key" .value=${live(header.key)} @input=${(event: Event) => callbacks.update(override.id, (entry) => { const current = entry.headers.find(({ id }) => id === header.id); if (current) current.key = controlValue(event); })}>
                 <input aria-label="Valor" placeholder="Value" .value=${live(header.value)} @input=${(event: Event) => callbacks.update(override.id, (entry) => { const current = entry.headers.find(({ id }) => id === header.id); if (current) current.value = controlValue(event); })}>
                 <label class="override-check"><input type="checkbox" .checked=${live(header.enabled)} @change=${(event: Event) => callbacks.update(override.id, (entry) => { const current = entry.headers.find(({ id }) => id === header.id); if (current) current.enabled = checkedValue(event); })}><span>Activo</span></label>

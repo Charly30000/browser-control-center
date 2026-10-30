@@ -27,7 +27,7 @@ export type ManualToExtensionMessage =
   | { readonly type: "manual.ready" }
   | { readonly type: "manual.new" }
   | { readonly type: "manual.select"; readonly id: string }
-  | { readonly type: "manual.save"; readonly profile: ManualProfile; readonly resources: ManualPortableResources | null }
+  | { readonly type: "manual.save"; readonly profile: ManualProfile; readonly resources: ManualPortableResources | null; readonly requestId?: string }
   | { readonly type: "manual.delete"; readonly id: string; readonly name: string }
   | { readonly type: "manual.export"; readonly profile: ManualProfile; readonly resources: ManualPortableResources | null }
   | { readonly type: "manual.viewJson"; readonly profile: ManualProfile; readonly resources: ManualPortableResources | null }
@@ -46,8 +46,11 @@ export type ManualToExtensionMessage =
   | { readonly type: "browser.previewGenerator"; readonly bindingId: string; readonly profile: ManualProfile };
 
 export type ExtensionToManualMessage =
+  | { readonly type: "manual.operationCanceled" }
   | DestructiveConfirmationResultMessage
   | { readonly type: "manual.state"; readonly state: ManualStatePayload }
+  | { readonly type: "manual.saved"; readonly requestId: string; readonly state: ManualStatePayload }
+  | { readonly type: "manual.saveFailed"; readonly requestId: string; readonly error: string }
   | { readonly type: "manual.notice"; readonly tone: "info" | "success" | "warning" | "error"; readonly message: string }
   | { readonly type: "manual.resources"; readonly resources: ManualResourceCatalogs }
   | { readonly type: "manual.jsonDocument"; readonly serialized: string }
@@ -80,7 +83,8 @@ export const isManualToExtensionMessage = (value: unknown): value is ManualToExt
     case "manual.delete":
       return typeof message.id === "string" && typeof message.name === "string";
     case "manual.save":
-      return isManualProfile(message.profile) && (message.resources === null || isPortableResources(message.resources));
+      return isManualProfile(message.profile) && (message.resources === null || isPortableResources(message.resources)) &&
+        (message.requestId === undefined || typeof message.requestId === "string");
     case "manual.export":
     case "manual.viewJson":
       return isManualProfile(message.profile) && (message.resources === null || isPortableResources(message.resources));

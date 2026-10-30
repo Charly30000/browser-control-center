@@ -1,4 +1,7 @@
+import type { EditorPreferences } from "../resources/editorPreferences";
+
 export const MANUAL_PROFILE_SCHEMA_VERSION = 2 as const;
+export const DEFAULT_SEQUENTIAL_DELAY_MS = 100;
 
 export type StorageValueType = "string" | "number" | "boolean" | "json" | "null";
 export type MatcherType = "exact" | "glob" | "regex";
@@ -15,6 +18,7 @@ export interface HeaderEntry { readonly id: string; key: string; value: string; 
 
 export interface CookieEntry {
   readonly id: string;
+  expanded?: boolean;
   name: string;
   value: string;
   domain: string;
@@ -30,6 +34,7 @@ export interface StorageEntry { readonly id: string; key: string; value: string;
 
 export interface RequestOverrideEntry {
   readonly id: string;
+  expanded?: boolean;
   matcherType: MatcherType;
   matcher: string;
   method: HttpMethod;
@@ -43,6 +48,7 @@ export interface RequestOverrideEntry {
 
 export interface GeneratorBinding {
   readonly id: string;
+  expanded?: boolean;
   generatorType: GeneratorType;
   selector: string;
   propertyKind: TargetPropertyKind;
@@ -79,6 +85,8 @@ export interface ManualProfile {
   requestOverrides: RequestOverrideEntry[];
   generatorBindings: GeneratorBinding[];
   viewport: ViewportConfiguration;
+  /** Opcional para conservar la compatibilidad con perfiles v2 publicados. */
+  preferences?: EditorPreferences;
   createdAt: string;
   updatedAt: string;
 }
@@ -118,4 +126,4 @@ export const createHeader = (id: string): HeaderEntry => ({ id, key: "", value: 
 export const createCookie = (id: string): CookieEntry => ({ id, name: "", value: "", domain: "", path: "/", expires: null, secure: false, httpOnly: false, sameSite: "Lax", enabled: true });
 export const createStorageEntry = (id: string): StorageEntry => ({ id, key: "", value: "", valueType: "string", enabled: true });
 export const createRequestOverride = (id: string): RequestOverrideEntry => ({ id, matcherType: "exact", matcher: "", method: "ANY", action: "fulfill", status: 200, headers: [], body: "", contentType: "application/json", enabled: true });
-export const createGeneratorBinding = (id: string): GeneratorBinding => ({ id, generatorType: "string", selector: "", propertyKind: "value", propertyName: "", min: "0", max: "100", resourceId: null, literalValue: "", inputMode: "instant", delayMs: 0, enabled: true });
+export const createGeneratorBinding = (id: string): GeneratorBinding => ({ id, generatorType: "string", selector: "", propertyKind: "value", propertyName: "", min: "0", max: "100", resourceId: null, literalValue: "", inputMode: "instant", delayMs: DEFAULT_SEQUENTIAL_DELAY_MS, enabled: true });

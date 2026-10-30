@@ -56,15 +56,23 @@ code --install-extension leviax.browser-control-center
 
 Necesitas **VS Code de escritorio 1.90 o superior**. El navegador se configura por separado: no viene incluido en la descarga de la extensión.
 
+Manual, Arrays, Fórmulas y Automatizaciones incluyen un interruptor de **Guardado automático** arriba del todo. Actívalo para guardar los cambios tras **5 segundos sin actividad**, sin ejecutar pruebas ni acciones del navegador.
+
 ## Prueba primero, automatiza después
 
 ### Manual: tú decides cuándo aplicar
 
 Prepara valores, genera muestras y aplícalos a un campo o a todos los campos activos. **Aplicar** sigue accesible cuando minimizas una fila. Si un campo falla, **Aplicar todos** continúa con los demás y te indica qué ha ocurrido.
 
+Organiza las filas de cada grupo arrastrándolas desde su asa de puntos y guarda el perfil para conservar el orden. Funciona también en cookies, storages y overrides, incluidos los headers de cada regla.
+
+Conserva qué cookies, overrides y generadores tienes expandidos, también al compartir su JSON. Activa **Guardado automático** para guardar los cambios tras **5 segundos sin actividad**, o desactívalo y usa Guardar cuando prefieras.
+
 Cargar o editar un perfil no rellena automáticamente los formularios. La escritura asistida protege frente a envíos accidentales durante la aplicación; tú decides cuándo enviar el formulario de la página.
 
 ### Automatizaciones: conecta los pasos
+
+Ordena grupos y procesos desde sus asas de arrastre, mueve procesos entre grupos y pliega los grupos que no estés usando. El documento de automatizaciones conserva el orden y el estado expandido, también en su JSON.
 
 Convierte un recorrido repetido en un flujo visual. Por ejemplo:
 

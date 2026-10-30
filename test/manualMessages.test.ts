@@ -3,6 +3,12 @@ import { isManualToExtensionMessage } from "../src/shared/messages/manualMessage
 import { createEmptyManualProfile } from "../src/domain/manual/manualProfile";
 
 describe("mensajes de la página Manual", () => {
+  it("admite guardar con identificador de solicitud y mantiene la compatibilidad anterior", () => {
+    const message = { type: "manual.save", profile: createEmptyManualProfile("profile", "QA"), resources: null };
+    expect(isManualToExtensionMessage(message)).toBe(true);
+    expect(isManualToExtensionMessage({ ...message, requestId: "save-1" })).toBe(true);
+    expect(isManualToExtensionMessage({ ...message, requestId: 1 })).toBe(false);
+  });
   it("acepta una solicitud de borrado completa", () => {
     expect(isManualToExtensionMessage({ type: "manual.delete", id: "profile-1", name: "QA" })).toBe(true);
   });

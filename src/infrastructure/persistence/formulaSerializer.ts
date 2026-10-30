@@ -1,6 +1,7 @@
 import { FORMULA_SCHEMA_VERSION, type FormulaResource } from "../../domain/formulas/formula";
 import { failure, success, type Result } from "../../shared/result";
 import type { DataCodec } from "../../application/persistence/applicationDataDao";
+import { isOptionalEditorPreferences } from "../../domain/resources/editorPreferences";
 
 export const isFormulaResource = (value: unknown): value is FormulaResource => {
   if (typeof value !== "object" || value === null) return false;
@@ -8,6 +9,7 @@ export const isFormulaResource = (value: unknown): value is FormulaResource => {
   return record.schemaVersion === FORMULA_SCHEMA_VERSION &&
     typeof record.id === "string" && record.id.length > 0 &&
     typeof record.name === "string" &&
+    isOptionalEditorPreferences(record.preferences) &&
     typeof record.code === "string" &&
     typeof record.createdAt === "string" && typeof record.updatedAt === "string";
 };

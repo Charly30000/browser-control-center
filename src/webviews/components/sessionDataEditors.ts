@@ -1,5 +1,7 @@
 import { html, nothing, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
+import { repeat } from "lit/directives/repeat.js";
+import { renderRowDragHandle, reorderableRow, type RowReorderOptions } from "./rowReorder";
 import type { CookieEntry, HeaderEntry, QueryParamEntry, StorageEntry, StorageValueType } from "../../domain/manual/manualProfile";
 import { parseStorageValue } from "../../domain/manual/storageValue";
 import type { ConfirmDestructiveAction } from "./confirmDestructiveAction";
@@ -14,6 +16,7 @@ export interface EntryEditorCallbacks<T extends { readonly id: string }> {
   readonly apply?: (id: string) => void;
   readonly applyAll?: () => void;
   readonly expansion?: CollapsibleEntryState;
+  readonly reorder?: RowReorderOptions;
 }
 
 const valueFrom = (event: Event): string => {
@@ -29,7 +32,8 @@ const applyAllButton = (callbacks: { readonly applyAll?: () => void }, label: st
 export const renderQueryParamEditor = (entries: readonly QueryParamEntry[], callbacks: EntryEditorCallbacks<QueryParamEntry>): TemplateResult => html`
   <div class="session-editor">
     <div class="session-list">
-      ${entries.map((entry) => html`<div class="session-row query-param-row">
+      ${repeat(entries, (entry) => entry.id, (entry) => html`<div class="session-row query-param-row" ${reorderableRow(callbacks.reorder, entry.id)}>
+        ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || "query param")}
         <input aria-label="Clave" placeholder="Key" .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
         <input aria-label="Valor" placeholder="Value" .value=${live(entry.value)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
         ${toggle(entry.enabled, "Activo", (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
@@ -43,7 +47,8 @@ export const renderQueryParamEditor = (entries: readonly QueryParamEntry[], call
 export const renderHeaderEditor = (entries: readonly HeaderEntry[], callbacks: EntryEditorCallbacks<HeaderEntry>): TemplateResult => html`
   <div class="session-editor">
     <div class="session-list">
-      ${entries.map((entry) => html`<div class="session-row header-row">
+      ${repeat(entries, (entry) => entry.id, (entry) => html`<div class="session-row header-row" ${reorderableRow(callbacks.reorder, entry.id)}>
+        ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || "header")}
         <input aria-label="Clave" placeholder="Key" .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
         <input aria-label="Valor" placeholder="Value" .value=${live(entry.value)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
         ${toggle(entry.enabled, "Activo", (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
@@ -58,10 +63,10 @@ export const renderHeaderEditor = (entries: readonly HeaderEntry[], callbacks: E
 export const renderCookieEditor = (entries: readonly CookieEntry[], callbacks: EntryEditorCallbacks<CookieEntry>): TemplateResult => html`
   <div class="session-editor">
     <div class="session-list">
-      ${entries.map((cookie) => {
+      ${repeat(entries, (cookie) => cookie.id, (cookie) => {
         const expanded = callbacks.expansion?.isOpen(cookie.id, false) ?? false;
-        return html`<details class="session-details" .open=${expanded} @toggle=${(event: Event) => callbacks.expansion?.toggle(cookie.id, false, event)}>
-        <summary class=${!expanded && callbacks.apply !== undefined ? "has-collapsed-apply" : ""}><span>${cookie.name || "Cookie sin nombre"}</span><small>${cookie.domain || "Dominio pendiente"}</small><span class=${cookie.enabled ? "session-enabled" : "session-disabled"}>${cookie.enabled ? "Activa" : "Inactiva"}</span>${expanded ? nothing : applyButton(callbacks, cookie.id)}</summary>
+        return html`<details class="session-details" ${reorderableRow(callbacks.reorder, cookie.id)} .open=${expanded} @toggle=${(event: Event) => callbacks.expansion?.toggle(cookie.id, false, event)}>
+        <summary class=${!expanded && callbacks.apply !== undefined ? "has-collapsed-apply" : ""}>${renderRowDragHandle(callbacks.reorder, cookie.id, cookie.name || "cookie")}<span>${cookie.name || "Cookie sin nombre"}</span><small>${cookie.domain || "Dominio pendiente"}</small><span class=${cookie.enabled ? "session-enabled" : "session-disabled"}>${cookie.enabled ? "Activa" : "Inactiva"}</span>${expanded ? nothing : applyButton(callbacks, cookie.id)}</summary>
         <div class="session-details-grid">
           <label><span>Nombre</span><input .value=${live(cookie.name)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.name = valueFrom(event); })}></label>
           <label><span>Valor</span><input .value=${live(cookie.value)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.value = valueFrom(event); })}></label>
@@ -83,9 +88,10 @@ export const renderCookieEditor = (entries: readonly CookieEntry[], callbacks: E
 export const renderStorageEditor = (entries: readonly StorageEntry[], callbacks: EntryEditorCallbacks<StorageEntry>): TemplateResult => html`
   <div class="session-editor">
     <div class="session-list">
-      ${entries.map((entry) => {
+      ${repeat(entries, (entry) => entry.id, (entry) => {
         const validation = parseStorageValue(entry.valueType, entry.value);
-        return html`<div class="session-row storage-entry-row">
+        return html`<div class="session-row storage-entry-row" ${reorderableRow(callbacks.reorder, entry.id)}>
+          ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || "entrada de storage")}
           <input aria-label="Clave" placeholder="Key" .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
           <select aria-label="Tipo" .value=${live(entry.valueType)} @change=${(event: Event) => callbacks.update(entry.id, (item) => { item.valueType = valueFrom(event) as StorageValueType; if (item.valueType === "null") item.value = "null"; })}><option value="string">string</option><option value="number">number</option><option value="boolean">boolean</option><option value="json">JSON</option><option value="null">null</option></select>
           <input aria-label="Valor" placeholder="Value" .value=${live(entry.value)} ?disabled=${entry.valueType === "null"} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>

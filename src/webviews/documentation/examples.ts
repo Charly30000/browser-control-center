@@ -9,14 +9,15 @@ const timestamp = "2026-01-01T00:00:00.000Z";
 const exampleUrl = "https://example.test/form";
 const exampleHtml = '<!doctype html><html><head><meta charset="utf-8"><title>Formulario de prueba</title></head><body><h1>Formulario de prueba</h1><label>Nombre <input id="name"></label><label>Copia <input id="copy"></label><label>Email <input id="email"></label><label>Ciudad <input id="city"></label><p id="result">Preparado</p><pre id="payload">{"item":{"id":42}}</pre><button id="apply" type="button">Continuar</button></body></html>';
 
-export const documentationFormula = { ...createFormula("formula-example", "Email de prueba", timestamp), code: 'function generate() {\n  return "usuario" + Math.floor(Math.random() * 10000) + "@example.test";\n}' };
-export const documentationArray = { ...createArrayResource("array-example", "Ciudades de prueba", timestamp), items: ["Madrid", "Sevilla", "Valencia"] };
+export const documentationFormula = { ...createFormula("formula-example", "Email de prueba", timestamp), preferences: { autoSaveEnabled: false }, code: 'function generate() {\n  return "usuario" + Math.floor(Math.random() * 10000) + "@example.test";\n}' };
+export const documentationArray = { ...createArrayResource("array-example", "Ciudades de prueba", timestamp), preferences: { autoSaveEnabled: false }, items: ["Madrid", "Sevilla", "Valencia"] };
 const pageOverride = { ...createRequestOverride("override-page"), matcherType: "glob" as const, matcher: `${exampleUrl}*`, contentType: "text/html; charset=utf-8", body: exampleHtml, headers: [] };
 const profile = createEmptyManualProfile("manual-example", "Formulario local de prueba", timestamp);
 profile.url = exampleUrl;
+profile.preferences = { autoSaveEnabled: false };
 profile.requestOverrides = [pageOverride];
 profile.generatorBindings = [
-  { ...createGeneratorBinding("binding-name"), selector: "#name", literalValue: "Ada" },
+  { ...createGeneratorBinding("binding-name"), selector: "#name", literalValue: "Ada", expanded: true },
   { ...createGeneratorBinding("binding-email"), selector: "#email", generatorType: "formula", resourceId: documentationFormula.id },
   { ...createGeneratorBinding("binding-city"), selector: "#city", generatorType: "array", resourceId: documentationArray.id }
 ];
@@ -54,6 +55,7 @@ export const documentedNodes: readonly DocumentedNode[] = [
 
 const automation = createAutomationDocument("automation-example", timestamp);
 automation.name = "Copiar datos desde el DOM";
+automation.preferences = { autoSaveEnabled: false };
 const group = createAutomationGroup("group-example", "Ejemplo sin Internet");
 const process = createAutomationProcess("process-example", "Capturar y reutilizar datos");
 const addNode = (type: AutomationNodeType, config: AutomationNodeConfig): void => {
@@ -73,5 +75,6 @@ addNode("fill", { selector: "#copy", value: "ID: {itemId}" });
 addNode("assertion", { kind: "value-equals", selector: "#copy", expected: "ID: 42" });
 process.edges = process.nodes.slice(1).map((node, index) => ({ id: `edge-${index + 1}`, sourceNodeId: process.nodes[index]!.id, sourcePort: "out", targetNodeId: node.id, targetPort: "in" }));
 group.processes = [process];
+group.expanded = true;
 automation.groups = [group];
 export const automationDocumentationExample = createImportExportDocument("browser-control-center/automations", automation, timestamp);

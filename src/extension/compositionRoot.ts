@@ -73,8 +73,8 @@ export const createApplicationServices = (context: vscode.ExtensionContext): App
   const formulasPanel = new FormulasPanelManager(context.extensionUri, formulaService, formulaExecution, refreshResourceCatalogs);
   const arraysPanel = new ArraysPanelManager(context.extensionUri, arrayService, refreshResourceCatalogs);
   const manualPanel = new ManualPanelManager(context.extensionUri, profileService, browserActions, formulaService, arrayService, () => {
-    void formulasPanel.refreshState();
-    void arraysPanel.refreshState();
+    void formulasPanel.refreshResourceCatalogs();
+    void arraysPanel.refreshResourceCatalogs();
     void automationsPanel.refreshResourceCatalogs();
   }, logger);
   panels.manual = manualPanel;

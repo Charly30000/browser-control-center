@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEmptyManualProfile, createGeneratorBinding, createHeader } from "../src/domain/manual/manualProfile";
+import { createCookie, createEmptyManualProfile, createGeneratorBinding, createHeader, createRequestOverride } from "../src/domain/manual/manualProfile";
 import { deserializeProfile, serializeProfile } from "../src/infrastructure/persistence/profileSerializer";
 
 describe("serialización de perfiles", () => {
@@ -24,6 +24,29 @@ describe("serialización de perfiles", () => {
     const serialized = JSON.stringify({ ...createEmptyManualProfile("profile-1", "QA"), schemaVersion: 99 });
     const result = deserializeProfile(serialized);
     expect(result.ok).toBe(false);
+  });
+
+  it("conserva las preferencias de expansión y guardado automático sin exigirlas a perfiles anteriores", () => {
+    const profile = createEmptyManualProfile("profile", "Preferencias");
+    profile.preferences = { autoSaveEnabled: true };
+    profile.cookies = [{ ...createCookie("cookie"), expanded: true }];
+    profile.requestOverrides = [{ ...createRequestOverride("override"), expanded: false }];
+    profile.generatorBindings = [{ ...createGeneratorBinding("input"), expanded: false }];
+    expect(deserializeProfile(serializeProfile(profile))).toEqual({ ok: true, value: profile });
+
+    delete profile.preferences;
+    for (const row of [...profile.cookies, ...profile.requestOverrides, ...profile.generatorBindings]) delete row.expanded;
+    expect(deserializeProfile(serializeProfile(profile))).toEqual({ ok: true, value: profile });
+  });
+
+  it("rechaza preferencias de tipos incorrectos", () => {
+    const profile = createEmptyManualProfile("profile", "Preferencias");
+    expect(deserializeProfile(JSON.stringify({ ...profile, preferences: { autoSaveEnabled: "true" } })).ok).toBe(false);
+    for (const [field, row] of [
+      ["cookies", createCookie("cookie")], ["requestOverrides", createRequestOverride("override")], ["generatorBindings", createGeneratorBinding("input")]
+    ] as const) {
+      expect(deserializeProfile(JSON.stringify({ ...profile, [field]: [{ ...row, expanded: "false" }] })).ok).toBe(false);
+    }
   });
 
   it("rechaza estructuras incompletas", () => {

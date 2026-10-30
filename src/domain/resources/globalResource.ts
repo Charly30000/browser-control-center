@@ -1,8 +1,11 @@
+import type { EditorPreferences } from "./editorPreferences";
+
 export interface GlobalResource {
   readonly id: string;
   name: string;
   createdAt: string;
   updatedAt: string;
+  preferences?: EditorPreferences;
 }
 
 export interface GlobalResourceSummary {

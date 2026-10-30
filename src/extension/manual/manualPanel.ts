@@ -103,6 +103,12 @@ export class ManualPanelManager implements vscode.Disposable {
   }
 
   private async handleMessage(message: ManualToExtensionMessage): Promise<void> {
+    const revealOutputOnFailure = !(
+      (message.type === "browser.apply" && message.target === "generators") ||
+      message.type === "browser.resetGenerators" ||
+      message.type === "browser.selectElement" ||
+      message.type === "browser.previewGenerator"
+    );
     try {
       const browserAction = this.browserActionDescription(message);
       if (browserAction !== null) this.logger.info(`[Manual] [INICIO] ${browserAction}`);
@@ -122,7 +128,7 @@ export class ManualPanelManager implements vscode.Disposable {
           await this.sendState(await this.profileService.select(message.id));
           break;
         case "manual.save":
-          await this.sendState(await this.saveFromEditor(message.profile, message.resources));
+          await this.sendState(await this.saveFromEditor(message.profile, message.resources), message.requestId);
           await this.sendNotice("success", "Perfil guardado.");
           break;
         case "manual.delete": {
@@ -133,7 +139,7 @@ export class ManualPanelManager implements vscode.Disposable {
           if (confirmed) {
             await this.sendState(await this.profileService.delete(message.id));
             await this.sendNotice("success", "Perfil eliminado.");
-          }
+          } else await this.post({ type: "manual.operationCanceled" });
           break;
         }
         case "manual.export":
@@ -187,7 +193,7 @@ export class ManualPanelManager implements vscode.Disposable {
         }
         case "browser.apply": {
           const result = await this.browserActions.apply(message.profile, message.target, message.rowId);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Configuración aplicada." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Configuración aplicada." : result.error, revealOutputOnFailure);
           break;
         }
         case "browser.syncOverrides": {
@@ -198,7 +204,7 @@ export class ManualPanelManager implements vscode.Disposable {
         }
         case "browser.resetGenerators": {
           const result = await this.browserActions.resetGenerators();
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Generadores reseteados." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Generadores reseteados." : result.error, revealOutputOnFailure);
           break;
         }
         case "browser.selectElement": {
@@ -207,24 +213,27 @@ export class ManualPanelManager implements vscode.Disposable {
             await this.post({ type: "browser.elementSelected", bindingId: message.bindingId, selector: result.value });
             this.logger.info("[Manual] [OK] Elemento seleccionado.");
           } else {
-            await this.sendNotice("warning", result.error);
+            await this.sendNotice("warning", result.error, revealOutputOnFailure);
           }
           break;
         }
         case "browser.previewGenerator": {
           const binding = message.profile.generatorBindings.find(({ id }) => id === message.bindingId);
-          if (binding === undefined) { await this.sendNotice("warning", "El generador ya no existe."); break; }
+          if (binding === undefined) { await this.sendNotice("warning", "El generador ya no existe.", revealOutputOnFailure); break; }
           const result = await this.browserActions.previewGenerator(binding);
           if (result.ok) await this.post({ type: "browser.generatorPreview", bindingId: binding.id, value: result.value });
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Muestra generada." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Muestra generada." : result.error, revealOutputOnFailure);
           break;
         }
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Se ha producido un error inesperado.";
-      this.logger.error(`[Manual] [ERROR] ${message}`, error);
-      this.logger.show();
-      await this.post({ type: "manual.notice", tone: "error", message });
+      const errorMessage = error instanceof Error ? error.message : "Se ha producido un error inesperado.";
+      this.logger.error(`[Manual] [ERROR] ${errorMessage}`, error);
+      if (revealOutputOnFailure) this.logger.show();
+      if (message.type === "manual.save" && message.requestId !== undefined) {
+        await this.post({ type: "manual.saveFailed", requestId: message.requestId, error: errorMessage });
+      }
+      await this.post({ type: "manual.notice", tone: "error", message: errorMessage });
     }
   }
 
@@ -246,7 +255,7 @@ export class ManualPanelManager implements vscode.Disposable {
 
   private async importProfile(): Promise<void> {
     const contents = await this.files.read({ filterName: "Perfil Manual", openLabel: "Importar perfil" });
-    if (contents === null) return;
+    if (contents === null) { await this.post({ type: "manual.operationCanceled" }); return; }
     const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) {
       await this.sendNotice("error", parsed.error);
@@ -272,9 +281,9 @@ export class ManualPanelManager implements vscode.Disposable {
     return validation.value;
   }
 
-  private async sendState(state: ManualProfileState): Promise<void> {
+  private async sendState(state: ManualProfileState, requestId?: string): Promise<void> {
     await this.post({
-      type: "manual.state",
+      ...(requestId === undefined ? { type: "manual.state" as const } : { type: "manual.saved" as const, requestId }),
       state: { ...state, browser: this.browserActions.getSnapshot(), resources: await this.loadResourceCatalogs() }
     });
   }
@@ -284,11 +293,12 @@ export class ManualPanelManager implements vscode.Disposable {
     return { formulas: this.formulaService.getSummaries(), arrays };
   }
 
-  private async sendNotice(tone: "info" | "success" | "warning" | "error", message: string): Promise<void> {
+  private async sendNotice(tone: "info" | "success" | "warning" | "error", message: string, revealOutputOnFailure = true): Promise<void> {
     if (tone === "success") this.logger.info(`[Manual] [OK] ${message}`);
-    else if (tone === "warning") { this.logger.warn(`[Manual] [AVISO] ${message}`); this.logger.show(); }
-    else if (tone === "error") { this.logger.error(`[Manual] [ERROR] ${message}`); this.logger.show(); }
+    else if (tone === "warning") this.logger.warn(`[Manual] [AVISO] ${message}`);
+    else if (tone === "error") this.logger.error(`[Manual] [ERROR] ${message}`);
     else this.logger.info(`[Manual] ${message}`);
+    if (revealOutputOnFailure && (tone === "warning" || tone === "error")) this.logger.show();
     await this.post({ type: "manual.notice", tone, message });
   }
 

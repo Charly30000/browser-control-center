@@ -34,7 +34,7 @@ export class AutomationImportService {
       occupiedIds.add(groupIdentity.id);
       groupNames.push(groupIdentity.name);
       const processes = sourceGroup.processes.map((process) => this.importProcess(process, occupiedIds, processNames, createId));
-      importedGroups.push({ id: groupIdentity.id, name: groupIdentity.name, processes });
+      importedGroups.push({ id: groupIdentity.id, name: groupIdentity.name, ...(sourceGroup.expanded === undefined ? {} : { expanded: sourceGroup.expanded }), processes });
     }
 
     return {

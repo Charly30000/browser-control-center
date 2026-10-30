@@ -14,6 +14,10 @@ El botón **Probar** valida y utiliza el JSON que se encuentra actualmente en el
 
 ## Persistencia y acciones
 
+El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está desactivado por defecto y guarda el array actual tras **5 segundos sin actividad**, reiniciando la espera con cada interacción. No guarda contenido JSON inválido ni ejecuta Probar. Conserva las ediciones realizadas mientras se guarda; un fallo mantiene el borrador. Se pausa mientras se edita Ver JSON o se decide si guardar los cambios antes de cambiar de recurso.
+
+La preferencia de cada array se conserva en su JSON como `preferences: { "autoSaveEnabled": true }` o con `false`. Si falta, permanece desactivado; los archivos anteriores siguen siendo válidos. Al desactivarlo se cancela la espera pendiente y hay que pulsar Guardar para persistir esa desactivación.
+
 Los arrays se guardan individualmente en `globalStorageUri/arrays`, mientras `globalState` conserva catálogo y selección. Validar no guarda; Guardar solo se habilita con contenido válido. Exportar utiliza el contenido actual validado del editor.
 
 **Ver JSON** usa igualmente el contenido actual validado y muestra únicamente el array seleccionado. El JSON puede seleccionarse, copiarse y editarse. **Aplicar cambios** exige exactamente un array válido con el mismo ID y lo devuelve al editor como cambios sin guardar.

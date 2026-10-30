@@ -84,13 +84,28 @@ status-notice[tone="success"]::part(notice) { border-color: var(--vscode-testing
 status-notice[tone="warning"]::part(notice) { border-color: var(--vscode-editorWarning-foreground); }
 status-notice[tone="error"]::part(notice) { border-color: var(--vscode-errorForeground); }
 
-.sections-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
-section-card { display: block; min-width: 0; }
-section-card::part(container) { border: 1px solid var(--vscode-panel-border); background: var(--vscode-editor-background); }
-section-card::part(header) { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 42px; padding: 7px 10px; border-bottom: 1px solid var(--vscode-panel-border); background: var(--vscode-sideBarSectionHeader-background); }
-section-card::part(heading) { margin: 0; font-size: 13px; font-weight: 600; }
-section-card::part(description) { margin: 2px 0 0; color: var(--vscode-descriptionForeground); font-size: 11px; }
-section-card::part(content) { display: block; padding: 10px; }
+.sections-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-items: start; }
+section-card { display: block; min-width: 0; --section-accent: var(--vscode-focusBorder, #5b9cf5); }
+section-card[icon="url"] { --section-accent: var(--vscode-textLink-foreground, #5b9cf5); }
+section-card[icon="headers"] { --section-accent: var(--vscode-symbolIcon-propertyForeground, #b68cdd); }
+section-card[icon="cookies"] { --section-accent: var(--vscode-charts-orange, #d99a52); }
+section-card[icon="localStorage"] { --section-accent: var(--vscode-charts-blue, #5b9cf5); }
+section-card[icon="sessionStorage"] { --section-accent: var(--vscode-charts-cyan, #43b6bd); }
+section-card[icon="overrides"] { --section-accent: var(--vscode-charts-red, #e57b79); }
+section-card[icon="viewport"] { --section-accent: var(--vscode-charts-purple, #ac88d5); }
+section-card[icon="generators"] { --section-accent: var(--vscode-charts-green, #69ba81); }
+section-card::part(container) { border: 1px solid var(--vscode-panel-border); border-radius: 6px; overflow: hidden; background: var(--vscode-editor-background); }
+section-card::part(header) { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; min-height: 68px; padding: 12px; border-inline-start: 4px solid var(--section-accent); border-bottom: 1px solid var(--vscode-panel-border); background: color-mix(in srgb, var(--section-accent) 9%, var(--vscode-editorWidget-background, var(--vscode-editor-background))); }
+section-card::part(identity) { display: flex; align-items: center; gap: 10px; flex: 1 1 230px; min-width: 0; }
+section-card::part(icon) { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 7px; color: var(--section-accent); background: color-mix(in srgb, var(--section-accent) 15%, transparent); }
+section-card::part(heading-group) { min-width: 0; }
+section-card::part(title-row) { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+section-card::part(heading) { margin: 0; color: var(--vscode-foreground); font-size: 15px; font-weight: 700; line-height: 1.3; }
+section-card::part(count) { min-width: 22px; padding: 1px 6px; border: 1px solid color-mix(in srgb, var(--section-accent) 35%, transparent); border-radius: 10px; color: var(--vscode-foreground); background: color-mix(in srgb, var(--section-accent) 12%, transparent); font-size: 11px; text-align: center; }
+section-card::part(description) { margin: 4px 0 0; color: var(--vscode-descriptionForeground); font-size: 11px; line-height: 1.45; }
+section-card::part(actions) { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+section-card::part(content) { display: block; padding: 12px; }
+.section-expansion-controls { display: flex; flex-wrap: wrap; gap: 6px; }
 
 h3, h4 { margin: 12px 0 7px; font-size: 12px; }
 .url-row { display: flex; align-items: end; gap: 7px; }
@@ -117,6 +132,8 @@ empty-state::part(message) { margin: 3px 0; color: var(--vscode-descriptionForeg
 .row-details > summary { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto; gap: 8px; align-items: center; min-height: 32px; padding: 5px 8px; cursor: pointer; }
 .row-details > summary small { color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-details > summary.has-collapsed-apply { grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto auto; }
+.row-details[data-reorder-row] > summary { grid-template-columns: 28px minmax(100px, 1fr) minmax(90px, 1fr) auto; }
+.row-details[data-reorder-row] > summary.has-collapsed-apply { grid-template-columns: 28px minmax(100px, 1fr) minmax(90px, 1fr) auto auto; }
 .enabled-mark { color: var(--vscode-testing-iconPassed); }
 .disabled-mark { color: var(--vscode-disabledForeground); }
 .details-grid { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 8px; padding: 9px; border-top: 1px solid var(--vscode-panel-border); }
@@ -137,6 +154,9 @@ empty-state::part(message) { margin: 3px 0; color: var(--vscode-descriptionForeg
 }
 
 @media (max-width: 680px) {
+  .row-details[data-reorder-row] > summary { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .row-details[data-reorder-row] > summary.has-collapsed-apply { grid-template-columns: 28px minmax(0, 1fr) auto auto; }
+  .row-details[data-reorder-row] > summary small { grid-column: 2 / -1; }
   .row-details > summary.has-collapsed-apply { grid-template-columns: minmax(0, 1fr) auto auto; }
   .row-details > summary.has-collapsed-apply small { grid-column: 1 / -1; grid-row: 2; }
   .manual-shell { padding: 10px; }
@@ -150,6 +170,9 @@ empty-state::part(message) { margin: 3px 0; color: var(--vscode-descriptionForeg
   .url-row { align-items: stretch; flex-direction: column; }
 }
 @media (forced-colors: active) {
+  section-card::part(header) { border-inline-start-color: Highlight; border-bottom-color: CanvasText; background: Canvas; }
+  section-card::part(icon) { color: CanvasText; border: 1px solid CanvasText; }
+  section-card::part(count) { color: CanvasText; border-color: CanvasText; }
   button, input, select, textarea, section-card { border-color: CanvasText; }
   :focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
 }

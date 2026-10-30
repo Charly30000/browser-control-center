@@ -1,5 +1,9 @@
 # Página Automatizaciones
 
+El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está desactivado por defecto; al activarlo, guarda el documento completo de grupos tras **5 segundos sin actividad**. Cada interacción reinicia la espera. Respeta las mismas validaciones de borrador que Guardar, conserva las ediciones hechas durante un guardado y nunca ejecuta los procesos. Se pausa mientras se edita Ver JSON o se resuelve una decisión sobre cambios sin guardar; si falla, conserva el borrador.
+
+La preferencia del documento se incluye como `preferences: { "autoSaveEnabled": true }` o con `false`, también en el JSON de una selección. Aplicar un JSON que incluya esta preferencia la actualiza; si falta, mantiene la actual. Importar grupos conserva la preferencia del documento de destino. Los documentos antiguos siguen siendo válidos. Al desactivarlo cancela la espera pendiente; pulsa Guardar para conservar la desactivación.
+
 ## Modelo
 
 Una automatización contiene grupos; cada grupo contiene procesos. Un proceso posee viewport, variables iniciales, nodos y conexiones. Al ejecutar un grupo, sus procesos se recorren en orden y cada uno abre una sesión limpia e independiente del navegador seleccionado que siempre se cierra al terminar.
@@ -13,6 +17,22 @@ El editor también admite pegar el JSON de otro grupo o flujo recibido por chat.
 El documento usa `schemaVersion: 1` y se guarda en `globalStorageUri/automations/automation.json`. La exportación usa el envelope JSON común y versionado. Un flujo exportado sigue siendo un documento válido con un grupo y un proceso, por lo que puede importarse sin un formato paralelo. La importación añade el contenido al documento actual en vez de reemplazarlo. Si un grupo o proceso coincide por ID o nombre, regenera ambos; los IDs de nodos y conexiones que colisionen también se regeneran y las conexiones se reparan para apuntar a los nodos importados correctos. Los archivos históricos con el documento directo siguen siendo compatibles.
 
 ## Editor
+
+La lista lateral distingue los **grupos** mediante cabeceras con icono, contador de procesos y nombre destacado; sus **procesos** aparecen indentados en tarjetas con su propia etiqueta y estado. Los nombres ocupan una línea completa y las acciones se muestran debajo. El grupo y el proceso seleccionados tienen campos de nombre más anchos en la cabecera del editor, separados de los controles de ejecución.
+
+Puedes escribir el nombre de un proceso directamente en la lista o en **Nombre del proceso** del editor; ambos campos se mantienen sincronizados. Al añadir un proceso, el nombre provisional queda enfocado y seleccionado para sustituirlo directamente. Renombrar conserva los IDs, nodos y conexiones; se persiste con Guardar o mediante el guardado automático activado, y se refleja en su JSON. Cambiar nombres no ejecuta procesos.
+
+### Ordenar y plegar grupos
+
+El asa de puntos de la cabecera permite arrastrar un **grupo completo** antes o después de otro, conservando sus procesos y su estado expandido. El asa de cada **proceso** permite ordenar los procesos de un grupo o moverlos a otro. La línea de inserción indica si se colocará antes o después del proceso de destino. Soltarlo sobre la cabecera o el espacio de la lista de otro grupo lo añade al final; también se admite un grupo vacío o plegado. El grupo de destino conserva su estado de plegado y actualiza su contador. El desplegable Mover a grupo sigue disponible.
+
+La flecha junto al nombre del grupo **expande o contrae su lista de procesos**. Su cabecera y sus acciones siguen visibles. Añadir un proceso abre el grupo para poder escribir su nombre. Plegar no elimina procesos ni cambia lo que se ejecuta al pulsar Ejecutar grupo.
+
+Con el asa enfocada, **Alt+↑/↓** permite reordenar grupos o procesos dentro de su grupo con teclado. Editar nombres y seleccionar texto no inicia un arrastre. Un arrastre cancelado o soltado fuera de los destinos admitidos no modifica el documento.
+
+Puedes usar la **rueda del ratón mientras mantienes agarrado** un grupo o proceso para desplazar la página o la lista lateral. El indicador se recalcula al hacer scroll y al soltar se utiliza el destino que se ve en ese momento. **Escape** cancela sin cambiar el orden. El guardado automático espera a que sueltes el elemento, también si utilizas la rueda durante el movimiento.
+
+El nuevo orden y la preferencia de expansión modifican el borrador: **Guardar** o el guardado automático los conserva, y Ver JSON/Exportar/Importar los transporta. Cada grupo admite el campo opcional `expanded: true` o `false`; si falta, se muestra abierto para mantener la compatibilidad con documentos anteriores. El esquema continúa en la versión 1. Al aplicar un JSON de grupo sin `expanded` se conserva la preferencia actual. El orden de los procesos determina su secuencia al ejecutar ese grupo; ordenar o plegar por sí solo no ejecuta nada ni cambia IDs, nodos, variables, viewport o conexiones.
 
 - El árbol izquierdo crea, renombra, mueve, copia, duplica y elimina grupos o procesos.
 - La paleta añade nodos por categoría. Todos los nodos nuevos aparecen en la misma posición inicial `(80, 70)`; se superponen de forma intencionada para que el usuario decida su distribución en el canvas.

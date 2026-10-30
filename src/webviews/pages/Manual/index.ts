@@ -1,4 +1,7 @@
 import { LitElement, html, nothing } from "lit";
+import { repeat } from "lit/directives/repeat.js";
+import { moveEntry } from "../../../domain/manual/reorderEntries";
+import { RowReorderController, renderRowDragHandle, reorderableRow, type RowReorderOptions } from "../../components/rowReorder";
 import type { BrowserActionTarget } from "../../../application/manual/browserActionsService";
 import type { ArrayResource } from "../../../domain/arrays/arrayResource";
 import type { BrowserSessionSnapshot } from "../../../domain/browser/browserBridge";
@@ -11,6 +14,7 @@ import {
   createQueryParam,
   createRequestOverride,
   createStorageEntry,
+  DEFAULT_SEQUENTIAL_DELAY_MS,
   type GeneratorBinding,
   type GeneratorType,
   type ManualProfile,
@@ -21,6 +25,7 @@ import {
   VIEWPORT_PRESETS
 } from "../../../domain/manual/manualProfile";
 import { isProfileDirty } from "../../../domain/manual/dirtyState";
+import { reconcileSavedProfile } from "../../../domain/manual/reconcileSavedProfile";
 import { buildUrlWithQueryParams } from "../../../domain/manual/queryParams";
 import type { GlobalResourceSummary } from "../../../domain/resources/globalResource";
 import type { ExtensionToManualMessage, ManualToExtensionMessage } from "../../../shared/messages/manualMessages";
@@ -30,6 +35,8 @@ import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog
 import "../../components/jsonDocumentEditor";
 import { DestructiveConfirmationClient } from "../../components/confirmDestructiveAction";
 import { CollapsibleEntryState } from "../../components/collapsibleEntryState";
+import { AutoSaveController } from "../../components/autoSaveController";
+import { renderAutoSaveControl } from "../../components/autoSaveControl";
 import { renderRequestOverrideEditor } from "../../components/requestOverrideEditor";
 import { renderCookieEditor, renderHeaderEditor, renderQueryParamEditor, renderStorageEditor } from "../../components/sessionDataEditors";
 import { vscodeApi } from "../../vscodeApi";
@@ -61,6 +68,9 @@ const inputValue = (event: Event): string => {
 const inputChecked = (event: Event): boolean =>
   event.currentTarget instanceof HTMLInputElement && event.currentTarget.checked;
 
+type ManualListField = "queryParams" | "headers" | "cookies" | "localStorage" | "sessionStorage" | "requestOverrides" | "generatorBindings";
+type ExpandableManualField = "cookies" | "requestOverrides" | "generatorBindings";
+
 class ManualApp extends LitElement {
   private profile: ManualProfile | null = null;
   private savedProfile: ManualProfile | null = null;
@@ -75,10 +85,20 @@ class ManualApp extends LitElement {
   private pendingTransition: (() => void) | null = null;
   private awaitingSaveTransition = false;
   private unsavedMessage: string | null = null;
+  private saveSequence = 0;
+  private changingProfile = false;
+  private pendingSave: { requestId: string; profile: ManualProfile; resources: ManualPortableResources | null } | null = null;
+  private readonly autoSave = new AutoSaveController(this, {
+    enabled: () => this.profile?.preferences?.autoSaveEnabled ?? false,
+    canSave: () => this.pendingSave === null && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null && !this.changingProfile,
+    dirty: () => this.hasUnsavedChanges(),
+    save: () => this.saveProfile()
+  });
   private readonly confirmations = new DestructiveConfirmationClient((message) => this.post(message));
-  private readonly cookieExpansion = new CollapsibleEntryState(() => this.requestUpdate());
-  private readonly overrideExpansion = new CollapsibleEntryState(() => this.requestUpdate());
-  private readonly generatorExpansion = new CollapsibleEntryState(() => this.requestUpdate());
+  private readonly cookieExpansion = this.createExpansionState("cookies");
+  private readonly overrideExpansion = this.createExpansionState("requestOverrides");
+  private readonly generatorExpansion = this.createExpansionState("generatorBindings");
+  private readonly rowReorder = new RowReorderController();
 
   public override createRenderRoot(): this { return this; }
 
@@ -90,7 +110,9 @@ class ManualApp extends LitElement {
 
   public override disconnectedCallback(): void {
     window.removeEventListener("message", this.onMessage);
+    this.cancelAutoSave();
     this.confirmations.cancelPending();
+    this.rowReorder.cancel();
     super.disconnectedCallback();
   }
 
@@ -103,6 +125,7 @@ class ManualApp extends LitElement {
 
     return html`
       <main class="manual-shell">
+        ${renderAutoSaveControl(this.profile.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
         <header class="page-header">
           <div>
             <h1>Manual Browser</h1>
@@ -141,19 +164,19 @@ class ManualApp extends LitElement {
           </label>
           <div class="toolbar-actions">
             <button @click=${this.newProfile}>Nuevo</button>
-            <button class="primary" @click=${this.saveProfile}>Guardar</button>
-            <button class="danger" @click=${this.deleteProfile}>Eliminar</button>
+            <button class="primary" ?disabled=${this.pendingSave !== null} @click=${this.saveProfile}>Guardar</button>
+            <button class="danger" ?disabled=${this.pendingSave !== null} @click=${this.deleteProfile}>Eliminar</button>
             <button @click=${this.exportProfile}>Exportar</button>
             <button @click=${this.viewJson}>Ver JSON</button>
             <button @click=${this.importProfile}>Importar</button>
           </div>
-          <span class=${dirty ? "save-state dirty" : "save-state saved"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
+          <span class=${dirty ? "save-state dirty" : "save-state saved"} role="status">${this.pendingSave !== null ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span>
         </section>
 
         <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
 
         <div class="sections-grid">
-          <section-card heading="URL" description="La URL final se compone con los query params activos.">
+          <section-card heading="URL" icon="url" description="La URL final se compone con los query params activos.">
             <div class="url-row">
               <label class="grow"><span>URL base</span><input type="url" .value=${this.profile.url} @input=${(event: Event) => this.mutate((profile) => { profile.url = inputValue(event); })}></label>
               <button class="primary" @click=${this.openBrowser}>Abrir</button>
@@ -161,6 +184,7 @@ class ManualApp extends LitElement {
             <p class=${composedUrl.ok ? "url-preview" : "field-error"}>${composedUrl.ok ? composedUrl.value : composedUrl.error}</p>
             <h3>Query params</h3>
             ${renderQueryParamEditor(this.profile.queryParams, {
+              reorder: this.reorderOptions("queryParams"),
               add: () => this.mutate((profile) => { profile.queryParams.push(createQueryParam(crypto.randomUUID())); }),
               update: (id, change) => this.mutate((profile) => { const item = profile.queryParams.find((entry) => entry.id === id); if (item) change(item); }),
               remove: (id) => this.mutate((profile) => { profile.queryParams = profile.queryParams.filter((entry) => entry.id !== id); }),
@@ -193,8 +217,9 @@ class ManualApp extends LitElement {
     const profile = this.profile;
     if (profile === null) return nothing;
     return html`
-      <section-card heading="Headers" description="Cabeceras que se aplicarán al contexto del navegador.">
+      <section-card heading="Headers" icon="headers" .count=${profile.headers.length} description="Cabeceras que se aplicarán al contexto del navegador.">
         ${renderHeaderEditor(profile.headers, {
+          reorder: this.reorderOptions("headers"),
           add: () => this.mutate((draft) => { draft.headers.push(createHeader(crypto.randomUUID())); }),
           update: (id, change) => this.mutate((draft) => { const item = draft.headers.find((entry) => entry.id === id); if (item) change(item); }),
           remove: (id) => this.mutate((draft) => { draft.headers = draft.headers.filter((entry) => entry.id !== id); }),
@@ -210,8 +235,10 @@ class ManualApp extends LitElement {
     const profile = this.profile;
     if (profile === null) return nothing;
     return html`
-      <section-card heading="Cookies" description="Cada cookie mantiene sus atributos completos en los detalles.">
+      <section-card heading="Cookies" icon="cookies" .count=${profile.cookies.length} description="Cada cookie mantiene sus atributos completos en los detalles.">
+        ${this.renderExpansionControls(this.cookieExpansion, profile.cookies, "Cookies")}
         ${renderCookieEditor(profile.cookies, {
+          reorder: this.reorderOptions("cookies"),
           expansion: this.cookieExpansion,
           add: () => this.mutate((draft) => { draft.cookies.push(createCookie(crypto.randomUUID())); }),
           update: (id, change) => this.updateCookie(id, change),
@@ -229,8 +256,9 @@ class ManualApp extends LitElement {
     if (profile === null) return nothing;
     const entries = profile[scope];
     return html`
-      <section-card heading=${title} description="Valores tipados y validados antes de enviarse al navegador.">
+      <section-card heading=${title} icon=${scope} .count=${entries.length} description="Valores tipados y validados antes de enviarse al navegador.">
         ${renderStorageEditor(entries, {
+          reorder: this.reorderOptions(scope),
           add: () => this.mutate((draft) => { draft[scope].push(createStorageEntry(crypto.randomUUID())); }),
           update: (id, change) => this.updateStorage(scope, id, change),
           remove: (id) => this.mutate((draft) => { draft[scope] = draft[scope].filter((entry) => entry.id !== id); }),
@@ -246,8 +274,11 @@ class ManualApp extends LitElement {
     const profile = this.profile;
     if (profile === null) return nothing;
     return html`
-      <section-card heading="Request Overrides" description="Interceptores preparados para fulfill, abort y continue-modified.">
+      <section-card heading="Request Overrides" icon="overrides" .count=${profile.requestOverrides.length} description="Interceptores preparados para fulfill, abort y continue-modified.">
+        ${this.renderExpansionControls(this.overrideExpansion, profile.requestOverrides, "Request Overrides")}
         ${renderRequestOverrideEditor(profile.requestOverrides, {
+          reorder: this.reorderOptions("requestOverrides"),
+          reorderHeaders: (overrideId) => ({ controller: this.rowReorder, group: `overrideHeaders:${overrideId}`, move: (source, target, position) => this.updateOverride(overrideId, (override) => moveEntry(override.headers, source, target, position)) }),
           expansion: this.overrideExpansion,
           add: () => this.mutate((draft) => { draft.requestOverrides.push(createRequestOverride(crypto.randomUUID())); }),
           update: (id, change) => this.updateOverride(id, change),
@@ -265,7 +296,7 @@ class ManualApp extends LitElement {
     if (profile === null) return nothing;
     const viewport = profile.viewport;
     return html`
-      <section-card heading="Viewport" description="Los cambios se aplican en el siguiente inicio o reinicio limpio.">
+      <section-card heading="Viewport" icon="viewport" description="Los cambios se aplican en el siguiente inicio o reinicio limpio.">
         <div class="details-grid viewport-grid">
           <label><span>Preset</span><select .value=${viewport.preset} @change=${(event: Event) => this.changeViewportPreset(inputValue(event) as ViewportPresetId)}>
             <option value="desktop">Desktop 1920×1080</option><option value="laptop">Laptop 1366×768</option>
@@ -285,15 +316,17 @@ class ManualApp extends LitElement {
   private renderGenerators() {
     const profile = this.profile;
     if (profile === null) return nothing;
+    const reorder = this.reorderOptions("generatorBindings");
     return html`
-      <section-card heading="Inputs / Generadores" description="Generadores puros reutilizables vinculados a un selector y una propiedad.">
+      <section-card heading="Inputs / Generadores" icon="generators" .count=${profile.generatorBindings.length} description="Generadores puros reutilizables vinculados a un selector y una propiedad.">
+        ${this.renderExpansionControls(this.generatorExpansion, profile.generatorBindings, "Inputs / Generadores")}
         <div class="rows">
-          ${profile.generatorBindings.map((binding) => {
+          ${repeat(profile.generatorBindings, (binding) => binding.id, (binding) => {
             const expanded = this.generatorExpansion.isOpen(binding.id, true);
             const apply = () => html`<button type="button" @click=${(event: Event) => { event.stopPropagation(); this.apply("generators", binding.id); }}>Aplicar</button>`;
             return html`
-            <details class="row-details" .open=${expanded} @toggle=${(event: Event) => this.generatorExpansion.toggle(binding.id, true, event)}>
-              <summary class=${!expanded ? "has-collapsed-apply" : ""}><span>${generatorLabels[binding.generatorType]}</span><small>${binding.selector || "Selector pendiente"}</small><span class=${binding.enabled ? "enabled-mark" : "disabled-mark"}>${binding.enabled ? "Activo" : "Inactivo"}</span>${expanded ? nothing : apply()}</summary>
+            <details class="row-details" ${reorderableRow(reorder, binding.id)} .open=${expanded} @toggle=${(event: Event) => this.generatorExpansion.toggle(binding.id, true, event)}>
+              <summary class=${!expanded ? "has-collapsed-apply" : ""}>${renderRowDragHandle(reorder, binding.id, binding.selector || "generador")}<span>${generatorLabels[binding.generatorType]}</span><small>${binding.selector || "Selector pendiente"}</small><span class=${binding.enabled ? "enabled-mark" : "disabled-mark"}>${binding.enabled ? "Activo" : "Inactivo"}</span>${expanded ? nothing : apply()}</summary>
               <div class="details-grid generator-grid">
                 <label><span>Tipo</span><select .value=${binding.generatorType} @change=${(event: Event) => this.updateBinding(binding.id, (item) => { item.generatorType = inputValue(event) as GeneratorType; item.resourceId = null; })}>${Object.entries(generatorLabels).map(([value, label]) => html`<option value=${value}>${label}</option>`)}</select></label>
                 ${this.textField("Selector CSS", binding.selector, (value) => this.updateBinding(binding.id, (item) => { item.selector = value; }))}
@@ -302,7 +335,7 @@ class ManualApp extends LitElement {
                 ${binding.generatorType === "string" ? this.textField("Texto", binding.literalValue ?? "", (value) => this.updateBinding(binding.id, (item) => { item.literalValue = value; })) : nothing}
                 ${binding.propertyKind === "attribute" || binding.propertyKind === "property" ? this.textField("Nombre de propiedad", binding.propertyName, (value) => this.updateBinding(binding.id, (item) => { item.propertyName = value; })) : nothing}
                 ${binding.generatorType === "number" ? html`${this.textField("Mínimo", binding.min, (value) => this.updateBinding(binding.id, (item) => { item.min = value; }), "number")}${this.textField("Máximo", binding.max, (value) => this.updateBinding(binding.id, (item) => { item.max = value; }), "number")}` : nothing}
-                <label><span>Escritura</span><select .value=${binding.inputMode} @change=${(event: Event) => this.updateBinding(binding.id, (item) => { item.inputMode = inputValue(event) as GeneratorBinding["inputMode"]; })}><option value="instant">Instantánea</option><option value="sequential">Secuencial</option></select></label>
+                <label><span>Escritura</span><select .value=${binding.inputMode} @change=${(event: Event) => this.updateBinding(binding.id, (item) => { const mode = inputValue(event) as GeneratorBinding["inputMode"]; if (mode === "sequential" && item.inputMode !== "sequential" && item.delayMs === 0) item.delayMs = DEFAULT_SEQUENTIAL_DELAY_MS; item.inputMode = mode; })}><option value="instant">Instantánea</option><option value="sequential">Secuencial</option></select></label>
                 ${binding.inputMode === "sequential" ? this.numberField("Retraso por tecla (ms)", binding.delayMs, (value) => this.updateBinding(binding.id, (item) => { item.delayMs = Math.max(0, value); })) : nothing}
               </div>
               ${this.previews[binding.id] ? html`<output class="generator-preview">Muestra: ${this.previews[binding.id]}</output>` : nothing}
@@ -316,11 +349,36 @@ class ManualApp extends LitElement {
     `;
   }
 
+  private reorderOptions(field: ManualListField): RowReorderOptions {
+    return { controller: this.rowReorder, group: field, move: (source, target, position) => this.mutate((profile) => moveEntry(profile[field], source, target, position)) };
+  }
+
+  private createExpansionState(field: ExpandableManualField): CollapsibleEntryState {
+    return new CollapsibleEntryState(() => this.requestUpdate(), {
+      read: (id) => this.profile?.[field].find((entry) => entry.id === id)?.expanded,
+      write: (ids, open) => this.mutate((profile) => {
+        const selected = new Set(ids);
+        for (const entry of profile[field]) if (selected.has(entry.id)) entry.expanded = open;
+      })
+    });
+  }
+
+  private renderExpansionControls(expansion: CollapsibleEntryState, entries: readonly { readonly id: string }[], label: string) {
+    const ids = entries.map(({ id }) => id);
+    return html`<div slot="actions" class="section-expansion-controls" role="group" aria-label=${`Desplegar filas de ${label}`}>
+      <button type="button" ?disabled=${ids.length === 0} @click=${() => expansion.setAll(ids, true)}>Expandir todos</button>
+      <button type="button" ?disabled=${ids.length === 0} @click=${() => expansion.setAll(ids, false)}>Contraer todos</button>
+    </div>`;
+  }
+
   private readonly onMessage = (event: MessageEvent<ExtensionToManualMessage>): void => {
     const message = event.data;
     if (message.type === "ui.destructiveActionConfirmed") {
       this.confirmations.resolve(message);
     } else if (message.type === "manual.state") {
+      this.cancelAutoSave();
+      this.pendingSave = null;
+      this.changingProfile = false;
       this.profile = structuredClone(message.state.profile);
       this.savedProfile = message.state.savedProfile === null ? null : structuredClone(message.state.savedProfile);
       this.profiles = message.state.profiles;
@@ -335,13 +393,47 @@ class ManualApp extends LitElement {
         this.pendingTransition = null;
         transition?.();
       }
+    } else if (message.type === "manual.saved") {
+      const pending = this.pendingSave;
+      if (pending === null || pending.requestId !== message.requestId) return;
+      this.pendingSave = null;
+      if (this.profile?.id === pending.profile.id) {
+        const sameResources = JSON.stringify(this.pendingPortableResources) === JSON.stringify(pending.resources);
+        this.profile = reconcileSavedProfile(this.profile, pending.profile, message.state.profile, sameResources);
+        this.savedProfile = structuredClone(message.state.savedProfile);
+        this.profiles = message.state.profiles;
+        this.formulas = message.state.resources.formulas;
+        this.arrays = message.state.resources.arrays;
+        if (sameResources) this.pendingPortableResources = null;
+        if (this.awaitingSaveTransition) {
+          if (this.hasUnsavedChanges()) this.saveProfile();
+          else {
+            const transition = this.pendingTransition;
+            this.awaitingSaveTransition = false;
+            this.pendingTransition = null;
+            transition?.();
+          }
+        }
+        this.scheduleAutoSave();
+      }
+    } else if (message.type === "manual.saveFailed") {
+      if (message.requestId !== this.pendingSave?.requestId) return;
+      this.pendingSave = null;
+      this.cancelAutoSave();
+      this.awaitingSaveTransition = false;
+      this.pendingTransition = null;
+      this.notice = { tone: "error", message: message.error };
+    } else if (message.type === "manual.operationCanceled") {
+      this.changingProfile = false;
+      this.onUserActivity();
     } else if (message.type === "manual.resources") {
       this.formulas = message.resources.formulas;
       this.arrays = message.resources.arrays;
     } else if (message.type === "manual.notice") {
       this.notice = { tone: message.tone, message: message.message };
-      if (message.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
+      if (message.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; this.changingProfile = false; }
     } else if (message.type === "manual.jsonDocument") {
+      this.cancelAutoSave();
       this.jsonDocument = message.serialized;
       this.notice = { tone: "info", message: "" };
     } else if (message.type === "manual.jsonApplied") {
@@ -352,6 +444,7 @@ class ManualApp extends LitElement {
       };
       this.jsonDocument = null;
       this.previews = {};
+      this.onUserActivity();
     } else if (message.type === "browser.elementSelected") {
       this.updateBinding(message.bindingId, (binding) => { binding.selector = message.selector; });
     } else if (message.type === "browser.generatorPreview") {
@@ -362,7 +455,7 @@ class ManualApp extends LitElement {
     this.requestUpdate();
   };
 
-  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.requestUpdate(); };
+  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.onUserActivity(); this.requestUpdate(); };
   private readonly changeJson = (event: CustomEvent<JsonEditorApplyDetail>): void => { this.jsonDocument = event.detail.serialized; };
 
   private readonly applyJson = (event: CustomEvent<JsonEditorApplyDetail>): void => {
@@ -381,6 +474,7 @@ class ManualApp extends LitElement {
       return;
     }
     this.profile = draft;
+    this.onUserActivity();
     if (size.shouldWarn) this.notice = { tone: "warning", message: `El perfil ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` };
     this.requestUpdate();
   }
@@ -396,7 +490,28 @@ class ManualApp extends LitElement {
     this.guardTransition(() => this.post({ type: "manual.new" }), "¿Guardar el perfil antes de crear otro?");
   };
 
-  private readonly saveProfile = (): void => { if (this.profile) this.post({ type: "manual.save", profile: this.profile, resources: this.pendingPortableResources }); };
+  private readonly saveProfile = (): void => {
+    if (this.profile === null || this.pendingSave !== null) return;
+    this.cancelAutoSave();
+    const requestId = `manual-save-${++this.saveSequence}`;
+    this.pendingSave = { requestId, profile: structuredClone(this.profile), resources: structuredClone(this.pendingPortableResources) };
+    this.post({ type: "manual.save", ...this.pendingSave });
+    this.requestUpdate();
+  };
+
+  private readonly toggleAutoSave = (): void => {
+    this.mutate((profile) => { profile.preferences = { ...profile.preferences, autoSaveEnabled: !profile.preferences?.autoSaveEnabled }; });
+  };
+
+  private readonly onUserActivity = (): void => { this.autoSave.activity(); };
+
+  private cancelAutoSave(): void {
+    this.autoSave.cancel();
+  }
+
+  private scheduleAutoSave(): void {
+    this.autoSave.schedule();
+  }
   private readonly exportProfile = (): void => { if (this.profile) this.post({ type: "manual.export", profile: this.profile, resources: this.pendingPortableResources }); };
   private readonly viewJson = (): void => { if (this.profile) this.post({ type: "manual.viewJson", profile: this.profile, resources: this.pendingPortableResources }); };
   private readonly importProfile = (): void => {
@@ -404,8 +519,10 @@ class ManualApp extends LitElement {
   };
   private hasUnsavedChanges(): boolean { return this.profile !== null && (isProfileDirty(this.profile, this.savedProfile) || this.pendingPortableResources !== null); }
   private guardTransition(transition: () => void, message: string): void {
-    if (!this.hasUnsavedChanges()) { transition(); return; }
-    this.pendingTransition = transition;
+    this.cancelAutoSave();
+    const beginTransition = () => { this.changingProfile = true; this.cancelAutoSave(); transition(); };
+    if (!this.hasUnsavedChanges()) { beginTransition(); return; }
+    this.pendingTransition = beginTransition;
     this.unsavedMessage = message;
     this.requestUpdate();
   }
@@ -414,9 +531,11 @@ class ManualApp extends LitElement {
     if (event.detail === "cancel") this.pendingTransition = null;
     else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
     else { this.awaitingSaveTransition = true; this.saveProfile(); }
+    this.scheduleAutoSave();
     this.requestUpdate();
   };
   private readonly deleteProfile = (): void => {
+    this.cancelAutoSave();
     if (this.profile) this.post({ type: "manual.delete", id: this.profile.id, name: this.profile.name });
   };
   private readonly openBrowser = (): void => { if (this.profile) this.post({ type: "browser.open", profile: this.profile }); };
@@ -451,6 +570,7 @@ class ManualApp extends LitElement {
     const draft = structuredClone(this.profile);
     draft.requestOverrides = draft.requestOverrides.filter((entry) => entry.id !== id);
     this.profile = draft;
+    this.onUserActivity();
     this.post({ type: "browser.syncOverrides", profile: draft });
     this.requestUpdate();
   }

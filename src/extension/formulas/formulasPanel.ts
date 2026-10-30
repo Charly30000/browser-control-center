@@ -42,7 +42,9 @@ export class FormulasPanelManager implements vscode.Disposable {
   }
 
   public dispose(): void { this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }
-  public async refreshState(): Promise<void> { if (this.panel !== null) await this.state(await this.service.getInitialState()); }
+  public async refreshResourceCatalogs(): Promise<void> {
+    if (this.panel !== null) await this.post({ type: "formula.resources", resources: this.service.getSummaries() });
+  }
 
   private async handle(message: FormulaToExtensionMessage): Promise<void> {
     try {
@@ -51,7 +53,7 @@ export class FormulasPanelManager implements vscode.Disposable {
         case "formula.new": await this.state(this.service.createDraft()); break;
         case "formula.select": await this.state(await this.service.select(message.id)); break;
         case "formula.save":
-          await this.state(await this.service.save(message.resource));
+          await this.state(await this.service.save(message.resource), message.requestId);
           this.onResourcesChanged();
           await this.notice("success", "Fórmula guardada.");
           break;
@@ -86,18 +88,21 @@ export class FormulasPanelManager implements vscode.Disposable {
         }
       }
     } catch (error: unknown) {
+      if (message.type === "formula.save" && message.requestId !== undefined) {
+        await this.post({ type: "formula.saveFailed", requestId: message.requestId, error: error instanceof Error ? error.message : "No se pudo guardar." });
+      }
       await this.notice("error", error instanceof Error ? error.message : "Error inesperado en Fórmulas.");
     }
   }
 
   private async deleteSelected(ids: readonly string[]): Promise<void> {
-    if (ids.length === 0) { await this.notice("info", "Selecciona al menos una fórmula."); return; }
+    if (ids.length === 0) { await this.post({ type: "formula.operationCanceled" }); await this.notice("info", "Selecciona al menos una fórmula."); return; }
     const answer = await vscode.window.showWarningMessage(
       `¿Eliminar ${ids.length === 1 ? "la fórmula seleccionada" : `las ${ids.length} fórmulas seleccionadas`}?`,
       { modal: true, detail: "Las referencias desde Manual quedarán marcadas como no disponibles." },
       "Eliminar"
     );
-    if (answer !== "Eliminar") return;
+    if (answer !== "Eliminar") { await this.post({ type: "formula.operationCanceled" }); return; }
     await this.state(await this.service.deleteSelected(ids));
     this.onResourcesChanged();
     await this.notice("success", "Fórmulas eliminadas.");
@@ -105,7 +110,7 @@ export class FormulasPanelManager implements vscode.Disposable {
 
   private async importResources(): Promise<void> {
     const contents = await this.files.read({ filterName: "Documento de fórmulas", openLabel: "Importar fórmulas" });
-    if (contents === null) return;
+    if (contents === null) { await this.post({ type: "formula.operationCanceled" }); return; }
     const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) { await this.notice("error", parsed.error); return; }
     await this.state(await this.service.importMany(parsed.value.data));
@@ -119,7 +124,9 @@ export class FormulasPanelManager implements vscode.Disposable {
     await this.notice("success", "Fórmula exportada.");
   }
 
-  private async state(state: Awaited<ReturnType<FormulaService["getInitialState"]>>): Promise<void> { await this.post({ type: "formula.state", state }); }
+  private async state(state: Awaited<ReturnType<FormulaService["getInitialState"]>>, requestId?: string): Promise<void> {
+    await this.post(requestId === undefined ? { type: "formula.state", state } : { type: "formula.saved", requestId, state });
+  }
   private async notice(tone: "info" | "success" | "warning" | "error", message: string): Promise<void> { await this.post({ type: "formula.notice", tone, message }); }
   private async post(message: ExtensionToFormulaMessage): Promise<void> { await this.panel?.webview.postMessage(message); }
 }

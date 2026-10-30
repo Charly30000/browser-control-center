@@ -11,6 +11,7 @@ import {
   defaultViewport
 } from "../../domain/manual/manualProfile";
 import { failure, success, type Result } from "../../shared/result";
+import { isOptionalEditorPreferences } from "../../domain/resources/editorPreferences";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -29,6 +30,7 @@ const isHeader = (value: unknown): value is HeaderEntry => isQueryParam(value);
 
 const isCookie = (value: unknown): value is CookieEntry =>
   isRecord(value) &&
+  (value.expanded === undefined || isBoolean(value.expanded)) &&
   isString(value.id) &&
   isString(value.name) &&
   isString(value.value) &&
@@ -50,6 +52,7 @@ const isStorageEntry = (value: unknown): value is StorageEntry =>
 
 const isRequestOverride = (value: unknown): value is RequestOverrideEntry =>
   isRecord(value) &&
+  (value.expanded === undefined || isBoolean(value.expanded)) &&
   isString(value.id) &&
   isOneOf(value.matcherType, ["exact", "glob", "regex"] as const) &&
   isString(value.matcher) &&
@@ -63,6 +66,7 @@ const isRequestOverride = (value: unknown): value is RequestOverrideEntry =>
 
 const isGeneratorBinding = (value: unknown): value is GeneratorBinding =>
   isRecord(value) &&
+  (value.expanded === undefined || isBoolean(value.expanded)) &&
   isString(value.id) &&
   isOneOf(value.generatorType, ["string", "firstName", "lastName", "email", "phone", "number", "dni", "nie", "cif", "formula", "array"] as const) &&
   isString(value.selector) &&
@@ -114,6 +118,7 @@ export const isManualProfile = (value: unknown): value is ManualProfile =>
   Array.isArray(value.requestOverrides) && value.requestOverrides.every(isRequestOverride) &&
   Array.isArray(value.generatorBindings) && value.generatorBindings.every(isGeneratorBinding) &&
   isViewport(value.viewport) &&
+  isOptionalEditorPreferences(value.preferences) &&
   isString(value.createdAt) &&
   isString(value.updatedAt);
 

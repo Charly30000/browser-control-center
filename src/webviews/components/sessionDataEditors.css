@@ -3,6 +3,9 @@
 .query-param-row { grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto; }
 .header-row { grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto auto; }
 .storage-entry-row { grid-template-columns: minmax(80px, 1fr) 100px minmax(110px, 1.4fr) auto auto auto; }
+.query-param-row[data-reorder-row] { grid-template-columns: 28px minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto; }
+.header-row[data-reorder-row] { grid-template-columns: 28px minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto auto; }
+.storage-entry-row[data-reorder-row] { grid-template-columns: 28px minmax(80px, 1fr) 100px minmax(110px, 1.4fr) auto auto auto; }
 .session-check { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .session-check input { width: auto; margin: 0; }
 .session-check > span { display: inline; margin: 0; color: inherit; font-size: inherit; }
@@ -12,6 +15,8 @@
 .session-details > summary small, .session-empty { color: var(--vscode-descriptionForeground); }
 .session-details > summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-details > summary.has-collapsed-apply { grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto auto; }
+.session-details[data-reorder-row] > summary { grid-template-columns: 28px minmax(100px, 1fr) minmax(90px, 1fr) auto; }
+.session-details[data-reorder-row] > summary.has-collapsed-apply { grid-template-columns: 28px minmax(100px, 1fr) minmax(90px, 1fr) auto auto; }
 .session-details-grid { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 8px; padding: 9px; border-top: 1px solid var(--vscode-panel-border); }
 .session-actions { padding: 0 9px 9px; }
 .session-enabled { color: var(--vscode-testing-iconPassed); }
@@ -19,6 +24,12 @@
 .session-empty, .session-validation { margin: 3px 0; }
 .session-validation { grid-column: 1 / -1; color: var(--vscode-errorForeground); font-size: 11px; }
 @media (max-width: 700px) {
+  .session-row[data-reorder-row] { grid-template-columns: 28px minmax(0, 1fr); }
+  .session-row[data-reorder-row] > :not(.row-drag-handle) { grid-column: 2; }
+  .session-row[data-reorder-row] > .row-drag-handle { grid-column: 1; grid-row: 1; }
+  .session-details[data-reorder-row] > summary { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .session-details[data-reorder-row] > summary.has-collapsed-apply { grid-template-columns: 28px minmax(0, 1fr) auto auto; }
+  .session-details[data-reorder-row] > summary small { grid-column: 2 / -1; }
   .query-param-row, .header-row, .storage-entry-row, .session-details-grid { grid-template-columns: 1fr; }
   .session-details > summary { grid-template-columns: 1fr auto; }
   .session-details > summary.has-collapsed-apply { grid-template-columns: minmax(0, 1fr) auto auto; }

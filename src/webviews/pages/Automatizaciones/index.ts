@@ -12,6 +12,14 @@ import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT
 import type { NoticeTone } from "../../components/statusNotice";
 import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor";
 import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
+import { isResourceDirty } from "../../../domain/resources/resourceDirtyState";
+import { reconcileSavedResource } from "../../../domain/resources/reconcileSavedResource";
+import { AutoSaveController } from "../../components/autoSaveController";
+import { renderAutoSaveControl } from "../../components/autoSaveControl";
+import { SaveRequestTracker } from "../../components/saveRequestTracker";
+import { RowReorderController } from "../../components/rowReorder";
+import { moveEntry, type EntryDropPosition } from "../../../domain/manual/reorderEntries";
+import { moveAutomationProcess } from "../../../domain/automations/reorderAutomation";
 import "../../components/jsonDocumentEditor";
 import { DestructiveConfirmationClient } from "../../components/confirmDestructiveAction";
 import { vscodeApi } from "../../vscodeApi";
@@ -55,9 +63,18 @@ class AutomationsApp extends LitElement {
   private pendingTransition: (() => void) | null = null;
   private awaitingSaveTransition = false;
   private unsavedMessage: string | null = null;
+  private changingDocument = false;
+  private readonly saves = new SaveRequestTracker<AutomationDocument>("automation");
+  private readonly treeReorder = new RowReorderController();
+  private readonly autoSave = new AutoSaveController(this, {
+    enabled: () => this.document?.preferences?.autoSaveEnabled ?? false,
+    canSave: () => !this.saves.pending && !this.changingDocument && this.jsonDocument === null && this.unsavedMessage === null && this.pendingTransition === null,
+    dirty: () => this.hasUnsavedChanges(),
+    save: () => this.save()
+  });
   public override createRenderRoot(): this { return this; }
   public override connectedCallback(): void { super.connectedCallback(); window.addEventListener("message", this.onMessage); this.post({ type: "automation.ready" }); }
-  public override disconnectedCallback(): void { window.removeEventListener("message", this.onMessage); this.confirmations.cancelPending(); super.disconnectedCallback(); }
+  public override disconnectedCallback(): void { window.removeEventListener("message", this.onMessage); this.confirmations.cancelPending(); this.treeReorder.cancel(); super.disconnectedCallback(); }
 
   protected override render() {
     const document = this.document;
@@ -67,18 +84,27 @@ class AutomationsApp extends LitElement {
     const processState = process === null ? undefined : this.processStates[process.id]; const nodeStates = Object.fromEntries((processState?.nodes ?? []).map(({ nodeId, state }) => [nodeId, state])) as Record<string, NodeExecutionState>;
     const waitingNode = processState?.nodes.find(({ state }) => state === "waiting-user"); const dirty = JSON.stringify(document) !== JSON.stringify(this.savedDocument);
     const callbacks: AutomationTreeCallbacks = {
+      groupReorder: { controller: this.treeReorder, group: "automation-groups", move: (source, target, position) => this.mutate((draft) => moveEntry(draft.groups, source, target, position)) },
+      processReorder: { controller: this.treeReorder, group: "automation-processes", move: (source, target, position) => {
+        const owner = this.document?.groups.find(({ processes }) => processes.some(({ id }) => id === target));
+        if (owner !== undefined) this.placeProcess(source, owner.id, target, position);
+      } },
+      processDropZone: (groupId) => ({ controller: this.treeReorder, group: "automation-processes", drop: (processId) => this.placeProcess(processId, groupId) }),
+      setGroupExpanded: (groupId, expanded) => this.mutate((draft) => { const group = draft.groups.find(({ id }) => id === groupId); if (group !== undefined) group.expanded = expanded; }),
       selectGroup: (id) => this.selectGroup(id), selectProcess: (groupId, processId) => this.selectProcess(groupId, processId), addProcess: (id) => this.addProcess(id),
       renameGroup: (id, name) => this.renameGroup(id, name), removeGroup: (id) => { void this.removeGroup(id); },
+      renameProcess: (groupId, processId, name) => this.renameProcess(groupId, processId, name),
       runGroup: (id) => { this.selectGroup(id); this.post({ type: "automation.runGroup", groupId: id, document }); }, runProcess: (groupId, processId) => { this.selectProcess(groupId, processId); this.post({ type: "automation.runProcess", groupId, processId, document }); },
       stop: () => this.post({ type: "automation.stop", force: false }),
       duplicateProcess: (groupId, processId) => this.duplicateProcess(groupId, processId), copyProcess: (groupId, processId) => this.copyProcess(groupId, processId),
       moveProcess: (source, processId, target) => this.moveProcess(source, processId, target), removeProcess: (groupId, processId) => { void this.removeProcess(groupId, processId); }
     };
     return html`<main class="automations-shell">
+      ${renderAutoSaveControl(document.preferences?.autoSaveEnabled ?? false, this.toggleAutoSave)}
       <header class="automation-header"><div><h1>Automatizaciones</h1><p>Procesos visuales ejecutados en sesiones limpias e independientes del navegador seleccionado.</p></div><div class="toolbar">
-        <button class="primary" @click=${this.addExample}>Añadir ejemplo</button><button @click=${this.newGroup}>Nuevo grupo</button><button @click=${() => this.guardTransition(() => this.post({ type: "automation.import" }), "¿Guardar la automatización antes de importar?")}>Importar</button><button @click=${this.exportSelection}>Exportar</button><button @click=${this.viewJson}>Ver JSON</button>
+        <button class="primary" @click=${this.newGroup}>Nuevo grupo</button><button @click=${this.addExample}>Añadir ejemplo</button><button @click=${() => this.guardTransition(() => this.post({ type: "automation.import" }), "¿Guardar la automatización antes de importar?")}>Importar</button><button @click=${this.exportSelection}>Exportar</button><button @click=${this.viewJson}>Ver JSON</button>
         ${this.copiedProcess !== null && group !== null ? html`<button @click=${() => this.pasteProcess(group.id)}>Pegar proceso</button>` : nothing}
-        <button class="primary" @click=${this.save}>Guardar</button><span class=${dirty ? "dirty-state dirty" : "dirty-state"}>${dirty ? "Cambios sin guardar" : "Guardado"}</span>
+        <button class="primary" ?disabled=${this.saves.pending} @click=${this.save}>Guardar</button><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span>
       </div></header>
       <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
       ${waitingNode === undefined ? nothing : html`<section class="waiting-banner"><strong>Esperando acción del usuario</strong><span>Completa CAPTCHA, 2FA u OAuth en el navegador.</span><button class="primary" @click=${() => this.post({ type: "automation.continueUser", nodeId: waitingNode.nodeId })}>Continuar</button><button @click=${() => this.post({ type: "automation.retryUser", nodeId: waitingNode.nodeId })}>Reintentar</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: false })}>Detener</button></section>`}
@@ -87,11 +113,15 @@ class AutomationsApp extends LitElement {
         <section class="workspace">
           ${process === null ? html`<div class="workspace-empty"><h2>Selecciona o crea un proceso</h2></div>` : html`
             <div class="process-toolbar">
-              <label>Grupo<input .value=${live(group?.name ?? "")} @input=${(event: Event) => this.mutate((draft) => { const item = draft.groups.find(({ id }) => id === group?.id); if (item) item.name = inputValue(event); })}></label>
-              <label>Proceso<input .value=${live(process.name)} @input=${(event: Event) => this.updateProcess((draft) => { draft.name = inputValue(event); })}></label>
+              <div class="process-identity">
+                <label>Nombre del grupo<input .value=${live(group?.name ?? "")} title=${group?.name ?? ""} @input=${(event: Event) => { if (group) this.renameGroup(group.id, inputValue(event)); }}></label>
+                <label>Nombre del proceso<input .value=${live(process.name)} title=${process.name} @input=${(event: Event) => { if (group) this.renameProcess(group.id, process.id, inputValue(event)); }}></label>
+              </div>
+              <div class="process-execution-actions">
               <button class="primary" @click=${() => group && this.post({ type: "automation.runProcess", groupId: group.id, processId: process.id, document })}>▶ Run</button>
               <button @click=${() => this.post({ type: "automation.pause" })}>Pausar</button><button @click=${() => this.post({ type: "automation.resume" })}>Continuar</button>
               <button @click=${() => this.post({ type: "automation.stop", force: false })}>Stop</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: true })}>Force stop</button>
+              </div>
             </div>
             <details class="process-settings"><summary>Viewport y variables iniciales</summary><div>
               <label class="variables-field"><span>Variables JSON</span><textarea rows="3" .value=${live(JSON.stringify(process.variables, null, 2))} @change=${(event: Event) => this.updateVariables(inputValue(event))}></textarea></label>
@@ -137,6 +167,9 @@ class AutomationsApp extends LitElement {
     if (message.type === "ui.destructiveActionConfirmed") {
       this.confirmations.resolve(message);
     } else if (message.type === "automation.state") {
+      this.autoSave.cancel();
+      this.saves.reset();
+      this.changingDocument = false;
       this.applyDocumentState(message.document);
       this.descriptors = message.descriptors;
       this.resources = message.resources;
@@ -146,12 +179,35 @@ class AutomationsApp extends LitElement {
         this.pendingTransition = null;
         transition?.();
       }
-    } else if (message.type === "automation.resources") this.resources = message.resources;
-    else if (message.type === "automation.jsonDocument") { this.jsonDocument = message.serialized; this.jsonScope = message.scope; this.notice = { tone: "info", message: "" }; }
+    } else if (message.type === "automation.saved") {
+      const submitted = this.saves.complete(message.requestId);
+      if (submitted === null || this.document?.id !== message.document.id) return;
+      this.document = reconcileSavedResource(this.document, submitted, message.document);
+      this.savedDocument = structuredClone(message.document);
+      if (this.awaitingSaveTransition) {
+        if (this.hasUnsavedChanges()) this.save();
+        else {
+          const transition = this.pendingTransition;
+          this.awaitingSaveTransition = false;
+          this.pendingTransition = null;
+          transition?.();
+        }
+      }
+      this.autoSave.schedule();
+    } else if (message.type === "automation.saveFailed") {
+      if (this.saves.complete(message.requestId) === null) return;
+      this.autoSave.cancel();
+      this.awaitingSaveTransition = false;
+      this.pendingTransition = null;
+      this.notice = { tone: "error", message: message.error };
+    } else if (message.type === "automation.operationCanceled") { this.changingDocument = false; this.autoSave.activity(); }
+    else if (message.type === "automation.resources") this.resources = message.resources;
+    else if (message.type === "automation.jsonDocument") { this.autoSave.cancel(); this.jsonDocument = message.serialized; this.jsonScope = message.scope; this.notice = { tone: "info", message: "" }; }
     else if (message.type === "automation.jsonApplied") {
       this.applyScopedJson(message.document, message.scope);
       this.jsonDocument = null;
       this.jsonScope = null;
+      this.autoSave.activity();
     }
     else if (message.type === "automation.nodeValidation") { if (message.requestId === this.validationRequestId && this.selectedNodeIds.includes(message.nodeId)) this.nodeValidationError = message.error; }
     else if (message.type === "automation.elementSelected") {
@@ -160,7 +216,7 @@ class AutomationsApp extends LitElement {
     }
     else if (message.type === "automation.notice") {
       this.notice = { tone: message.tone, message: message.message };
-      if (message.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; }
+      if (message.tone === "error") { this.awaitingSaveTransition = false; this.pendingTransition = null; this.changingDocument = false; }
     }
     else if (message.type === "automation.processState") {
       this.processStates = { ...this.processStates, [message.snapshot.processId]: message.snapshot };
@@ -173,7 +229,7 @@ class AutomationsApp extends LitElement {
     this.requestUpdate();
   };
 
-  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.jsonScope = null; this.requestUpdate(); };
+  private readonly closeJsonEditor = (): void => { this.jsonDocument = null; this.jsonScope = null; this.autoSave.activity(); this.requestUpdate(); };
   private readonly changeJson = (event: CustomEvent<JsonEditorApplyDetail>): void => { this.jsonDocument = event.detail.serialized; };
 
   private readonly applyJson = (event: CustomEvent<JsonEditorApplyDetail>): void => {
@@ -213,6 +269,7 @@ class AutomationsApp extends LitElement {
     if (scopedGroup === undefined) return;
     if (this.document === null) return;
     this.document = applyAutomationDocumentSelection(this.document, scopedDocument, scope, () => crypto.randomUUID());
+    if (scopedDocument.preferences !== undefined) this.document.preferences = structuredClone(scopedDocument.preferences);
     this.selectedGroupId = scope.groupId;
     this.selectedProcessId = scope.kind === "process" ? scope.processId : scopedGroup.processes[0]?.id ?? null;
     this.selectionKind = scope.kind;
@@ -251,13 +308,29 @@ class AutomationsApp extends LitElement {
       return;
     }
     this.document = draft;
+    this.autoSave.activity();
     if (size.shouldWarn) this.notice = { tone: "warning", message: `La automatización ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` };
     this.requestUpdate();
   }
-  private readonly save = (): void => { if (this.document !== null) this.post({ type: "automation.save", document: this.document }); };
+  private readonly save = (): void => {
+    if (this.document === null) return;
+    const request = this.saves.start(this.document);
+    if (request === null) return;
+    this.autoSave.cancel();
+    this.post({ type: "automation.save", document: request.value, requestId: request.requestId });
+    this.requestUpdate();
+  };
+
+  private hasUnsavedChanges(): boolean { return this.document !== null && isResourceDirty(this.document, this.savedDocument); }
+
+  private readonly toggleAutoSave = (): void => {
+    this.mutate((document) => { document.preferences = { ...document.preferences, autoSaveEnabled: !document.preferences?.autoSaveEnabled }; });
+  };
   private guardTransition(transition: () => void, message: string): void {
-    if (this.document === null || JSON.stringify(this.document) === JSON.stringify(this.savedDocument)) { transition(); return; }
-    this.pendingTransition = transition;
+    this.autoSave.cancel();
+    const begin = () => { this.changingDocument = true; this.autoSave.cancel(); transition(); };
+    if (!this.hasUnsavedChanges()) { begin(); return; }
+    this.pendingTransition = begin;
     this.unsavedMessage = message;
     this.requestUpdate();
   }
@@ -266,6 +339,7 @@ class AutomationsApp extends LitElement {
     if (event.detail === "cancel") this.pendingTransition = null;
     else if (event.detail === "discard") { const transition = this.pendingTransition; this.pendingTransition = null; transition?.(); }
     else { this.awaitingSaveTransition = true; this.save(); }
+    this.autoSave.schedule();
     this.requestUpdate();
   };
   private selectedGroup(): AutomationGroup | null { return this.document?.groups.find(({ id }) => id === this.selectedGroupId) ?? null; }
@@ -283,6 +357,9 @@ class AutomationsApp extends LitElement {
     this.requestUpdate();
   };
   private renameGroup(groupId: string, name: string): void { this.mutate((draft) => { const group = draft.groups.find(({ id }) => id === groupId); if (group !== undefined) group.name = name; }); }
+  private renameProcess(groupId: string, processId: string, name: string): void {
+    this.mutate((draft) => { const process = draft.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId); if (process !== undefined) process.name = name; });
+  }
   private async removeGroup(groupId: string): Promise<void> {
     const group = this.document?.groups.find(({ id }) => id === groupId);
     if (group === undefined || !(await this.confirmations.confirm({
@@ -292,7 +369,23 @@ class AutomationsApp extends LitElement {
     this.mutate((draft) => { draft.groups = draft.groups.filter(({ id }) => id !== groupId); });
     if (this.selectedGroupId === groupId) { const first = this.document?.groups[0]; this.selectedGroupId = first?.id ?? null; this.selectedProcessId = first?.processes[0]?.id ?? null; this.selectionKind = "group"; this.selectedNodeIds = []; }
   }
-  private addProcess(groupId: string): void { const process = createAutomationProcess(crypto.randomUUID(), "Nuevo proceso"); this.mutate((draft) => draft.groups.find(({ id }) => id === groupId)?.processes.push(process)); this.selectedGroupId = groupId; this.selectedProcessId = process.id; this.selectionKind = "process"; this.selectedNodeIds = []; }
+  private addProcess(groupId: string): void {
+    const process = createAutomationProcess(crypto.randomUUID(), "Nuevo proceso");
+    this.mutate((draft) => {
+      const group = draft.groups.find(({ id }) => id === groupId);
+      if (group !== undefined) { group.processes.push(process); group.expanded = true; }
+    });
+    this.selectedGroupId = groupId;
+    this.selectedProcessId = process.id;
+    this.selectionKind = "process";
+    this.selectedNodeIds = [];
+    void this.updateComplete.then(() => {
+      const row = [...this.querySelectorAll<HTMLElement>(".process-row")].find((entry) => entry.dataset.processId === process.id);
+      const input = row?.querySelector<HTMLInputElement>(".process-name");
+      input?.focus();
+      input?.select();
+    });
+  }
   private selectGroup(id: string): void { this.selectedGroupId = id; this.selectedProcessId = this.document?.groups.find((group) => group.id === id)?.processes[0]?.id ?? null; this.selectionKind = "group"; this.selectedNodeIds = []; this.nodeValidationError = null; this.requestUpdate(); }
   private selectProcess(groupId: string, processId: string): void { this.selectedGroupId = groupId; this.selectedProcessId = processId; this.selectionKind = "process"; this.selectedNodeIds = []; this.nodeValidationError = null; this.requestUpdate(); }
   private showProcess(processId: string): void {
@@ -311,7 +404,20 @@ class AutomationsApp extends LitElement {
   private duplicateProcess(groupId: string, processId: string): void { const source = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId); if (source === undefined) return; const copy = cloneProcess(source, `${source.name} copia`); this.mutate((draft) => draft.groups.find(({ id }) => id === groupId)?.processes.push(copy)); this.selectedProcessId = copy.id; this.selectionKind = "process"; }
   private copyProcess(groupId: string, processId: string): void { const source = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId); if (source !== undefined) { this.copiedProcess = structuredClone(source); this.notice = { tone: "info", message: "Proceso copiado. Selecciona un grupo y pulsa Pegar proceso." }; this.requestUpdate(); } }
   private pasteProcess(groupId: string): void { if (this.copiedProcess === null) return; const copy = cloneProcess(this.copiedProcess, `${this.copiedProcess.name} copia`); this.mutate((draft) => draft.groups.find(({ id }) => id === groupId)?.processes.push(copy)); this.selectedProcessId = copy.id; this.selectionKind = "process"; }
-  private moveProcess(sourceGroupId: string, processId: string, targetGroupId: string): void { this.mutate((draft) => { const source = draft.groups.find(({ id }) => id === sourceGroupId); const target = draft.groups.find(({ id }) => id === targetGroupId); const process = source?.processes.find(({ id }) => id === processId); if (source && target && process) { source.processes = source.processes.filter(({ id }) => id !== processId); target.processes.push(process); } }); this.selectedGroupId = targetGroupId; this.selectedProcessId = processId; this.selectionKind = "process"; }
+  private moveProcess(sourceGroupId: string, processId: string, targetGroupId: string): void {
+    if (this.document?.groups.find(({ id }) => id === sourceGroupId)?.processes.some(({ id }) => id === processId)) this.placeProcess(processId, targetGroupId);
+  }
+  private placeProcess(processId: string, targetGroupId: string, targetProcessId: string | null = null, position: EntryDropPosition = "after"): void {
+    let moved = false;
+    this.mutate((draft) => { moved = moveAutomationProcess(draft, processId, targetGroupId, targetProcessId, position); });
+    if (moved) {
+      this.selectedGroupId = targetGroupId;
+      this.selectedProcessId = processId;
+      this.selectionKind = "process";
+      this.selectedNodeIds = [];
+      this.nodeValidationError = null;
+    }
+  }
   private async removeProcess(groupId: string, processId: string): Promise<void> {
     const process = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId);
     if (process === undefined || !(await this.confirmations.confirm({

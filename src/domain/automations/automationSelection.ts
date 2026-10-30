@@ -40,8 +40,10 @@ export const applyAutomationDocumentSelection = (
     const processNames = otherGroups.flatMap(({ processes }) => processes.map(({ name }) => name));
     const processes = selectedGroup.processes.map((process) => normalizeProcess(process, null, occupiedIds, processNames, createId));
     result.groups[groupIndex] = {
+      ...structuredClone(result.groups[groupIndex]!),
       id: scope.groupId,
       name: availableName(selectedGroup.name, groupNames),
+      ...(selectedGroup.expanded === undefined ? {} : { expanded: selectedGroup.expanded }),
       processes
     };
     return result;
