@@ -4,7 +4,7 @@
   "description": "Panel de control para testing manual asistido y automatización web desde VS Code.",
   "version": "0.4.0",
   "publisher": "Leviax",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "icon": "resources/marketplace-icon.png",
   "repository": {
     "type": "git",

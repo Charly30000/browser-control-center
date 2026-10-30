@@ -29,6 +29,7 @@ import type { JsonEditorApplyDetail } from "../../components/jsonDocumentEditor"
 import type { UnsavedChangesChoice } from "../../components/unsavedChangesDialog";
 import "../../components/jsonDocumentEditor";
 import { DestructiveConfirmationClient } from "../../components/confirmDestructiveAction";
+import { CollapsibleEntryState } from "../../components/collapsibleEntryState";
 import { renderRequestOverrideEditor } from "../../components/requestOverrideEditor";
 import { renderCookieEditor, renderHeaderEditor, renderQueryParamEditor, renderStorageEditor } from "../../components/sessionDataEditors";
 import { vscodeApi } from "../../vscodeApi";
@@ -75,6 +76,9 @@ class ManualApp extends LitElement {
   private awaitingSaveTransition = false;
   private unsavedMessage: string | null = null;
   private readonly confirmations = new DestructiveConfirmationClient((message) => this.post(message));
+  private readonly cookieExpansion = new CollapsibleEntryState(() => this.requestUpdate());
+  private readonly overrideExpansion = new CollapsibleEntryState(() => this.requestUpdate());
+  private readonly generatorExpansion = new CollapsibleEntryState(() => this.requestUpdate());
 
   public override createRenderRoot(): this { return this; }
 
@@ -208,6 +212,7 @@ class ManualApp extends LitElement {
     return html`
       <section-card heading="Cookies" description="Cada cookie mantiene sus atributos completos en los detalles.">
         ${renderCookieEditor(profile.cookies, {
+          expansion: this.cookieExpansion,
           add: () => this.mutate((draft) => { draft.cookies.push(createCookie(crypto.randomUUID())); }),
           update: (id, change) => this.updateCookie(id, change),
           remove: (id) => this.mutate((draft) => { draft.cookies = draft.cookies.filter((entry) => entry.id !== id); }),
@@ -243,6 +248,7 @@ class ManualApp extends LitElement {
     return html`
       <section-card heading="Request Overrides" description="Interceptores preparados para fulfill, abort y continue-modified.">
         ${renderRequestOverrideEditor(profile.requestOverrides, {
+          expansion: this.overrideExpansion,
           add: () => this.mutate((draft) => { draft.requestOverrides.push(createRequestOverride(crypto.randomUUID())); }),
           update: (id, change) => this.updateOverride(id, change),
           remove: (id) => this.deleteOverride(id),
@@ -282,9 +288,12 @@ class ManualApp extends LitElement {
     return html`
       <section-card heading="Inputs / Generadores" description="Generadores puros reutilizables vinculados a un selector y una propiedad.">
         <div class="rows">
-          ${profile.generatorBindings.map((binding) => html`
-            <details class="row-details" open>
-              <summary><span>${generatorLabels[binding.generatorType]}</span><small>${binding.selector || "Selector pendiente"}</small><span class=${binding.enabled ? "enabled-mark" : "disabled-mark"}>${binding.enabled ? "Activo" : "Inactivo"}</span></summary>
+          ${profile.generatorBindings.map((binding) => {
+            const expanded = this.generatorExpansion.isOpen(binding.id, true);
+            const apply = () => html`<button type="button" @click=${(event: Event) => { event.stopPropagation(); this.apply("generators", binding.id); }}>Aplicar</button>`;
+            return html`
+            <details class="row-details" .open=${expanded} @toggle=${(event: Event) => this.generatorExpansion.toggle(binding.id, true, event)}>
+              <summary class=${!expanded ? "has-collapsed-apply" : ""}><span>${generatorLabels[binding.generatorType]}</span><small>${binding.selector || "Selector pendiente"}</small><span class=${binding.enabled ? "enabled-mark" : "disabled-mark"}>${binding.enabled ? "Activo" : "Inactivo"}</span>${expanded ? nothing : apply()}</summary>
               <div class="details-grid generator-grid">
                 <label><span>Tipo</span><select .value=${binding.generatorType} @change=${(event: Event) => this.updateBinding(binding.id, (item) => { item.generatorType = inputValue(event) as GeneratorType; item.resourceId = null; })}>${Object.entries(generatorLabels).map(([value, label]) => html`<option value=${value}>${label}</option>`)}</select></label>
                 ${this.textField("Selector CSS", binding.selector, (value) => this.updateBinding(binding.id, (item) => { item.selector = value; }))}
@@ -297,9 +306,9 @@ class ManualApp extends LitElement {
                 ${binding.inputMode === "sequential" ? this.numberField("Retraso por tecla (ms)", binding.delayMs, (value) => this.updateBinding(binding.id, (item) => { item.delayMs = Math.max(0, value); })) : nothing}
               </div>
               ${this.previews[binding.id] ? html`<output class="generator-preview">Muestra: ${this.previews[binding.id]}</output>` : nothing}
-              <div class="row-actions">${this.enabledToggle(binding.enabled, (enabled) => this.updateBinding(binding.id, (item) => { item.enabled = enabled; }))}<button @click=${() => this.post({ type: "browser.selectElement", bindingId: binding.id })}>Seleccionar elemento</button><button @click=${() => this.preview(binding)}>Generar muestra</button><button @click=${() => this.apply("generators", binding.id)}>Aplicar</button><button class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar el generador «${generatorLabels[binding.generatorType]}»?` })) this.mutate((draft) => { draft.generatorBindings = draft.generatorBindings.filter(({ id }) => id !== binding.id); }); }}>Eliminar</button></div>
+              <div class="row-actions">${this.enabledToggle(binding.enabled, (enabled) => this.updateBinding(binding.id, (item) => { item.enabled = enabled; }))}<button type="button" @click=${() => this.post({ type: "browser.selectElement", bindingId: binding.id })}>Seleccionar elemento</button><button type="button" @click=${() => this.preview(binding)}>Generar muestra</button>${expanded ? apply() : nothing}<button type="button" class="danger" @click=${async () => { if (await this.confirmations.confirm({ question: `¿Eliminar el generador «${generatorLabels[binding.generatorType]}»?` })) this.mutate((draft) => { draft.generatorBindings = draft.generatorBindings.filter(({ id }) => id !== binding.id); }); }}>Eliminar</button></div>
             </details>
-          `)}
+          `; })}
           ${profile.generatorBindings.length === 0 ? html`<empty-state message="No hay generadores vinculados."></empty-state>` : nothing}
         </div>
         <div slot="actions" class="slot-actions"><button @click=${() => this.mutate((draft) => { draft.generatorBindings.push(createGeneratorBinding(crypto.randomUUID())); })}>+ Añadir</button><button @click=${() => this.apply("generators", null)}>Aplicar todos</button><button @click=${() => this.post({ type: "browser.resetGenerators" })}>Resetear</button></div>

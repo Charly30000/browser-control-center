@@ -19,6 +19,9 @@ import { BrowserPageRegistry } from "./browserPageRegistry";
 import { ElementPickerService } from "./elementPickerService";
 import { RequestOverrideRouter } from "./requestOverrideRouter";
 import { toCookieParams, toHeaderRecord, toStorageValues } from "./browserValueMapping";
+import { ManualFormSubmissionGuard } from "./manualFormSubmissionGuard";
+
+const MANUAL_INPUT_TIMEOUT_MS = 2_000;
 
 interface OriginalInputValue extends ResolvedInputBinding { readonly originalValue: unknown; }
 
@@ -35,6 +38,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
   private originals: OriginalInputValue[] = [];
   private readonly listeners = new Set<BrowserEventListener>();
   private readonly picker = new ElementPickerService();
+  private readonly submissionGuard = new ManualFormSubmissionGuard();
 
   public constructor(
     private readonly browserSelection: BrowserLaunchConfigurationProvider,
@@ -135,19 +139,20 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
     for (const binding of bindings) {
       if (binding.selector.trim() === "") throw new Error("El selector del generador es obligatorio.");
       const locator = page.locator(binding.selector).first();
+      if (await locator.count() === 0) throw new Error("No se encontró el elemento en la página actual.");
       const originalValue = await locator.evaluate((element, configuration) => {
         if (configuration.propertyKind === "attribute") return element.getAttribute(configuration.propertyName);
         return (element as unknown as Record<string, unknown>)[configuration.propertyKind === "property" ? configuration.propertyName : configuration.propertyKind];
-      }, binding);
+      }, binding, { timeout: MANUAL_INPUT_TIMEOUT_MS });
       this.originals.push({ ...binding, originalValue });
-      await this.writeInput(locator, binding, binding.value);
+      await this.submissionGuard.run(page, () => this.writeInput(locator, binding, binding.value));
     }
   }
 
   public async resetInputBindings(): Promise<void> {
     const page = await this.ensurePage();
     for (const binding of [...this.originals].reverse()) {
-      await this.writeInput(page.locator(binding.selector).first(), binding, binding.originalValue);
+      await this.submissionGuard.run(page, () => this.writeInput(page.locator(binding.selector).first(), binding, binding.originalValue));
     }
     this.originals = [];
   }
@@ -200,14 +205,14 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
     if (binding.propertyKind === "value") {
       const text = toInputText(value);
       if (binding.inputMode === "sequential") {
-        await locator.fill("");
-        await locator.pressSequentially(text, { delay: binding.delayMs });
-      } else await locator.fill(text);
+        await locator.fill("", { timeout: MANUAL_INPUT_TIMEOUT_MS });
+        await locator.pressSequentially(text, { delay: binding.delayMs, timeout: MANUAL_INPUT_TIMEOUT_MS + text.length * binding.delayMs });
+      } else await locator.fill(text, { timeout: MANUAL_INPUT_TIMEOUT_MS });
       return;
     }
     if (binding.propertyKind === "checked") {
       const checked = value === true || value === "true" || value === 1;
-      await locator.setChecked(checked);
+      await locator.setChecked(checked, { timeout: MANUAL_INPUT_TIMEOUT_MS });
       return;
     }
     await locator.evaluate((element, configuration) => {
@@ -225,7 +230,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
       }
       element.dispatchEvent(new Event("input", { bubbles: true, composed: true }));
       element.dispatchEvent(new Event("change", { bubbles: true, composed: true }));
-    }, { propertyKind: binding.propertyKind, propertyName: binding.propertyName, value });
+    }, { propertyKind: binding.propertyKind, propertyName: binding.propertyName, value }, { timeout: MANUAL_INPUT_TIMEOUT_MS });
   }
 
   private emit(): void {

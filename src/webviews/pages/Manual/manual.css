@@ -116,6 +116,7 @@ empty-state::part(message) { margin: 3px 0; color: var(--vscode-descriptionForeg
 .row-details { border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border)); background: var(--vscode-editorWidget-background); }
 .row-details > summary { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto; gap: 8px; align-items: center; min-height: 32px; padding: 5px 8px; cursor: pointer; }
 .row-details > summary small { color: var(--vscode-descriptionForeground); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row-details > summary.has-collapsed-apply { grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto auto; }
 .enabled-mark { color: var(--vscode-testing-iconPassed); }
 .disabled-mark { color: var(--vscode-disabledForeground); }
 .details-grid { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 8px; padding: 9px; border-top: 1px solid var(--vscode-panel-border); }
@@ -136,6 +137,8 @@ empty-state::part(message) { margin: 3px 0; color: var(--vscode-descriptionForeg
 }
 
 @media (max-width: 680px) {
+  .row-details > summary.has-collapsed-apply { grid-template-columns: minmax(0, 1fr) auto auto; }
+  .row-details > summary.has-collapsed-apply small { grid-column: 1 / -1; grid-row: 2; }
   .manual-shell { padding: 10px; }
   .page-header { flex-direction: column; }
   .profile-toolbar { grid-template-columns: 1fr; }

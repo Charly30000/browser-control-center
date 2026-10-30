@@ -2,6 +2,13 @@
 
 ## Sin publicar
 
+- La licencia del proyecto cambia de MIT a Apache-2.0; se conservan las licencias y atribuciones de las dependencias.
+
+- Manual mantiene un único botón Aplicar visible en las filas de campos, cookies y overrides, también al minimizarlas.
+- Aplicar todos en Inputs / Generadores continúa tras errores de generación o escritura e informa de los campos fallidos sin borrar su configuración.
+- Los selectores ausentes no dejan escrituras pendientes; Manual protege la aplicación de valores frente a envíos de formulario accidentales y mantiene la escritura ligada a acciones explícitas del usuario.
+- Estos cambios conservan los perfiles v2 y la persistencia existente, sin reinicializar datos al actualizar.
+
 - Documentación para IA es la quinta página de la navegación lateral: reúne guías copiables de Manual, Fórmulas, Arrays y Automatizaciones, con formatos y ejemplos JSON completos para pegar o importar.
 
 - Automatizaciones añade Guardar dato para extraer la salida del nodo anterior a una variable, con rutas JSON y un ejemplo integrado de respuesta HTTP reutilizada en un campo.

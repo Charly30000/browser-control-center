@@ -38,6 +38,22 @@ El picker resalta el elemento bajo el puntero, captura el click y genera un sele
 
 Las fórmulas, arrays y generadores básicos se resuelven en la capa de aplicación. **Resetear** restaura los valores capturados antes de aplicar bindings durante la sesión actual.
 
+### Aplicación explícita y filas minimizadas
+
+Cada fila de Inputs / Generadores, Cookies y Request Overrides tiene un único botón **Aplicar**. Con la fila expandida aparece en su zona de acciones; al minimizarla se mueve junto al resumen. Pulsarlo en el resumen no expande la fila. El estado expandido/minimizado pertenece a la vista y no modifica los datos del perfil.
+
+Los campos solo se escriben al pulsar **Aplicar** en su fila o **Aplicar todos**. Cargar, seleccionar, guardar, importar o editar un perfil, iniciar/reiniciar el navegador, navegar, recibir cambios de estado y generar una muestra no rellenan los inputs. **Generar muestra** calcula un valor sin escribirlo. **Resetear** es una acción explícita que restaura los valores originales de la sesión.
+
+**Aplicar todos** procesa las filas activas por orden e intenta cada una aunque otra tenga una fórmula fallida, un array sin resultado, un selector inválido, un elemento ausente o un error al escribir. Al terminar, si hubo errores, muestra cuántos campos se aplicaron y cuáles fallaron; los que se aplicaron correctamente no se deshacen. Los generadores desactivados se omiten y el lote no modifica ni elimina la configuración guardada.
+
+Un elemento inexistente se informa como fallo de esa aplicación, sin dejar una espera pendiente que lo rellene más tarde al aparecer o al navegar. Si el elemento existe pero no está listo para escribirse, la espera ordinaria se limita a dos segundos; la escritura secuencial añade el tiempo de tecleo configurado. Para volver a intentar una fila hay que pulsar **Aplicar** o **Aplicar todos** de nuevo.
+
+La escritura asistida de Manual no envía formularios: durante cada aplicación se bloquean los envíos nativos y los disparados mediante `submit`/`requestSubmit`, así como Enter fuera de un textarea. La protección se retira al acabar, también si la escritura falla, para permitir que el usuario envíe el formulario después mediante su botón o teclado. Los saltos de línea de un textarea siguen siendo contenido. Esta protección pertenece a Manual; los pasos explícitos de Automatizaciones mantienen su comportamiento.
+
+### Actualizaciones y datos existentes
+
+Estos cambios conservan el formato de perfil v2, los IDs de los perfiles y recursos, las claves de metadatos y las rutas de persistencia. No requieren reinicializar ni migrar los datos de la versión publicada. Al distribuir una actualización debe conservarse la identidad de la extensión (`publisher` y `name`) y asignarse una versión nueva. Los perfiles guardados se conservan; los borradores sin guardar y las sesiones vivas del navegador no son datos persistidos.
+
 ## Importación y exportación
 
 El perfil se exporta dentro del envelope JSON común y versionado como un paquete `bundleVersion: 1`. Además del perfil incluye únicamente las fórmulas y arrays referenciados por sus generadores, de modo que el archivo sea portátil entre instalaciones. También se admiten envelopes anteriores cuyo `data` era directamente el perfil y perfiles históricos exportados como JSON directo.

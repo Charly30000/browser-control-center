@@ -13,6 +13,15 @@ export const manualDocumentation = (): string => `${introduction("Manual")}
 7. Detener intenta cerrar normalmente, Forzar cierre termina un navegador que no responde y Reinicio limpio crea una sesión nueva sin cookies/storage previos. Guardar mantiene la configuración del perfil, no una sesión de autenticación viva.
 8. Importar/Exportar transporta el perfil y sus recursos referenciados. Ver JSON permite editar el paquete sin archivo. Aplicar cambios conserva profile.id, carga el borrador y exige Guardar después para persistirlo. Las fórmulas se reutilizan por código equivalente y los arrays por contenido equivalente al resolver el paquete.
 
+## Aplicar sin automatismos
+
+- Inputs / Generadores, Cookies y Request Overrides muestran un único Aplicar por fila. Expandida: en la zona de acciones. Minimizada: junto al resumen. No necesitas expandirla para aplicar.
+- Los inputs solo se rellenan al pulsar Aplicar o Aplicar todos. Cargar, editar, seleccionar, importar o guardar el perfil, recibir estados del navegador, iniciar/reiniciar o navegar no dispara los generadores. Generar muestra solo muestra un resultado; Resetear restaura los originales mediante una acción explícita.
+- Aplicar todos intenta cada fila activa por orden, aunque otra falle al generar o escribir. Un aviso final indica cuántos campos se aplicaron y cuáles fallaron. No deshace los campos correctos ni borra la configuración de los fallidos. Los arrays vacíos y las fórmulas que devuelven undefined se consideran sin resultado y no vacían el input.
+- Si el selector no encuentra el elemento, esa fila falla sin quedar esperando su aparición para rellenarla más tarde. Navega a la página correcta y pulsa Aplicar de nuevo cuando el elemento esté listo. Los errores no se corrigen ejecutando el formulario automáticamente.
+- La escritura de Manual bloquea temporalmente los envíos de formulario durante la aplicación, incluidos submit/requestSubmit y Enter fuera de un textarea. Al terminar se puede enviar manualmente mediante el botón o teclado de la página. Los textarea pueden contener saltos de línea.
+- Actualizar la extensión manteniendo su identidad conserva los perfiles y recursos guardados. Estas mejoras no cambian el esquema de perfil v2 ni requieren migrar los JSON existentes. Guarda los borradores antes de actualizar; no se conserva una sesión viva del navegador.
+
 ## Forma del documento Manual
 
 format: browser-control-center/manual-profile.

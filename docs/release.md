@@ -7,6 +7,10 @@
 - Node compatible con las versiones declaradas por las herramientas.
 - Publisher de Marketplace: `Leviax`.
 
+## Compatibilidad al actualizar
+
+La identidad publicada es `Leviax.browser-control-center`: conserva `publisher` y `name` al publicar actualizaciones para mantener el almacenamiento asociado. Cambia únicamente la versión cuando prepares un nuevo VSIX. Los ajustes de Manual sobre filas minimizadas, aplicación por lotes y protección de formularios mantienen el esquema de perfiles v2 y las claves/rutas de persistencia existentes, sin borrar ni recrear los perfiles y recursos. Guarda los borradores antes de actualizar; las sesiones de navegador no son persistentes.
+
 ## Validación
 
 ```powershell

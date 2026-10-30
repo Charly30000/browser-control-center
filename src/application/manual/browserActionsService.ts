@@ -49,22 +49,7 @@ export class BrowserActionsService {
         if (invalid !== undefined && !invalid.ok) return failure(invalid.error);
         return this.execute(() => this.browser.applyRequestOverrides(overrides));
       }
-      case "generators": {
-        const resolved: ResolvedInputBinding[] = [];
-        for (const binding of this.select(profile.generatorBindings, rowId)) {
-          const value = await this.generators.resolve(binding);
-          if (!value.ok) return value;
-          resolved.push({
-            selector: binding.selector,
-            propertyKind: binding.propertyKind,
-            propertyName: binding.propertyName,
-            value: value.value,
-            inputMode: binding.inputMode,
-            delayMs: binding.delayMs
-          });
-        }
-        return this.execute(() => this.browser.applyInputBindings(resolved));
-      }
+      case "generators": return this.applyGenerators(this.select(profile.generatorBindings, rowId));
     }
   }
 
@@ -80,6 +65,27 @@ export class BrowserActionsService {
   }
 
   public async resetGenerators(): Promise<Result<void>> { return this.execute(() => this.browser.resetInputBindings()); }
+
+  private async applyGenerators(bindings: readonly GeneratorBinding[]): Promise<Result<void>> {
+    const errors: string[] = [];
+    let applied = 0;
+    for (const binding of bindings) {
+      try {
+        const value = await this.generators.resolve(binding);
+        if (!value.ok) throw new Error(value.error);
+        if (value.value === undefined) throw new Error("El generador no devolvió ningún valor.");
+        const resolved: ResolvedInputBinding = {
+          selector: binding.selector, propertyKind: binding.propertyKind, propertyName: binding.propertyName,
+          value: value.value, inputMode: binding.inputMode, delayMs: binding.delayMs
+        };
+        await this.browser.applyInputBindings([resolved]);
+        applied += 1;
+      } catch (error: unknown) {
+        errors.push(`Campo «${binding.selector || "sin selector"}»: ${error instanceof Error ? error.message : "No se pudo aplicar."}`);
+      }
+    }
+    return errors.length === 0 ? success(undefined) : failure(`Aplicados ${applied} de ${bindings.length} campos; ${errors.length} fallidos.\n${errors.join("\n")}`);
+  }
 
   private async applyStorage(profile: ManualProfile, field: "localStorage" | "sessionStorage", scope: "local" | "session", rowId: string | null): Promise<Result<void>> {
     const entries = this.select(profile[field], rowId);

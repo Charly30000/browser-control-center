@@ -11,6 +11,7 @@
 .session-details > summary { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto; gap: 8px; align-items: center; min-height: 32px; padding: 5px 8px; cursor: pointer; }
 .session-details > summary small, .session-empty { color: var(--vscode-descriptionForeground); }
 .session-details > summary small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-details > summary.has-collapsed-apply { grid-template-columns: minmax(100px, 1fr) minmax(90px, 1fr) auto auto; }
 .session-details-grid { display: grid; grid-template-columns: repeat(3, minmax(100px, 1fr)); gap: 8px; padding: 9px; border-top: 1px solid var(--vscode-panel-border); }
 .session-actions { padding: 0 9px 9px; }
 .session-enabled { color: var(--vscode-testing-iconPassed); }
@@ -20,5 +21,6 @@
 @media (max-width: 700px) {
   .query-param-row, .header-row, .storage-entry-row, .session-details-grid { grid-template-columns: 1fr; }
   .session-details > summary { grid-template-columns: 1fr auto; }
+  .session-details > summary.has-collapsed-apply { grid-template-columns: minmax(0, 1fr) auto auto; }
   .session-details > summary small { grid-column: 1 / -1; grid-row: 2; }
 }

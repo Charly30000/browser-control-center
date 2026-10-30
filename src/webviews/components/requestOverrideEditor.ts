@@ -2,6 +2,7 @@ import { html, nothing, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
 import { createHeader, type RequestOverrideEntry } from "../../domain/manual/manualProfile";
 import type { ConfirmDestructiveAction } from "./confirmDestructiveAction";
+import type { CollapsibleEntryState } from "./collapsibleEntryState";
 import "./requestOverrideEditor.css";
 
 export interface RequestOverrideEditorCallbacks {
@@ -11,6 +12,7 @@ export interface RequestOverrideEditorCallbacks {
   readonly confirmDeletion: ConfirmDestructiveAction;
   readonly apply?: (id: string) => void;
   readonly applyAll?: () => void;
+  readonly expansion?: CollapsibleEntryState;
 }
 
 const controlValue = (event: Event): string => {
@@ -26,12 +28,16 @@ export const renderRequestOverrideEditor = (
 ): TemplateResult => html`
   <div class="request-override-editor">
     <div class="request-override-list">
-      ${entries.map((override) => html`
-        <details class="request-override-row" open>
-          <summary>
+      ${entries.map((override) => {
+        const expanded = callbacks.expansion?.isOpen(override.id, true) ?? true;
+        const apply = () => html`<button type="button" @click=${(event: Event) => { event.stopPropagation(); callbacks.apply?.(override.id); }}>Aplicar</button>`;
+        return html`
+        <details class="request-override-row" .open=${expanded} @toggle=${(event: Event) => callbacks.expansion?.toggle(override.id, true, event)}>
+          <summary class=${!expanded && callbacks.apply !== undefined ? "has-collapsed-apply" : ""}>
             <span>${override.matcher || "Matcher sin definir"}</span>
             <small>${override.method} · ${override.action}</small>
             <span class=${override.enabled ? "override-enabled" : "override-disabled"}>${override.enabled ? "Activo" : "Inactivo"}</span>
+            ${!expanded && callbacks.apply !== undefined ? apply() : nothing}
           </summary>
           <div class="request-override-grid">
             <label><span>Coincidencia</span><select .value=${live(override.matcherType)} @change=${(event: Event) => callbacks.update(override.id, (entry) => { entry.matcherType = controlValue(event) as RequestOverrideEntry["matcherType"]; })}><option value="exact" .selected=${override.matcherType === "exact"}>URL exacta</option><option value="glob" .selected=${override.matcherType === "glob"}>Glob</option><option value="regex" .selected=${override.matcherType === "regex"}>Regex</option></select></label>
@@ -56,11 +62,11 @@ export const renderRequestOverrideEditor = (
           </div>
           <div class="request-override-actions">
             <label class="override-check"><input type="checkbox" .checked=${live(override.enabled)} @change=${(event: Event) => callbacks.update(override.id, (entry) => { entry.enabled = checkedValue(event); })}><span>Activo</span></label>
-            ${callbacks.apply === undefined ? nothing : html`<button @click=${() => callbacks.apply?.(override.id)}>Aplicar</button>`}
+            ${expanded && callbacks.apply !== undefined ? apply() : nothing}
             <button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: `¿Eliminar el override «${override.matcher || "sin matcher"}»?`, detail: "La regla dejará de formar parte de la configuración." })) callbacks.remove(override.id); }}>Eliminar</button>
           </div>
         </details>
-      `)}
+      `; })}
       ${entries.length === 0 ? html`<p class="request-override-empty">No hay overrides.</p>` : nothing}
     </div>
     <div class="request-override-toolbar">

@@ -3,6 +3,7 @@ import { live } from "lit/directives/live.js";
 import type { CookieEntry, HeaderEntry, QueryParamEntry, StorageEntry, StorageValueType } from "../../domain/manual/manualProfile";
 import { parseStorageValue } from "../../domain/manual/storageValue";
 import type { ConfirmDestructiveAction } from "./confirmDestructiveAction";
+import type { CollapsibleEntryState } from "./collapsibleEntryState";
 import "./sessionDataEditors.css";
 
 export interface EntryEditorCallbacks<T extends { readonly id: string }> {
@@ -12,6 +13,7 @@ export interface EntryEditorCallbacks<T extends { readonly id: string }> {
   readonly confirmDeletion: ConfirmDestructiveAction;
   readonly apply?: (id: string) => void;
   readonly applyAll?: () => void;
+  readonly expansion?: CollapsibleEntryState;
 }
 
 const valueFrom = (event: Event): string => {
@@ -21,7 +23,7 @@ const valueFrom = (event: Event): string => {
 
 const checkedFrom = (event: Event): boolean => event.currentTarget instanceof HTMLInputElement && event.currentTarget.checked;
 const toggle = (checked: boolean, label: string, change: (value: boolean) => void): TemplateResult => html`<label class="session-check"><input type="checkbox" .checked=${live(checked)} @change=${(event: Event) => change(checkedFrom(event))}><span>${label}</span></label>`;
-const applyButton = (callbacks: { readonly apply?: (id: string) => void }, id: string): TemplateResult | typeof nothing => callbacks.apply === undefined ? nothing : html`<button @click=${() => callbacks.apply?.(id)}>Aplicar</button>`;
+const applyButton = (callbacks: { readonly apply?: (id: string) => void }, id: string): TemplateResult | typeof nothing => callbacks.apply === undefined ? nothing : html`<button type="button" @click=${(event: Event) => { event.stopPropagation(); callbacks.apply?.(id); }}>Aplicar</button>`;
 const applyAllButton = (callbacks: { readonly applyAll?: () => void }, label: string): TemplateResult | typeof nothing => callbacks.applyAll === undefined ? nothing : html`<button @click=${callbacks.applyAll}>${label}</button>`;
 
 export const renderQueryParamEditor = (entries: readonly QueryParamEntry[], callbacks: EntryEditorCallbacks<QueryParamEntry>): TemplateResult => html`
@@ -56,8 +58,10 @@ export const renderHeaderEditor = (entries: readonly HeaderEntry[], callbacks: E
 export const renderCookieEditor = (entries: readonly CookieEntry[], callbacks: EntryEditorCallbacks<CookieEntry>): TemplateResult => html`
   <div class="session-editor">
     <div class="session-list">
-      ${entries.map((cookie) => html`<details class="session-details">
-        <summary><span>${cookie.name || "Cookie sin nombre"}</span><small>${cookie.domain || "Dominio pendiente"}</small><span class=${cookie.enabled ? "session-enabled" : "session-disabled"}>${cookie.enabled ? "Activa" : "Inactiva"}</span></summary>
+      ${entries.map((cookie) => {
+        const expanded = callbacks.expansion?.isOpen(cookie.id, false) ?? false;
+        return html`<details class="session-details" .open=${expanded} @toggle=${(event: Event) => callbacks.expansion?.toggle(cookie.id, false, event)}>
+        <summary class=${!expanded && callbacks.apply !== undefined ? "has-collapsed-apply" : ""}><span>${cookie.name || "Cookie sin nombre"}</span><small>${cookie.domain || "Dominio pendiente"}</small><span class=${cookie.enabled ? "session-enabled" : "session-disabled"}>${cookie.enabled ? "Activa" : "Inactiva"}</span>${expanded ? nothing : applyButton(callbacks, cookie.id)}</summary>
         <div class="session-details-grid">
           <label><span>Nombre</span><input .value=${live(cookie.name)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.name = valueFrom(event); })}></label>
           <label><span>Valor</span><input .value=${live(cookie.value)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.value = valueFrom(event); })}></label>
@@ -69,8 +73,8 @@ export const renderCookieEditor = (entries: readonly CookieEntry[], callbacks: E
           ${toggle(cookie.httpOnly, "HttpOnly", (enabled) => callbacks.update(cookie.id, (item) => { item.httpOnly = enabled; }))}
           ${toggle(cookie.enabled, "Activo", (enabled) => callbacks.update(cookie.id, (item) => { item.enabled = enabled; }))}
         </div>
-        <div class="session-actions">${applyButton(callbacks, cookie.id)}<button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: `¿Eliminar la cookie «${cookie.name || "sin nombre"}»?` })) callbacks.remove(cookie.id); }}>Eliminar</button></div>
-      </details>`)}
+        <div class="session-actions">${expanded ? applyButton(callbacks, cookie.id) : nothing}<button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: `¿Eliminar la cookie «${cookie.name || "sin nombre"}»?` })) callbacks.remove(cookie.id); }}>Eliminar</button></div>
+      </details>`; })}
       ${entries.length === 0 ? html`<p class="session-empty">No hay cookies.</p>` : nothing}
     </div>
     <div class="session-toolbar"><button @click=${callbacks.add}>+ Añadir</button>${applyAllButton(callbacks, "Aplicar todas")}</div>
