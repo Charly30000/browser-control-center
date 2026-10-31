@@ -32,7 +32,8 @@ Start with a manual test or connect steps in a visual flow. Use **your installed
 
 Prepare a reusable test session or run a connected flow. Green nodes show successfully completed steps.
 
-<table>
+<div align="center">
+<table align="center">
   <tr>
     <th>Manual</th>
     <th>Automations</th>
@@ -46,8 +47,18 @@ Prepare a reusable test session or run a connected flow. Green nodes show succes
     <td align="center"><a href="https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/automations.png">Open full-size image ↗</a></td>
   </tr>
 </table>
-
-More detail: [Inputs / Generators editor ↗](https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/manual-inputs.png).
+<table align="center">
+  <tr>
+    <th>Inputs / Generators</th>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/manual-inputs.png"><img src="docs/screenshots/manual-inputs.png" alt="Manual input generators with separate field settings and Apply buttons" width="360"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/manual-inputs.png">Open full-size image ↗</a></td>
+  </tr>
+</table>
+</div>
 
 ## What you can do
 

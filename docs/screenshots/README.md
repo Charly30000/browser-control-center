@@ -6,7 +6,9 @@ Estas imágenes sirven exclusivamente para presentar la extensión en GitHub y M
 - `manual-inputs.png`: detalle independiente de Inputs / Generators.
 - `automations.png`: espacio de trabajo con seis nodos conectados y completados correctamente en verde, tomado de una ventana de 1280 px de ancho.
 
-El README muestra Manual y Automatizaciones en dos columnas, con previsualizaciones de 360 px de ancho y un enlace visible **Open full-size image** bajo cada una. La captura de Inputs / Generators se ofrece como enlace adicional, evitando una segunda fila de imágenes antes del texto principal.
+El README muestra Manual y Automatizaciones en dos columnas y, justo debajo, la captura de Inputs / Generators centrada en una tarjeta del mismo estilo. Las tres previsualizaciones tienen 360 px de ancho y un enlace visible **Open full-size image**. La distribución mantiene las dos capturas principales arriba y permite ver el editor de campos directamente, sin abrir un enlace adicional.
+
+La galería agrupa dos tablas dentro de un contenedor centrado: una con Manual y Automatizaciones y otra con Inputs / Generators. Ambas tablas llevan su propio `align="center"`, para centrar también la caja sin depender de la alineación heredada del contenedor. La tabla inferior se ajusta al ancho de su imagen; no se ensancha con `colspan`. Al modificar la galería, comprueba el resultado con los estilos de la previsualización de VS Code y de GitHub, manteniendo el mismo centro para ambas tablas y el mismo ancho para las tres tarjetas.
 
 Los enlaces de tamaño completo apuntan directamente al PNG mediante HTTPS para abrirlo en el navegador. La ficha de extensiones de VS Code [admite enlaces HTTP/HTTPS en el README](https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/extensions/browser/extensionEditor.ts); no se promete un ampliador integrado en la ficha. Las capturas muestran zonas concretas para conservar su legibilidad y se pueden consultar sin depender de pulsar sobre una miniatura.
 
