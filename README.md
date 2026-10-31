@@ -26,6 +26,29 @@ Filling forms, preparing cookies, changing data and repeating the same journey c
 
 Start with a manual test or connect steps in a visual flow. Use **your installed Chrome or Managed Chromium**, with sessions isolated from your personal browser.
 
+<a id="screenshots"></a>
+
+## See it in action
+
+Prepare a reusable test session or run a connected flow. Green nodes show successfully completed steps.
+
+<table>
+  <tr>
+    <th>Manual</th>
+    <th>Automations</th>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/manual-session.png"><img src="docs/screenshots/manual-session.png" alt="Manual session controls, saved profile and URL settings" width="360"></a></td>
+    <td align="center"><a href="https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/automations.png"><img src="docs/screenshots/automations.png" alt="Automation workspace with six connected nodes completed successfully in green" width="360"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/manual-session.png">Open full-size image ↗</a></td>
+    <td align="center"><a href="https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/automations.png">Open full-size image ↗</a></td>
+  </tr>
+</table>
+
+More detail: [Inputs / Generators editor ↗](https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/manual-inputs.png).
+
 ## What you can do
 
 - **Fill forms with test data.** Use fixed text, names, emails, phone numbers, numbers, Spanish DNI/NIE/CIF identifiers, or your own formulas and value lists.
@@ -143,6 +166,8 @@ La interfaz está en inglés; los nombres de botones que aparecen a continuació
 Rellenar formularios, preparar cookies, cambiar datos y repetir el mismo recorrido puede ocupar más tiempo que la propia prueba. **Browser Control Center** reúne esas tareas en un panel dentro de tu editor: prepara una sesión, genera datos y guarda lo que necesitas para volver a utilizarlo.
 
 Empieza con una prueba manual o conecta los pasos en un flujo visual. Puedes trabajar con **Chrome instalado o Chromium administrado**, en sesiones aisladas de tu navegador personal.
+
+**[Mira cómo se ve la extensión](#screenshots):** Manual reúne la configuración y los datos de prueba; Automatizaciones muestra un flujo con seis nodos conectados y completados en verde. Cada captura tiene un enlace **Open full-size image** para abrir la imagen original en el navegador. También puedes ver el [detalle de Inputs / Generators ↗](https://raw.githubusercontent.com/Charly30000/browser-control-center/HEAD/docs/screenshots/manual-inputs.png).
 
 ## Lo que puedes hacer
 

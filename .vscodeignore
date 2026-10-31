@@ -11,6 +11,7 @@ AGENTS.md
 src/**
 test/**
 docs/**
+resources/screenshots/**
 node_modules/**
 !node_modules/playwright-core/**
 coverage/**
