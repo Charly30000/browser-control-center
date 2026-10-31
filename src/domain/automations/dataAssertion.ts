@@ -4,7 +4,7 @@ import { failure, success, type Result } from "../../shared/result";
 export const DATA_ASSERTION_SOURCES = ["request", "response", "cookie", "localStorage", "sessionStorage"] as const;
 export type DataAssertionSource = typeof DATA_ASSERTION_SOURCES[number];
 
-export const DATA_ASSERTION_OPERATORS = ["exists", "not-exists", "equals", "not-equals", "contains", "matches", "json-equals"] as const;
+export const DATA_ASSERTION_OPERATORS = ["exists", "not-exists", "equals", "not-equals", "contains", "not-contains", "matches", "not-matches", "json-equals", "json-not-equals"] as const;
 export type DataAssertionOperator = typeof DATA_ASSERTION_OPERATORS[number];
 
 export const DATA_ASSERTION_PATHS: Readonly<Record<DataAssertionSource, readonly string[]>> = {
@@ -64,18 +64,21 @@ export const validateDataValue = (actual: unknown, operator: DataAssertionOperat
     case "equals": return actualText === expected ? success(undefined) : failure(t("text.expectedValueArg0ReceivedArg1AtArg2", { arg0: expected, arg1: actualText, arg2: label }));
     case "not-equals": return actualText !== expected ? success(undefined) : failure(t("text.theValueAtArg0MustNotBeArg1", { arg0: label, arg1: expected }));
     case "contains": return actualText.includes(expected) ? success(undefined) : failure(t("text.theValueAtArg0DoesNotContainArg1", { arg0: label, arg1: expected }));
-    case "matches": {
-      try { return new RegExp(expected).test(actualText) ? success(undefined) : failure(t("text.theValueAtArg0DoesNotMatchArg1", { arg0: label, arg1: expected })); }
+    case "not-contains": return !actualText.includes(expected) ? success(undefined) : failure(t("validation.unexpectedContains", { label, expected }));
+    case "matches":
+    case "not-matches": {
+      try { return new RegExp(expected).test(actualText) === (operator === "matches") ? success(undefined) : failure(t("validation.regexMismatch", { label, expected, operator })); }
       catch { return failure(t("text.theExpectedRegularExpressionIsInvalid")); }
     }
-    case "json-equals": {
+    case "json-equals":
+    case "json-not-equals": {
       let expectedValue: unknown;
       try { expectedValue = JSON.parse(expected) as unknown; }
       catch { return failure(t("text.theExpectedValueMustBeValidJSON")); }
       const actualValue = typeof actual === "string" ? parseJson(actual) : actual;
-      return JSON.stringify(canonical(actualValue)) === JSON.stringify(canonical(expectedValue))
+      return (JSON.stringify(canonical(actualValue)) === JSON.stringify(canonical(expectedValue))) === (operator === "json-equals")
         ? success(undefined)
-        : failure(t("text.theJSONReceivedAtArg0DoesNotMatchTheExpectedValue", { arg0: label }));
+        : failure(t("validation.jsonMismatch", { label, operator }));
     }
     default: return failure(t("text.unsupportedValidationOperator"));
   }

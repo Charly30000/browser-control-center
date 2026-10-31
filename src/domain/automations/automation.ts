@@ -4,14 +4,14 @@ import { defaultViewport, DEFAULT_SEQUENTIAL_DELAY_MS } from "../manual/manualPr
 import type { JsonValue } from "../manual/storageValue";
 import type { EditorPreferences } from "../resources/editorPreferences";
 
-export const AUTOMATION_SCHEMA_VERSION = 1 as const;
+export const AUTOMATION_SCHEMA_VERSION = 2 as const;
 
 export type AutomationNodeType =
   | "navigate" | "click" | "fill" | "generate-value"
-  | "set-headers" | "set-cookies" | "set-storage" | "request-override"
+  | "set-headers" | "set-cookies" | "set-storage" | "remove-headers" | "remove-cookies" | "remove-storage" | "request-override"
   | "wait" | "assertion" | "validate-data" | "extract-value" | "set-variable" | "capture-value" | "wait-user";
 
-export const AUTOMATION_NODE_TYPES: readonly AutomationNodeType[] = ["navigate", "click", "fill", "generate-value", "set-headers", "set-cookies", "set-storage", "request-override", "wait", "assertion", "validate-data", "extract-value", "set-variable", "capture-value", "wait-user"];
+export const AUTOMATION_NODE_TYPES: readonly AutomationNodeType[] = ["navigate", "click", "fill", "generate-value", "set-headers", "set-cookies", "set-storage", "remove-headers", "remove-cookies", "remove-storage", "request-override", "wait", "assertion", "validate-data", "extract-value", "set-variable", "capture-value", "wait-user"];
 
 export interface Point { x: number; y: number; }
 export type AutomationNodeConfig = Record<string, JsonValue>;
@@ -74,6 +74,9 @@ const defaultConfigs: Record<AutomationNodeType, AutomationNodeConfig> = {
   "set-headers": { entries: [] },
   "set-cookies": { entries: [] },
   "set-storage": { scope: "local", entries: [] },
+  "remove-headers": { mode: "selected", names: "" },
+  "remove-cookies": { mode: "selected", names: "", domain: "", path: "" },
+  "remove-storage": { mode: "selected", names: "", scope: "local" },
   "request-override": { entries: [] },
   wait: { kind: "fixed", durationMs: 1000, maxDurationMs: 2000, selector: "", url: "", status: 200 },
   assertion: { kind: "exists", selector: "", expected: "" },

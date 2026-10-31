@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "id": "automation-v2",
+  "name": "Session cleanup",
+  "groups": [{
+    "id": "cleanup-group", "name": "Cleanup", "expanded": false,
+    "processes": [{
+      "id": "cleanup-process", "name": "Remove and check",
+      "viewport": { "preset": "custom", "width": 800, "height": 600, "deviceScaleFactor": 1, "hasTouch": false, "isMobile": false },
+      "variables": { "key": "test-token" },
+      "nodes": [
+        { "id": "remove", "type": "remove-storage", "position": { "x": 0, "y": 0 }, "config": { "scope": "local", "mode": "selected", "names": "{key}" }, "timeoutMs": null },
+        { "id": "check", "type": "validate-data", "position": { "x": 250, "y": 0 }, "config": { "source": "localStorage", "key": "{key}", "pathPreset": "", "operator": "not-exists", "expected": "" }, "timeoutMs": null }
+      ],
+      "edges": [{ "id": "edge", "sourceNodeId": "remove", "sourcePort": "out", "targetNodeId": "check", "targetPort": "in" }]
+    }]
+  }],
+  "createdAt": "2026-10-31T00:00:00.000Z",
+  "updatedAt": "2026-10-31T00:00:00.000Z",
+  "preferences": { "autoSaveEnabled": false }
+}

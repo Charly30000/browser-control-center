@@ -1,6 +1,8 @@
 # Gestión de navegadores
 
-La pantalla **Gestionar navegador** permite escoger el navegador que usarán Manual, Fórmulas y Automatizaciones. La selección se guarda en el estado versionado de la extensión y solo afecta a sesiones futuras.
+La pantalla **Manage browser** permite escoger el navegador que usarán Manual, Fórmulas y Automatizaciones. El selector **Active browser** muestra la selección guardada al abrirla. Elige **Managed Chromium** o **Installed Google Chrome** y pulsa **Verify selected** para comprobar su disponibilidad.
+
+La selección se conserva al volver a abrir la extensión. Cambiarla detiene primero cualquier sesión visible de Manual; las sesiones nuevas usan el navegador seleccionado. Guarda la configuración antes de cambiar: las cookies y el storage de la sesión que se cierra no se trasladan a la siguiente. Abrir el panel o elegir un proveedor no rellena campos ni ejecuta automatizaciones.
 
 ## Navegadores disponibles
 

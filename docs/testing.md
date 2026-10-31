@@ -1,6 +1,10 @@
 # Estrategia de pruebas
 
-La suite no descarga ni abre un navegador real. Usa adaptadores y dobles deterministas para cubrir:
+Por defecto, la suite usa adaptadores y dobles deterministas sin descargar ni abrir un navegador real. Con `BCC_REAL_BROWSER_TESTS=1`, también usa Chrome instalado para probar las webviews y ejecutar los ejemplos de automatización. `npm run verify` incluye ambas modalidades cuando se define esa variable.
+
+Los procesos 19–22 de **Add example** se ejecutan con el runner real y comprueban eliminación selectiva y total, conservación de dominios/rutas/ámbitos ajenos y todas las variantes de Assertion y Validate Data. Las pruebas unitarias incluyen comparaciones negativas que fallan y datos ausentes; la cobertura de ejemplos debe ampliarse al modificar cualquier nodo.
+
+Cobertura:
 
 | Área | Cobertura |
 |---|---|

@@ -1,7 +1,6 @@
-import extensionManifest from "../../../package.json";
+import { CURRENT_EXTENSION_VERSION } from "../../shared/extensionVersion";
 
 export const IMPORT_EXPORT_SCHEMA_VERSION = 1 as const;
-export const CURRENT_EXTENSION_VERSION = extensionManifest.version;
 
 export type ImportExportFormat =
   | "browser-control-center/manual-profile"

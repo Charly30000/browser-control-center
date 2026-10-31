@@ -1,4 +1,5 @@
 import { t } from "../../../../localization";
+import { dataAssertionOperatorLabel } from "../../../../localization/displayLabels";
 import { html, nothing, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
 import type { AutomationNode } from "../../../../domain/automations/automation";
@@ -10,16 +11,6 @@ const sourceLabels: Readonly<Record<DataAssertionSource, string>> = {
   cookie: t("labels.cookie"),
   localStorage: t("labels.localStorage"),
   sessionStorage: t("labels.sessionStorage")
-};
-
-const operatorLabels: Readonly<Record<DataAssertionOperator, string>> = {
-  exists: t("text.exists"),
-  "not-exists": t("text.doesNotExist"),
-  equals: t("text.equals"),
-  "not-equals": t("text.doesNotEqual"),
-  contains: t("text.contains"),
-  matches: t("text.matchesRegex"),
-  "json-equals": t("text.equivalentJSON")
 };
 
 const pathLabels: Readonly<Record<string, string>> = {
@@ -84,7 +75,7 @@ export const renderDataValidationInspector = (
 
       ${selectedPath === "custom" ? html`<label><span>${t("text.customPath2")}</span><input .value=${live(configuredPath)} placeholder=${customPlaceholder} @input=${(event: Event) => update((draft) => { draft.config.path = valueFrom(event); })}></label>` : nothing}
 
-      <label><span>${t("text.operator")}</span><select .value=${live(operator)} @change=${(event: Event) => update((draft) => { draft.config.operator = valueFrom(event); })}>${DATA_ASSERTION_OPERATORS.map((value) => html`<option value=${value} .selected=${value === operator}>${operatorLabels[value]}</option>`)}</select></label>
+      <label><span>${t("text.operator")}</span><select .value=${live(operator)} @change=${(event: Event) => update((draft) => { draft.config.operator = valueFrom(event); })}>${DATA_ASSERTION_OPERATORS.map((value) => html`<option value=${value} .selected=${value === operator}>${dataAssertionOperatorLabel(value)}</option>`)}</select></label>
 
       ${operator === "exists" || operator === "not-exists" ? nothing : html`<label class="wide"><span>${t("text.expectedValue")}</span><textarea rows="4" .value=${live(stringField(node, "expected"))} @input=${(event: Event) => update((draft) => { draft.config.expected = valueFrom(event); })}></textarea></label>`}
     </div>

@@ -1,5 +1,6 @@
 import { t } from "../../localization";
-import { nodeOptionLabel } from "../../localization/displayLabels";
+import { dataAssertionOperatorLabel, nodeOptionLabel } from "../../localization/displayLabels";
+import { ASSERTION_COMPARISONS, ASSERTION_KINDS } from "../../domain/automations/assertion";
 import type { GeneratorType, HeaderEntry, CookieEntry, StorageEntry, RequestOverrideEntry, InputMode, QueryParamEntry } from "../../domain/manual/manualProfile";
 import { buildUrlWithQueryParams } from "../../domain/manual/queryParams";
 import { isJsonValue, parseStorageValue, type JsonValue } from "../../domain/manual/storageValue";
@@ -8,7 +9,7 @@ import type { AutomationNodeConfig } from "../../domain/automations/automation";
 import { isVariableName } from "../../domain/automations/variables";
 import { failure, success, type Result } from "../../shared/result";
 import type { AssertionKind, ExtractProperty, WaitKind } from "./automationBrowserSession";
-import type { NodeDefinition } from "./nodeRegistry";
+import type { InspectorField, NodeDefinition } from "./nodeRegistry";
 import { NodeRegistry } from "./nodeRegistry";
 import { DATA_ASSERTION_OPERATORS, DATA_ASSERTION_PATHS, DATA_ASSERTION_SOURCES, readDataPath, resolveDataAssertionPath, type DataAssertionOperator, type DataAssertionSource } from "../../domain/automations/dataAssertion";
 
@@ -18,7 +19,21 @@ const asConfig = (value: unknown): Result<AutomationNodeConfig> => isRecord(valu
 const text = (config: AutomationNodeConfig, key: string): string => { const value = config[key]; if (typeof value !== "string") throw new Error(t("text.fieldArg0MustBeText", { arg0: key })); return value; };
 const number = (config: AutomationNodeConfig, key: string): number => { const value = config[key]; if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(t("text.fieldArg0MustBeNumeric", { arg0: key })); return value; };
 const required = (value: string, label: string): void => { if (value.trim() === "") throw new Error(t("text.arg0IsRequired", { arg0: label })); };
+const removalNames = (config: AutomationNodeConfig): string[] | null => {
+  if (text(config, "mode") === "all") return null;
+  const names = text(config, "names").split(/\r?\n/).map((name) => name.trim()).filter(Boolean);
+  if (names.length === 0) throw new Error(t("sessionRemoval.namesRequired"));
+  return [...new Set(names)];
+};
 const oneOf = <T extends string>(value: string, values: readonly T[], label: string): T => { if (!values.includes(value as T)) throw new Error(t("text.arg0IsInvalid", { arg0: label })); return value as T; };
+const removalFields = (): readonly InspectorField[] => [
+  { key: "mode", label: t("sessionRemoval.mode"), kind: "select", options: [{ value: "selected", label: t("sessionRemoval.selected") }, { value: "all", label: t("sessionRemoval.all") }] },
+  { key: "names", label: t("sessionRemoval.names"), kind: "name-list", visibleWhen: { key: "mode", values: ["selected"] } }
+];
+const validateRemoval = (config: AutomationNodeConfig): void => {
+  oneOf(text(config, "mode"), ["selected", "all"], "mode");
+  removalNames(config);
+};
 
 const validateConfig = (check: (config: AutomationNodeConfig) => void) => (value: unknown): Result<AutomationNodeConfig> => {
   const config = asConfig(value); if (!config.ok) return config;
@@ -176,6 +191,40 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
     execute: async (context, config) => { const resolved = context.resolveConfig(config); await context.browser.setStorage(text(resolved, "scope") as "local" | "session", asEntries(resolved, isStorage)); }
   }));
   registry.register(definition({
+    type: "remove-headers", title: t("sessionRemoval.headers"), category: t("text.session"), defaultTimeoutMs: 5_000,
+    inspectorFields: removalFields(), validate: validateConfig(validateRemoval),
+    execute: async (context, config) => context.browser.removeHeaders(removalNames(context.resolveConfig(config)))
+  }));
+  registry.register(definition({
+    type: "remove-cookies", title: t("sessionRemoval.cookies"), category: t("text.session"), defaultTimeoutMs: 5_000,
+    inspectorFields: [...removalFields(),
+      { key: "domain", label: t("sessionRemoval.domain"), kind: "text", visibleWhen: { key: "mode", values: ["selected"] } },
+      { key: "path", label: t("sessionRemoval.path"), kind: "text", visibleWhen: { key: "mode", values: ["selected"] } }
+    ], validate: validateConfig((config) => {
+      validateRemoval(config);
+      if (config.mode === "selected") {
+        const domain = text(config, "domain"); const path = text(config, "path");
+        if (domain.includes("://") || domain.includes("/")) throw new Error(t("sessionRemoval.invalidDomain"));
+        if (path !== "" && !path.startsWith("/")) throw new Error(t("sessionRemoval.invalidPath"));
+      }
+    }),
+    execute: async (context, config) => {
+      const resolved = context.resolveConfig(config);
+      await context.browser.removeCookies(removalNames(resolved), typeof resolved.domain === "string" ? resolved.domain.trim() : "", typeof resolved.path === "string" ? resolved.path.trim() : "");
+    }
+  }));
+  registry.register(definition({
+    type: "remove-storage", title: t("sessionRemoval.storage"), category: t("text.session"), defaultTimeoutMs: 5_000,
+    inspectorFields: [
+      { key: "scope", label: t("sessionRemoval.scope"), kind: "select", options: [{ value: "local", label: "localStorage" }, { value: "session", label: "sessionStorage" }] },
+      ...removalFields()
+    ], validate: validateConfig((config) => { validateRemoval(config); oneOf(text(config, "scope"), ["local", "session"], "scope"); }),
+    execute: async (context, config) => {
+      const resolved = context.resolveConfig(config);
+      await context.browser.removeStorage(text(resolved, "scope") as "local" | "session", removalNames(resolved));
+    }
+  }));
+  registry.register(definition({
     type: "request-override", title: t("text.requestOverride"), category: t("text.network"), defaultTimeoutMs: 5_000,
     inspectorFields: [], validate: validateEntryList(isOverride),
     execute: async (context, config) => context.browser.setRequestOverrides(asEntries(context.resolveConfig(config), isOverride))
@@ -192,9 +241,16 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
   registry.register(definition({
     type: "assertion", title: t("text.assertion"), category: t("text.validation"), defaultTimeoutMs: 10_000,
     inspectorFields: [
-      { key: "kind", label: t("text.type"), kind: "select", options: ["exists", "visible", "text-equals", "value-equals", "url-equals", "response-status"].map((value) => ({ value, label: nodeOptionLabel(value) })) },
-      { key: "selector", label: t("text.selector"), kind: "text" }, { key: "expected", label: t("text.expected"), kind: "text" }
-    ], validate: validateConfig((config) => { const kind = oneOf(text(config, "kind"), ["exists", "visible", "text-equals", "value-equals", "url-equals", "response-status"], "kind"); if (!["url-equals", "response-status"].includes(kind)) required(text(config, "selector"), "selector"); if (["text-equals", "value-equals", "url-equals", "response-status"].includes(kind) && typeof config.expected !== "string") throw new Error(t("text.expectedMustBeText")); if (kind === "response-status" && (!Number.isInteger(Number(config.expected)) || Number(config.expected) < 100 || Number(config.expected) > 599)) throw new Error(t("text.theExpectedStatusIsInvalid")); }),
+      { key: "kind", label: t("text.type"), kind: "select", options: ASSERTION_KINDS.map((value) => ({ value, label: nodeOptionLabel(value) })) },
+      { key: "selector", label: t("text.selector"), kind: "text", visibleWhen: { key: "kind", values: ASSERTION_KINDS.filter((kind) => !kind.startsWith("url-") && !kind.startsWith("response-status")) } },
+      { key: "expected", label: t("text.expected"), kind: "text", visibleWhen: { key: "kind", values: Object.keys(ASSERTION_COMPARISONS) } }
+    ], validate: validateConfig((config) => {
+      const kind = oneOf(text(config, "kind"), ASSERTION_KINDS, "kind");
+      const comparison = kind in ASSERTION_COMPARISONS ? ASSERTION_COMPARISONS[kind as keyof typeof ASSERTION_COMPARISONS] : null;
+      if (comparison === null || comparison.target === "text" || comparison.target === "value") required(text(config, "selector"), "selector");
+      if (comparison !== null && typeof config.expected !== "string") throw new Error(t("text.expectedMustBeText"));
+      if (comparison?.target === "status" && (!Number.isInteger(Number(config.expected)) || Number(config.expected) < 100 || Number(config.expected) > 599)) throw new Error(t("text.theExpectedStatusIsInvalid"));
+    }),
     execute: async (context, config, _nodeId, timeoutMs) => { const resolved = context.resolveConfig(config); await context.browser.assert(text(resolved, "kind") as AssertionKind, resolved, timeoutMs); }
   }));
   registry.register(definition({
@@ -207,11 +263,8 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
       { key: "urlPattern", label: t("text.urlContains"), kind: "text", visibleWhen: { key: "source", values: ["request", "response"] } },
       { key: "key", label: t("text.nameKey"), kind: "text", visibleWhen: { key: "source", values: ["cookie", "localStorage", "sessionStorage"] } },
       { key: "path", label: t("text.fieldInternalPath"), kind: "text" },
-      { key: "operator", label: t("text.operator"), kind: "select", options: [
-        { value: "exists", label: t("text.exists") }, { value: "not-exists", label: t("text.doesNotExist") }, { value: "equals", label: t("text.equals") },
-        { value: "not-equals", label: t("text.doesNotEqual") }, { value: "contains", label: t("text.contains") }, { value: "matches", label: t("text.matchesRegex") }, { value: "json-equals", label: t("text.equivalentJSON") }
-      ] },
-      { key: "expected", label: t("text.expectedValue"), kind: "textarea", visibleWhen: { key: "operator", values: ["equals", "not-equals", "contains", "matches", "json-equals"] } }
+      { key: "operator", label: t("text.operator"), kind: "select", options: DATA_ASSERTION_OPERATORS.map((value) => ({ value, label: dataAssertionOperatorLabel(value) })) },
+      { key: "expected", label: t("text.expectedValue"), kind: "textarea", visibleWhen: { key: "operator", values: DATA_ASSERTION_OPERATORS.filter((value) => value !== "exists" && value !== "not-exists") } }
     ],
     validate: validateConfig((config) => {
       const source = oneOf(text(config, "source"), DATA_ASSERTION_SOURCES, "source");
@@ -222,8 +275,8 @@ export const createDefaultNodeRegistry = (): NodeRegistry => {
       else required(text(config, "key"), "key");
       if (config.pathPreset === "custom") required(path, "path");
       if (!["exists", "not-exists"].includes(operator) && typeof config.expected !== "string") throw new Error(t("text.expectedMustBeText"));
-      if (operator === "matches") { try { new RegExp(text(config, "expected")); } catch { throw new Error(t("text.theExpectedRegularExpressionIsInvalid")); } }
-      if (operator === "json-equals") { try { JSON.parse(text(config, "expected")); } catch { throw new Error(t("text.theExpectedValueMustBeValidJSON")); } }
+      if (operator === "matches" || operator === "not-matches") { try { new RegExp(text(config, "expected")); } catch { throw new Error(t("text.theExpectedRegularExpressionIsInvalid")); } }
+      if (operator === "json-equals" || operator === "json-not-equals") { try { JSON.parse(text(config, "expected")); } catch { throw new Error(t("text.theExpectedValueMustBeValidJSON")); } }
     }),
     execute: async (context, config, _nodeId, timeoutMs) => {
       const resolved = context.resolveConfig(config);

@@ -2,7 +2,7 @@
   "name": "browser-control-center",
   "displayName": "%extension.displayName%",
   "description": "%extension.description%",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "publisher": "Leviax",
   "license": "Apache-2.0",
   "icon": "resources/marketplace-icon.png",
@@ -28,15 +28,6 @@
     "automation"
   ],
   "main": "./dist/extension.js",
-  "activationEvents": [
-    "onView:browserControl.sidebar",
-    "onCommand:browserControl.openManual",
-    "onCommand:browserControl.openFormulas",
-    "onCommand:browserControl.openArrays",
-    "onCommand:browserControl.openAutomations",
-    "onCommand:browserControl.openAiDocumentation",
-    "onCommand:browserControl.manageBrowser"
-  ],
   "contributes": {
     "commands": [
       {
@@ -78,7 +69,8 @@
         {
           "type": "webview",
           "id": "browserControl.sidebar",
-          "name": "%views.sidebar%"
+          "name": "%views.sidebar%",
+          "icon": "resources/activity-bar-icon.svg"
         }
       ]
     }

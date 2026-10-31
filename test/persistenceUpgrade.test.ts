@@ -31,6 +31,15 @@ const read = () => new TextDecoder().decode(storage.files.get(profileFile));
 beforeEach(() => { storage.files.clear(); storage.writes.mockClear(); storage.failRename = false; });
 
 describe("automatic persisted upgrades", () => {
+  it("atomically upgrades an automation v1 without resetting its groups or preferences", async () => {
+    const path = "/storage/automations/automation.json";
+    storage.files.set(path, new TextEncoder().encode(JSON.stringify(historical.automations)));
+    const dao = new VsCodeApplicationDataDao(root, state);
+    expect(await dao.automations.load()).toEqual({ ...historical.automations, schemaVersion: 2 });
+    expect(storage.writes).toHaveBeenCalledWith(path + ".tmp");
+    await dao.automations.load();
+    expect(storage.writes).toHaveBeenCalledTimes(1);
+  });
   it("atomically writes a validated migrated profile once on read", async () => {
     seed(historical.manual);
     const dao = new VsCodeApplicationDataDao(root, state);

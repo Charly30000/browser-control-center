@@ -1,6 +1,6 @@
 # Evolución de los JSON guardados
 
-Cada documento conserva su propia `schemaVersion`: Manual usa actualmente 2; Fórmulas, Arrays y Automatizaciones usan 1. La versión de la extensión, el envelope de importación y la metadata de los catálogos son independientes. Este cambio añade el motor común sin alterar la estructura de los documentos actuales: no inventa un cambio de esquema para incrementar sus números.
+Cada documento conserva su propia `schemaVersion`: Manual y Automatizaciones usan actualmente 2; Fórmulas y Arrays usan 1. La versión de la extensión, el envelope de importación y la metadata de los catálogos son independientes.
 
 ## Regla obligatoria al cambiar datos
 
@@ -13,13 +13,15 @@ Cada documento conserva su propia `schemaVersion`: Manual usa actualmente 2; Fó
 
 La regla también está en `AGENTS.md` para el mantenimiento del repositorio. Los fixtures históricos son contratos publicados: añade otros nuevos, sin reescribir los antiguos para que pasen las pruebas.
 
+El editor por filas de Remove Headers/Cookies/Storage es un cambio de presentación: mantiene `names` como texto separado por saltos de línea en el esquema 2. Los botones Add/Delete y los inputs no introducen campos persistidos nuevos, por lo que no requieren otra migración ni incremento de esquema.
+
 ## Lectura y escritura
 
 `migrateSchema` trabaja sobre una copia del JSON y aplica cada paso en orden. El codec valida la estructura final. Una lectura satisfactoria en el DAO escribe la versión nueva mediante temporal y renombrado atómico, antes de entregar el documento a la aplicación. Una segunda lectura del mismo archivo no repite la escritura. Las importaciones se migran en memoria y solo se guardan en el destino habitual; el archivo de importación original no se modifica.
 
 La migración conserva identidad, nombres, referencias, valores y fechas salvo una conversión explícita del contrato. Si falta un paso, el documento es inválido o pertenece a una versión futura, se devuelve un error y no se sobrescribe el original. Un fallo del renombrado también conserva el archivo original. No se sustituye un documento antiguo por un perfil vacío como alternativa a migrarlo.
 
-Manual v1 pasa a v2 conservando viewport y generadores y añadiendo los campos de escritura. Los otros tres tipos están registrados desde su primera versión; sus próximos cambios deberán añadir su correspondiente paso. Las preferencias opcionales ya compatibles conservan su comportamiento actual.
+Manual v1 pasa a v2 conservando viewport y generadores y añadiendo los campos de escritura. Automatizaciones v1 pasa a v2 para ampliar el contrato con los nodos de eliminación de sesión y las comparaciones parciales y negativas. Es un cambio aditivo: la transformación conserva exactamente los grupos, procesos, nodos, configuraciones, IDs, fechas y preferencias anteriores y actualiza la versión del documento; no introduce campos ficticios ni reinterpreta opciones existentes. El fixture histórico v1 permanece intacto y `automation-v2.json` documenta el nuevo contrato. Fórmulas y Arrays siguen en su primera versión.
 
 ## Catálogos y selectores
 

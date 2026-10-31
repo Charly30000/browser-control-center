@@ -13,6 +13,8 @@ Los archivos externos de importación/exportación y los binarios del navegador 
 
 El motor y la regla obligatoria de mantenimiento se describen en [Migraciones](migrations.md) y `AGENTS.md`. Los cuatro codecs aplican migraciones secuenciales; el DAO guarda los cambios de versión válidos mediante escritura atómica al leer. Las listas se reconcilian con los archivos existentes para retirar referencias obsoletas sin eliminar documentos por errores de lectura.
 
+Automatizaciones utiliza ahora el esquema 2, que admite eliminación de datos de sesión y nuevas comparaciones. La lectura de un documento v1 conserva todo su contenido y lo actualiza atómicamente al nuevo contrato. Las importaciones aplican el mismo paso sin modificar el archivo de origen. No cambian la ruta `automations/automation.json` ni las claves de catálogo.
+
 ## Identidad de instalación y recuperación
 
 El almacenamiento depende de la identidad `publisher.name` de la extensión y del perfil de usuario de VS Code. Cambiar de publisher o de perfil puede mostrar otro catálogo aunque los archivos anteriores sigan en su carpeta original. Traducir las etiquetas no cambia los IDs, claves de metadata ni directorios de guardado.

@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import historical from "./fixtures/persistence/historical.json";
+import automationV2 from "./fixtures/persistence/automation-v2.json";
+import { ImportExportDocumentService, decodeWithCodec } from "../src/application/importExport/importExportDocumentService";
+import { serializeAutomation } from "../src/infrastructure/persistence/automationSerializer";
 import { migrateSchema, type VersionedSchema } from "../src/application/persistence/schemaMigration";
 import { persistedSchemas } from "../src/infrastructure/persistence/migrations/registry";
 import { deserializeProfile } from "../src/infrastructure/persistence/profileSerializer";
@@ -9,6 +12,18 @@ import { arrayResourceCodec } from "../src/infrastructure/persistence/arrayResou
 
 const readers = { manual: deserializeProfile, automations: deserializeAutomation, formulas: (serialized: string) => formulaCodec.deserialize(serialized), arrays: (serialized: string) => arrayResourceCodec.deserialize(serialized) };
 describe("versioned persisted JSON migrations", () => {
+  it("retains every historical automation value while upgrading the supported node contract", () => {
+    const decoded = deserializeAutomation(JSON.stringify(historical.automations));
+    expect(decoded).toEqual({ ok: true, value: { ...historical.automations, schemaVersion: 2 } });
+    expect(deserializeAutomation(JSON.stringify(automationV2))).toEqual({ ok: true, value: automationV2 });
+  });
+
+  it("upgrades historical automation imports through the same codec", () => {
+    const service = new ImportExportDocumentService("browser-control-center/automations", decodeWithCodec({ serialize: serializeAutomation, deserialize: deserializeAutomation }));
+    const decoded = service.deserialize(JSON.stringify({ format: "browser-control-center/automations", schemaVersion: 1, extensionVersion: "0.4.0", exportedAt: null, data: historical.automations }));
+    expect(decoded.ok).toBe(true);
+    if (decoded.ok) expect(decoded.value.data).toEqual({ ...historical.automations, schemaVersion: 2 });
+  });
   it.each(Object.keys(readers) as (keyof typeof readers)[])("reads historical %s data and preserves identity and dates", (name) => {
     const original = structuredClone(historical[name]);
     const decoded = readers[name](JSON.stringify(original));

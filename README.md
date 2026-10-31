@@ -90,6 +90,10 @@ To start without preparing a website, click **Add example** in Automations. Conn
 
 Each process runs in a clean session. Pause or stop a journey, or add a manual wait to complete a login, CAPTCHA or two-factor verification.
 
+Use **Remove Headers**, **Remove Cookies** and **Remove Storage** to delete selected session data or clear the chosen scope. Checks support **contains** and negative variants, including **does not contain** and **does not exist**. **Add example** includes offline flows demonstrating each removal mode and validation option.
+
+For selected removal, click **Add** for each name or key and enter it in its own input. Each row has a **Delete** button to remove it from the configuration.
+
 ## Ask your AI and paste the result
 
 The fifth sidebar button, **AI Documentation**, collects usage instructions, options and the application's accepted JSON formats.
@@ -104,6 +108,8 @@ You can also save the document as a file and **Import** it. For Formulas, reques
 ## Keep the setup, start with a clean session
 
 Saved profiles, formulas, arrays and automations remain available for reuse and across extension updates. Export them to share your work or move to another installation; Manual profiles include the formulas and arrays they reference.
+
+Supported older documents are upgraded automatically when opened or imported. Selectors show saved items whose files still exist; if one is missing, import a backup rather than changing version numbers or inventing resource IDs. See [troubleshooting](docs/troubleshooting.md) for recovery steps.
 
 Browser sessions are separate from your personal profile and are discarded when closed. Formulas are tested in an isolated browser, without network access, with a two-second execution limit.
 
@@ -202,6 +208,10 @@ Para empezar sin preparar una web, pulsa **Add example** en Automatizaciones. En
 
 Cada proceso se ejecuta en una sesión limpia. Puedes pausar el recorrido, detenerlo o añadir una espera para completar manualmente un login, un CAPTCHA o una verificación en dos pasos.
 
+Usa **Remove Headers**, **Remove Cookies** y **Remove Storage** para eliminar datos concretos de la sesión o limpiar el ámbito elegido. Las comprobaciones admiten **contains** y variantes negativas como **does not contain** y **does not exist**. **Add example** incluye procesos sin conexión que demuestran cada modo de eliminación y cada opción de validación.
+
+Para eliminar elementos concretos, pulsa **Add** por cada nombre o clave y escríbelo en su propio input. Cada fila tiene un botón **Delete** para quitarla de la configuración.
+
 ## Pide ayuda a tu IA y pega el resultado
 
 El quinto botón lateral, **AI Documentation**, reúne las instrucciones de uso, las opciones y los formatos JSON que acepta la aplicación.
@@ -216,6 +226,8 @@ También puedes guardar el documento en un archivo e **Import**. En Fórmulas pu
 ## Guarda la configuración, empieza con una sesión limpia
 
 Los perfiles, fórmulas, arrays y automatizaciones guardados quedan disponibles para reutilizarlos. Exportarlos te permite compartirlos o llevarlos a otra instalación; los perfiles Manual incluyen las fórmulas y arrays que utilizan.
+
+Los documentos antiguos compatibles se actualizan automáticamente al abrirlos o importarlos. Los selectores muestran elementos guardados cuyo archivo existe; si falta alguno, importa una copia de seguridad en lugar de cambiar versiones o inventar IDs. Consulta [resolución de problemas](docs/troubleshooting.md) para recuperarlos.
 
 Las sesiones de navegador son independientes de tu perfil personal y no se conservan al cerrarlas. Las fórmulas se prueban en un navegador aislado, sin red y con un límite de ejecución de dos segundos.
 

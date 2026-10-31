@@ -18,6 +18,10 @@ const steps: readonly { readonly node: string; readonly explanation: string }[] 
   { node: t("text.extractValue"), explanation: t("text.readsTheJSONResultDisplayedInApiResultAndStoresItInApiResult") },
   { node: t("text.saveData"), explanation: t("text.chooseThePreviousNodeOutputOrADOMElementThePropertyToReadAndTheStoredType") },
   { node: t("text.setVariable"), explanation: t("text.combinesDemoNameAndApiResultInTheExampleSummaryVariable") },
+  { node: t("sessionRemoval.headers"), explanation: t("examples.removalGuide") },
+  { node: t("sessionRemoval.cookies"), explanation: t("examples.removalGuide") },
+  { node: t("sessionRemoval.storage"), explanation: t("examples.removalGuide") },
+  { node: t("examples.validationVariants"), explanation: t("examples.validationVariantsGuide") },
   { node: t("text.pauseWaitUser"), explanation: t("text.keepsTheBrowserOpenToInspectTheResultClickContinueToFinish") }
 ];
 
@@ -28,7 +32,8 @@ const exampleLabels: Readonly<Record<string, TranslationKey>> = {
   "07": "text.07FieldWithGenerator", "08": "examples.process08", "09": "examples.process09",
   "10": "examples.process10", "11": "examples.process11", "12": "examples.process12",
   "13": "examples.process13", "14": "examples.process14", "15": "examples.process15",
-  "16": "examples.process16", "17": "examples.process17", "18": "examples.process18"
+  "16": "examples.process16", "17": "examples.process17", "18": "examples.process18",
+  "19": "examples.process19", "20": "examples.process20", "21": "examples.process21", "22": "examples.process22"
 };
 
 export const renderExampleGuide = (processName: string): TemplateResult => {

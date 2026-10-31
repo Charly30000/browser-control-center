@@ -2,7 +2,7 @@
 
 Para ver un proceso puedes pulsar el fondo de su tarjeta o la etiqueta **Process**, además de su nombre. Con la tarjeta enfocada también funcionan Enter y Espacio. Los botones, el nombre, el selector de grupo y el asa de arrastre conservan sus acciones; seleccionar no modifica ni ejecuta el proceso.
 
-El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está activado por defecto y guarda el documento completo de grupos tras **5 segundos sin actividad**. Cada interacción reinicia la espera. Respeta las mismas validaciones de borrador que Guardar, conserva las ediciones hechas durante un guardado y nunca ejecuta los procesos. Se pausa mientras se edita Ver JSON o se resuelve una decisión sobre cambios sin guardar; si falla, conserva el borrador.
+El interruptor **Auto-save** aparece arriba del todo, antes del título. Está activado por defecto y guarda el documento completo de grupos tras **5 segundos sin interactuar con controles**. Escribir, pulsar botones o arrastrar reinicia la espera; mover el ratón o hacer scroll no la reinicia, y durante un arrastre se espera a que termine. Respeta las mismas validaciones de borrador que Guardar, conserva las ediciones hechas durante un guardado y nunca ejecuta los procesos. Se pausa mientras se edita Ver JSON o se resuelve una decisión sobre cambios sin guardar; si falla, conserva el borrador.
 
 La preferencia del documento se incluye como `preferences: { "autoSaveEnabled": true }` o con `false`, también en el JSON de una selección. Aplicar un JSON que incluya esta preferencia la actualiza; si falta, mantiene la actual. Importar grupos conserva la preferencia del documento de destino. Los documentos antiguos siguen siendo válidos. Al desactivarlo cancela la espera pendiente; pulsa Guardar para conservar la desactivación.
 
@@ -16,7 +16,7 @@ El editor también admite pegar el JSON de otro grupo o flujo recibido por chat.
 
 **Guardar**, **Ver JSON** y **Exportar** admiten borradores con campos de nodo todavía incompletos, siempre que la estructura, IDs, conexiones, viewport y variables sean seguros. La validación semántica estricta de cada configuración se aplica al ejecutar y al importar; así se puede conservar trabajo a medias sin permitir que un flujo inválido llegue al navegador.
 
-El documento usa `schemaVersion: 1` y se guarda en `globalStorageUri/automations/automation.json`. La exportación usa el envelope JSON común y versionado. Un flujo exportado sigue siendo un documento válido con un grupo y un proceso, por lo que puede importarse sin un formato paralelo. La importación añade el contenido al documento actual en vez de reemplazarlo. Si un grupo o proceso coincide por ID o nombre, regenera ambos; los IDs de nodos y conexiones que colisionen también se regeneran y las conexiones se reparan para apuntar a los nodos importados correctos. Los archivos históricos con el documento directo siguen siendo compatibles.
+El documento usa `schemaVersion: 2` y se guarda en `globalStorageUri/automations/automation.json`. Los documentos v1 se actualizan automáticamente conservando grupos, procesos, IDs, nombres, variables, preferencias y configuraciones anteriores. La exportación mantiene su envelope exterior en versión 1. Un flujo exportado sigue siendo un documento válido con un grupo y un proceso, por lo que puede importarse sin un formato paralelo. La importación añade el contenido al documento actual en vez de reemplazarlo. Si un grupo o proceso coincide por ID o nombre, regenera ambos; los IDs de nodos y conexiones que colisionen también se regeneran y las conexiones se reparan para apuntar a los nodos importados correctos. Los archivos históricos con el documento directo siguen siendo compatibles.
 
 ## Editor
 
@@ -34,7 +34,7 @@ Con el asa enfocada, **Alt+↑/↓** permite reordenar grupos o procesos dentro 
 
 Puedes usar la **rueda del ratón mientras mantienes agarrado** un grupo o proceso para desplazar la página o la lista lateral. El indicador se recalcula al hacer scroll y al soltar se utiliza el destino que se ve en ese momento. **Escape** cancela sin cambiar el orden. El guardado automático espera a que sueltes el elemento, también si utilizas la rueda durante el movimiento.
 
-El nuevo orden y la preferencia de expansión modifican el borrador: **Guardar** o el guardado automático los conserva, y Ver JSON/Exportar/Importar los transporta. Cada grupo admite el campo opcional `expanded: true` o `false`; si falta, se muestra abierto para mantener la compatibilidad con documentos anteriores. El esquema continúa en la versión 1. Al aplicar un JSON de grupo sin `expanded` se conserva la preferencia actual. El orden de los procesos determina su secuencia al ejecutar ese grupo; ordenar o plegar por sí solo no ejecuta nada ni cambia IDs, nodos, variables, viewport o conexiones.
+El nuevo orden y la preferencia de expansión modifican el borrador: **Guardar** o el guardado automático los conserva, y Ver JSON/Exportar/Importar los transporta. Cada grupo admite el campo opcional `expanded: true` o `false`; si falta, se muestra abierto para mantener la compatibilidad con documentos anteriores. Al aplicar un JSON de grupo sin `expanded` se conserva la preferencia actual. El orden de los procesos determina su secuencia al ejecutar ese grupo; ordenar o plegar por sí solo no ejecuta nada ni cambia IDs, nodos, variables, viewport o conexiones.
 
 - El árbol izquierdo crea, renombra, mueve, copia, duplica y elimina grupos o procesos.
 - La paleta añade nodos por categoría. Todos los nodos nuevos aparecen en la misma posición inicial `(80, 70)`; se superponen de forma intencionada para que el usuario decida su distribución en el canvas.
@@ -119,7 +119,39 @@ Cuando se alcanza `Pause / Wait User`, los controles siguen apareciendo en el ba
 
 ## Nodos iniciales
 
-La paleta registra `Navigate`, `Click`, `Campo`, `Set Headers`, `Set Cookies`, `Set Storage`, `Request Override`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Guardar dato` y `Pause / Wait User`. El registro interno conserva `Generate Value` exclusivamente para compatibilidad hacia atrás.
+La paleta registra `Navigate`, `Click`, `Field`, `Set Headers`, `Set Cookies`, `Set Storage`, `Remove Headers`, `Remove Cookies`, `Remove Storage`, `Request Override`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Save Data` y `Pause / Wait User`. El registro interno conserva `Generate Value` exclusivamente para compatibilidad hacia atrás.
+
+### Eliminar datos de sesión
+
+En la categoría **Session**, los nodos **Remove Headers**, **Remove Cookies** y **Remove Storage** permiten elegir **Selected names / keys** o **All items**. En modo selectivo pulsa **Add** para crear cada fila y escribe un nombre o clave en su input; se admiten variables. Cada fila tiene un botón **Delete**, con confirmación, para quitarla de la lista. Añadir o quitar filas edita la configuración; el borrado de datos del navegador solo ocurre al ejecutar el nodo. Un nombre inexistente no produce un error.
+
+| Nodo | Qué elimina | Qué conserva |
+| --- | --- | --- |
+| Remove Headers | Headers adicionales configurados con Set Headers; los nombres no distinguen mayúsculas. | Los demás headers en modo selectivo. No elimina headers propios del navegador ni los añadidos por otro override. Afecta a las peticiones siguientes. |
+| Remove Cookies | Cookies por nombre, con filtros opcionales de dominio y ruta exactos. Sin filtros se eliminan todas las variantes de esos nombres. | Las cookies que no coinciden en modo selectivo. All items elimina todas las cookies de este proceso, sin afectar al navegador personal. |
+| Remove Storage | Claves de localStorage o sessionStorage, según Storage scope. Hay que navegar antes al origen deseado. | Las demás claves en modo selectivo y el otro ámbito de storage. All items limpia solo el ámbito elegido en la página/origen actual. |
+
+Por ejemplo, para borrar dos claves de localStorage, elige ese ámbito en **Remove Storage**, pulsa **Add** dos veces y escribe `test-token` y `test-user` en sus respectivos campos. Después añade **Validate Data**, selecciona localStorage, indica una de esas claves y elige **Does not exist**. En **View JSON** se conserva el formato compatible: `scope: "local"`, `mode: "selected"` y `names: "test-token\ntest-user"`. Los nombres ya guardados se muestran automáticamente en inputs separados. Cambiar a **All items** oculta la lista sin perder sus valores; al volver al modo selectivo reaparecen.
+
+### Comprobaciones parciales y negativas
+
+**Assertion** permite comprobar elementos, su texto o valor, la URL y el último estado HTTP observado:
+
+| Comprobación | Positiva | Negativa |
+| --- | --- | --- |
+| Existencia | `exists` | `not-exists` |
+| Visibilidad | `visible` | `not-visible` |
+| Texto exacto | `text-equals` | `text-not-equals` |
+| Texto que contiene | `text-contains` | `text-not-contains` |
+| Valor exacto | `value-equals` | `value-not-equals` |
+| Valor que contiene | `value-contains` | `value-not-contains` |
+| URL exacta | `url-equals` | `url-not-equals` |
+| URL que contiene | `url-contains` | `url-not-contains` |
+| Estado HTTP | `response-status` | `response-status-not-equals` |
+
+Para comprobar que `#result` contiene «Welcome», selecciona **Text contains**, usa ese selector y escribe `Welcome` en Expected. **Text does not contain** comprueba lo contrario sin exigir igualdad con todo el contenido. Las coincidencias parciales distinguen mayúsculas y minúsculas.
+
+`not-visible` acepta un elemento oculto o ausente; `not-exists` exige que no exista. Las comparaciones negativas de texto o valor requieren encontrar el elemento, y el estado HTTP negativo requiere haber observado una respuesta. Una ausencia no se interpreta como un valor distinto.
 
 ### Validación de datos del navegador
 
@@ -134,7 +166,9 @@ El inspector muestra un selector de campos adaptado a cada fuente. Request ofrec
 
 `Campo que se validará` se persiste en `pathPreset` y `Operador` en `operator`. Por ejemplo, **Body completo** y **JSON equivalente** se almacenan como `body` y `json-equals`; el campo técnico `path` queda reservado para la ruta escrita cuando se selecciona **Ruta personalizada**.
 
-Los operadores disponibles son existencia, ausencia, igualdad, desigualdad, contenido, expresión regular y equivalencia JSON. La equivalencia JSON no depende del orden de las propiedades. Las observaciones de red están limitadas a las 200 peticiones y 200 respuestas más recientes para mantener acotado el consumo de memoria; conviene indicar un filtro de URL para evitar seleccionar recursos auxiliares como imágenes o favicons.
+Todas las fuentes ofrecen los pares `exists` / `not-exists`, `equals` / `not-equals`, `contains` / `not-contains`, `matches` / `not-matches` y `json-equals` / `json-not-equals`. Los operadores de contenido buscan un fragmento de la representación textual, distinguiendo mayúsculas. La equivalencia JSON ignora el orden de las propiedades; los operadores negativos también exigen una expresión regular o JSON esperado válidos. Una comparación negativa falla si el dato no existe o es null: usa **Does not exist** para comprobar ausencia. Una cadena vacía sí existe.
+
+Las observaciones de red están limitadas a las 200 peticiones y 200 respuestas más recientes para mantener acotado el consumo de memoria; conviene indicar un filtro de URL para evitar seleccionar recursos auxiliares como imágenes o favicons. Los nodos de eliminación no borran las observaciones anteriores: dispara una petición nueva para comprobar sus headers después de eliminarlos.
 
 Para validar el JSON devuelto por un `Request Override`:
 
@@ -154,7 +188,7 @@ El formulario de overrides vive en `webviews/components/requestOverrideEditor` y
 
 El botón **Añadir ejemplo** crea un grupo adicional sin reemplazar el documento existente. El grupo contiene un proceso independiente para cada tipo de nodo registrado y termina con **Todos concatenados**, que reúne el recorrido completo. Todos los nodos de cada proceso ya están conectados y la página muestra una guía contextual para el proceso seleccionado.
 
-Los procesos generados son: `Viewport`, `Variables iniciales`, `Request Override`, `Navigate`, `Click`, `Campo con texto`, `Campo con generador`, `Set Headers`, `Set Cookies`, `Set Storage`, `Wait`, `Assertion`, `Validate Data`, `Extract Value`, `Set Variable`, `Pause / Wait User`, `Guardar dato` y `Todos concatenados`.
+Los procesos generados cubren viewport, variables iniciales, todos los tipos de nodo visibles y un recorrido final **All connected**. Los procesos **19 · Remove Headers**, **20 · Remove Cookies** y **21 · Remove Storage** preparan datos, eliminan elementos concretos y después todos, y comprueban el resultado. **22 · Validation variants** demuestra cada variante de Assertion y cada operador de Validate Data, incluidos los negativos y los de contenido. El proceso 18 conserva su nombre y queda al final como recorrido completo.
 
 `Viewport` usa una configuración móvil personalizada de 390×844, táctil y con modo móvil. La sesión aplica esas dimensiones tanto al viewport como a la pantalla emulada para que `width=device-width` sea determinista. La página servida por el override imprime `window.innerWidth` y `window.innerHeight`, y una assertion confirma que coinciden con el proceso. `Variables iniciales` define `initialName` y `expectedGreeting`; el flujo usa `{initialName}` en `Campo` y `{expectedGreeting}` en `Assertion`. El proceso final aplica el mismo viewport y reutiliza también esas variables antes de continuar con los generadores y el resto de nodos.
 

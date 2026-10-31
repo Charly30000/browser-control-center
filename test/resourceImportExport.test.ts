@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ImportExportDocumentService, decodeResourceCollection } from "../src/application/importExport/importExportDocumentService";
 import { ResourceImportService } from "../src/application/importExport/resourceImportService";
 import { createFormula, type FormulaResource } from "../src/domain/formulas/formula";
-import { CURRENT_EXTENSION_VERSION } from "../src/domain/importExport/importExportDocument";
+import { CURRENT_EXTENSION_VERSION } from "../src/shared/extensionVersion";
 import { isFormulaResource } from "../src/infrastructure/persistence/formulaSerializer";
 
 describe("importación y exportación de recursos", () => {

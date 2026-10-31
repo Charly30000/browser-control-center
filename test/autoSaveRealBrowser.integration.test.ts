@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArrayResource, type ArrayResource } from "../src/domain/arrays/arrayResource";
 import { createFormula, type FormulaResource } from "../src/domain/formulas/formula";
 import { createCompleteAutomationExample } from "../src/domain/automations/exampleAutomation";
+import { createDefaultNodeRegistry } from "../src/application/automations/nodeDefinitions";
 import { createAutomationDocument, createAutomationGroup, createAutomationNode, createAutomationProcess, type AutomationDocument } from "../src/domain/automations/automation";
 
 const realBrowserSuite = process.env.BCC_REAL_BROWSER_TESTS === "1" ? describe : describe.skip;
@@ -404,6 +405,67 @@ realBrowserSuite("guardado automático compartido", () => {
       expect((await messages(page)).some(({ type }) => type.includes(".run"))).toBe(false);
     } finally { await page.close(); }
   }, 20_000);
+
+  it("configures session removal and negative checks from the palette and retains their JSON", async () => {
+    const page = await open("Automatizaciones", "automation", true);
+    page.setDefaultTimeout(2_000);
+    try {
+      const document = createAutomationDocument("inspector-document");
+      document.groups = [{ ...createAutomationGroup("group", "Checks"), processes: [createAutomationProcess("process", "Cleanup")] }];
+      await post(page, { type: "automation.state", ...editorState("automation", document), descriptors: createDefaultNodeRegistry().descriptors() });
+      await page.locator(".process-name").click();
+      const palette = page.locator(".node-palette");
+      for (const label of ["Remove Headers", "Remove Cookies", "Remove Storage"]) expect(await palette.getByRole("button", { name: new RegExp(label) }).count()).toBe(1);
+      await palette.getByRole("button", { name: /Remove Storage/ }).click();
+      const inspector = page.locator(".node-inspector");
+      await inspector.getByLabel("Storage scope").selectOption("session");
+      await inspector.getByLabel("Removal mode").selectOption("all");
+      expect(await inspector.locator("name-list-editor").count()).toBe(0);
+      await inspector.getByLabel("Removal mode").selectOption("selected");
+      const names = inspector.locator("name-list-editor");
+      const addName = names.getByRole("button", { name: "+ Add", exact: true });
+      await addName.click();
+      await names.getByRole("textbox").nth(0).fill("to");
+      await page.keyboard.type("ken");
+      expect(await names.getByRole("textbox").nth(0).inputValue()).toBe("token");
+      await addName.click();
+      await names.getByRole("textbox").nth(1).fill("discard");
+      await addName.click();
+      await names.getByRole("textbox").nth(2).fill("user");
+      const confirmRowRemoval = async (confirmed: boolean) => {
+        await names.getByRole("button", { name: "Delete", exact: true }).nth(1).click();
+        const request = (await messages(page)).filter(({ type }) => type === "ui.confirmDestructiveAction").at(-1) as { type: string; requestId: string };
+        await post(page, { type: "ui.destructiveActionConfirmed", requestId: request.requestId, confirmed });
+        await vi.waitFor(async () => expect(await names.getByRole("textbox").count()).toBe(confirmed ? 2 : 3));
+      };
+      await confirmRowRemoval(false);
+      await confirmRowRemoval(true);
+      await inspector.getByLabel("Removal mode").selectOption("all");
+      await inspector.getByLabel("Removal mode").selectOption("selected");
+      expect(await names.getByRole("textbox").evaluateAll((elements) => elements.map((element) => (element as HTMLInputElement).value))).toEqual(["token", "user"]);
+
+      await palette.getByRole("button", { name: /Assertion/ }).click();
+      await inspector.getByLabel("Type").selectOption("url-not-contains");
+      expect(await inspector.getByLabel("Selector", { exact: true }).count()).toBe(0);
+      await inspector.getByLabel("Expected", { exact: true }).fill("error");
+
+      await palette.getByRole("button", { name: /Validate Data/ }).click();
+      await inspector.getByLabel("Source").selectOption("sessionStorage");
+      await inspector.getByLabel("Key", { exact: true }).fill("message");
+      const operator = inspector.getByLabel("Operator");
+      for (const value of ["not-contains", "not-matches", "json-not-equals"]) expect(await operator.locator(`option[value="${value}"]`).count()).toBe(1);
+      await operator.selectOption("not-contains");
+      await inspector.getByLabel("Expected value", { exact: true }).fill("error");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      const saved = (await requests(page))[0]!.document!;
+      expect(saved.schemaVersion).toBe(2);
+      expect(saved.groups[0]?.processes[0]?.nodes.map(({ type, config }) => ({ type, config }))).toEqual([
+        { type: "remove-storage", config: { scope: "session", mode: "selected", names: "token\nuser" } },
+        { type: "assertion", config: { kind: "url-not-contains", selector: "", expected: "error" } },
+        { type: "validate-data", config: { source: "sessionStorage", urlPattern: "", key: "message", pathPreset: "", path: "", operator: "not-contains", expected: "error" } }
+      ]);
+    } finally { await page.close(); }
+  });
 
   it("shows English guidance for an existing Spanish example without renaming user data", async () => {
     const page = await open("Automatizaciones", "automation");

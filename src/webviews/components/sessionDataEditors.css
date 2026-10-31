@@ -1,5 +1,7 @@
 .session-editor, .session-list { display: grid; gap: 7px; min-width: 0; }
 .session-row { display: grid; gap: 6px; align-items: center; }
+name-list-editor { display: block; min-width: 0; }
+.name-list-row { grid-template-columns: minmax(0, 1fr) auto; }
 .query-param-row { grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto; }
 .header-row { grid-template-columns: minmax(90px, 1fr) minmax(110px, 1.4fr) auto auto auto; }
 .storage-entry-row { grid-template-columns: minmax(80px, 1fr) 100px minmax(110px, 1.4fr) auto auto auto; }

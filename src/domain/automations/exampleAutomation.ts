@@ -3,6 +3,8 @@ import { escapeHtml } from "../../shared/htmlText";
 import { createAutomationGroup, createAutomationNode, createAutomationProcess, type AutomationDocument, type AutomationGroup, type AutomationNode, type AutomationNodeConfig, type AutomationNodeType, type AutomationProcess, type Point } from "./automation";
 import { createCookie, createHeader, createRequestOverride, createStorageEntry } from "../manual/manualProfile";
 import type { JsonValue } from "../manual/storageValue";
+import { ASSERTION_COMPARISONS, ASSERTION_KINDS } from "./assertion";
+import { DATA_ASSERTION_OPERATORS, type DataAssertionOperator } from "./dataAssertion";
 
 export const AUTOMATION_EXAMPLE_URL = "https://browser-control.test/demo";
 export const AUTOMATION_EXAMPLE_API_URL = "https://browser-control.test/api/example";
@@ -175,6 +177,67 @@ export const createCompleteAutomationExample = (createId: () => string): Automat
     configureProcess?.(process);
     group.processes.push(process);
   };
+  const checkMissing = (add: AddExampleNode, source: "request" | "cookie" | "localStorage" | "sessionStorage", key: string, path = ""): void => {
+    add("validate-data", { source, key, urlPattern: source === "request" ? "/api/example" : "", pathPreset: source === "request" ? "custom" : source === "cookie" ? "value" : "", path, operator: "not-exists", expected: "" });
+  };
+  const addHeaderRemoval = (add: AddExampleNode): void => {
+    add("set-headers", { entries: asJson([
+      { ...createHeader(createId()), key: "x-example-header", value: "remove" },
+      { ...createHeader(createId()), key: "x-example-second", value: "remove-too" },
+      { ...createHeader(createId()), key: "x-keep", value: "keep" }
+    ]) });
+    add("remove-headers", { mode: "selected", names: "X-EXAMPLE-HEADER\nx-example-second" });
+    addApiInteraction(add, t("text.ada"));
+    checkMissing(add, "request", "", "headers.x-example-header");
+    checkMissing(add, "request", "", "headers.x-example-second");
+    add("validate-data", { source: "request", urlPattern: "/api/example", pathPreset: "custom", path: "headers.x-keep", operator: "equals", expected: "keep" });
+    add("remove-headers", { mode: "all", names: "" });
+    addApiInteraction(add, t("text.ada"));
+    checkMissing(add, "request", "", "headers.x-keep");
+  };
+  const addCookieRemoval = (add: AddExampleNode): void => {
+    addCookie(add);
+    add("set-cookies", { entries: asJson([{ ...createCookie(createId()), name: "second-cookie", value: "remove-too", domain: "browser-control.test", secure: true }]) });
+    add("set-cookies", { entries: asJson([{ ...createCookie(createId()), name: "keep-cookie", value: "keep", domain: "browser-control.test", secure: true }]) });
+    add("remove-cookies", { mode: "selected", names: "example-cookie\nsecond-cookie", domain: "browser-control.test", path: "/" });
+    checkMissing(add, "cookie", "example-cookie");
+    checkMissing(add, "cookie", "second-cookie");
+    add("validate-data", { source: "cookie", key: "keep-cookie", pathPreset: "value", operator: "equals", expected: "keep" });
+    add("remove-cookies", { mode: "all", names: "", domain: "", path: "" });
+    checkMissing(add, "cookie", "keep-cookie");
+  };
+  const addStorageRemoval = (add: AddExampleNode): void => {
+    for (const scope of ["local", "session"] as const) {
+      const source = scope === "local" ? "localStorage" : "sessionStorage";
+      add("set-storage", { scope, entries: asJson([
+        { ...createStorageEntry(createId()), key: "remove-key", value: "remove" },
+        { ...createStorageEntry(createId()), key: "remove-second", value: "remove-too" },
+        { ...createStorageEntry(createId()), key: "keep-key", value: "keep" }
+      ]) });
+      add("remove-storage", { scope, mode: "selected", names: "remove-key\nremove-second" });
+      checkMissing(add, source, "remove-key");
+      checkMissing(add, source, "remove-second");
+      add("validate-data", { source, key: "keep-key", pathPreset: "", operator: "equals", expected: "keep" });
+      add("remove-storage", { scope, mode: "all", names: "" });
+      checkMissing(add, source, "keep-key");
+    }
+  };
+  const addValidationVariants = (add: AddExampleNode): void => {
+    add("fill", { selector: "#name", value: "Ada Lovelace", mode: "instant", delayMs: 0 });
+    for (const kind of ASSERTION_KINDS) {
+      if (kind === "exists" || kind === "visible" || kind === "not-exists" || kind === "not-visible") {
+        add("assertion", { kind, selector: kind.startsWith("not-") ? "#missing-element" : "#name", expected: "" });
+      } else {
+        const { target, operator } = ASSERTION_COMPARISONS[kind];
+        const full = target === "text" ? t("text.localAutomationsExample") : target === "value" ? "Ada Lovelace" : target === "url" ? AUTOMATION_EXAMPLE_URL : "200";
+        const expected = operator === "not-equals" || operator === "not-contains" ? target === "status" ? "404" : "not-present-in-example" : operator === "contains" ? full.slice(0, 4) : full;
+        add("assertion", { kind, selector: target === "text" ? "h1" : target === "value" ? "#name" : "", expected });
+      }
+    }
+    addSessionStorage(add);
+    const expected: Record<DataAssertionOperator, string> = { exists: "", "not-exists": "", equals: "ready", "not-equals": "missing", contains: "ead", "not-contains": "missing", matches: "^ready$", "not-matches": "^missing$", "json-equals": '"ready"', "json-not-equals": '"missing"' };
+    for (const operator of DATA_ASSERTION_OPERATORS) add("validate-data", { source: "sessionStorage", key: operator === "not-exists" ? "missing-key" : "exampleSession", pathPreset: "", operator, expected: expected[operator] });
+  };
 
   addProcess(t("examples.process01"), (add) => { addOverrides(add); addNavigate(add); add("assertion", { kind: "text-equals", selector: "#viewport-result", expected: "390x844" }); }, applyExampleViewport);
   addProcess(t("examples.process02"), (add) => { addOverrides(add); addNavigate(add); add("fill", { selector: "#name", value: "{initialName}", mode: "instant", delayMs: 0 }); add("click", { selector: "#apply" }); add("assertion", { kind: "text-equals", selector: "#result", expected: "{expectedGreeting}" }); }, applyExampleVariables);
@@ -210,6 +273,10 @@ export const createCompleteAutomationExample = (createId: () => string): Automat
     add("fill", { selector: "#name", value: "{fieldId}", mode: "instant", delayMs: 0 });
     add("assertion", { kind: "value-equals", selector: "#name", expected: "name" });
   });
+  addProcess(t("examples.process19"), (add) => { addOverrides(add); addNavigate(add); addHeaderRemoval(add); });
+  addProcess(t("examples.process20"), (add) => { addOverrides(add); addNavigate(add); addCookieRemoval(add); });
+  addProcess(t("examples.process21"), (add) => { addOverrides(add); addNavigate(add); addStorageRemoval(add); });
+  addProcess(t("examples.process22"), (add) => { addOverrides(add); addNavigate(add); addValidationVariants(add); });
   addProcess(t("examples.process18"), (add) => {
     addOverrides(add); addHeaders(add); addCookie(add); addNavigate(add); addLocalStorage(add); addSessionStorage(add);
     add("fill", { selector: "#name", value: "{initialName}", mode: "instant", delayMs: 0 });
@@ -225,6 +292,7 @@ export const createCompleteAutomationExample = (createId: () => string): Automat
     add("set-variable", { name: "exampleSummary", value: t("text.initialInitialNameGeneratedNameDemoNameAPIApiResult") });
     add("fill", { selector: "#name", value: "{itemId}", mode: "instant", delayMs: 0 });
     add("assertion", { kind: "value-equals", selector: "#name", expected: "42" });
+    addHeaderRemoval(add); addCookieRemoval(add); addStorageRemoval(add); addValidationVariants(add);
     add("wait-user", { message: t("text.reviewTheLocalPageAndCompletedNodesThenClickContinueToCloseTheExample") });
   }, (process) => { applyExampleViewport(process); applyExampleVariables(process); });
 

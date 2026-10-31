@@ -5,6 +5,19 @@ import { AUTOMATION_NODE_TYPES } from "../src/domain/automations/automation";
 describe("NodeRegistry de automatizaciones", () => {
   const registry = createDefaultNodeRegistry();
 
+  it("requires explicit removal scope and validates negative comparison inputs", () => {
+    expect(registry.validate("remove-headers", { mode: "selected", names: "  " }).ok).toBe(false);
+    expect(registry.validate("remove-headers", { mode: "all" }).ok).toBe(true);
+    expect(registry.validate("remove-storage", { mode: "selected", names: "one\ntwo", scope: "session" }).ok).toBe(true);
+    expect(registry.validate("remove-storage", { mode: "all", scope: "wrong" }).ok).toBe(false);
+    expect(registry.validate("remove-cookies", { mode: "selected", names: "token", domain: "https://test.local", path: "/" }).ok).toBe(false);
+    for (const [operator, expected] of [["not-matches", "["], ["json-not-equals", "invalid"]]) {
+      expect(registry.validate("validate-data", { source: "cookie", key: "token", pathPreset: "value", operator, expected }).ok).toBe(false);
+    }
+    expect(registry.validate("assertion", { kind: "text-not-contains", selector: "", expected: "x" }).ok).toBe(false);
+    expect(registry.validate("assertion", { kind: "response-status-not-equals", expected: "999" }).ok).toBe(false);
+  });
+
   it("registra todos los nodos iniciales con metadatos para paleta e inspector", () => {
     expect(registry.descriptors().map(({ type }) => type)).toEqual(AUTOMATION_NODE_TYPES);
     expect(registry.descriptors().every(({ title, category, inspectorFields }) => title !== "" && category !== "" && Array.isArray(inspectorFields))).toBe(true);

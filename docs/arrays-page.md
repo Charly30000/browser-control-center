@@ -18,7 +18,7 @@ El botón **Probar** valida y utiliza el JSON que se encuentra actualmente en el
 
 ## Persistencia y acciones
 
-El interruptor **Guardado automático** aparece arriba del todo, antes del título. Está activado por defecto y guarda el array actual tras **5 segundos sin actividad**, reiniciando la espera con cada interacción. No guarda contenido JSON inválido ni ejecuta Probar. Conserva las ediciones realizadas mientras se guarda; un fallo mantiene el borrador. Se pausa mientras se edita Ver JSON o se decide si guardar los cambios antes de cambiar de recurso.
+El interruptor **Auto-save** aparece arriba del todo, antes del título. Está activado por defecto y guarda el array actual tras **5 segundos sin interactuar con controles**. Escribir, pulsar botones o arrastrar reinicia la espera; mover el ratón o hacer scroll no la reinicia, y durante un arrastre se espera a que termine. No guarda contenido JSON inválido ni ejecuta Probar. Conserva las ediciones realizadas mientras se guarda; un fallo mantiene el borrador. Se pausa mientras se edita Ver JSON o se decide si guardar los cambios antes de cambiar de recurso.
 
 La preferencia de cada array se conserva en su JSON como `preferences: { "autoSaveEnabled": true }` o con `false`. Si falta, permanece activado; los archivos anteriores siguen siendo válidos. Al desactivarlo se cancela la espera pendiente y hay que pulsar Guardar para persistir esa desactivación.
 

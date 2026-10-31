@@ -3,7 +3,8 @@ import type { JsonValue } from "../../domain/manual/storageValue";
 import type { DataAssertionOperator, DataAssertionSource } from "../../domain/automations/dataAssertion";
 
 export type WaitKind = "fixed" | "random" | "element" | "url" | "navigation" | "response";
-export type AssertionKind = "exists" | "visible" | "text-equals" | "value-equals" | "url-equals" | "response-status";
+export type { AssertionKind } from "../../domain/automations/assertion";
+import type { AssertionKind } from "../../domain/automations/assertion";
 export type ExtractProperty = "value" | "textContent" | "innerText" | "attribute";
 export type BrowserUserAction = "continue" | "retry" | "stop" | "dismissed";
 
@@ -14,6 +15,9 @@ export interface AutomationBrowserSession {
   setHeaders(entries: readonly HeaderEntry[]): Promise<void>;
   setCookies(entries: readonly CookieEntry[]): Promise<void>;
   setStorage(scope: "local" | "session", entries: readonly StorageEntry[]): Promise<void>;
+  removeHeaders(names: readonly string[] | null): Promise<void>;
+  removeCookies(names: readonly string[] | null, domain: string, path: string): Promise<void>;
+  removeStorage(scope: "local" | "session", names: readonly string[] | null): Promise<void>;
   setRequestOverrides(entries: readonly RequestOverrideEntry[]): Promise<void>;
   wait(kind: WaitKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void | JsonValue>;
   assert(kind: AssertionKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void>;

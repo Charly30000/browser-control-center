@@ -7,7 +7,7 @@ import type { JsonValue } from "../../domain/manual/storageValue";
 export interface InspectorField {
   readonly key: string;
   readonly label: string;
-  readonly kind: "text" | "number" | "select" | "textarea" | "json" | "checkbox" | "resource";
+  readonly kind: "text" | "number" | "select" | "textarea" | "json" | "checkbox" | "resource" | "name-list";
   readonly options?: readonly { readonly value: string; readonly label: string }[];
   readonly visibleWhen?: { readonly key: string; readonly values: readonly string[] };
 }

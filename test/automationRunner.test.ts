@@ -22,6 +22,9 @@ class FakeSession implements AutomationBrowserSession {
   public setHeaders(_entries: readonly HeaderEntry[]): Promise<void> { return Promise.resolve(); }
   public setCookies(_entries: readonly CookieEntry[]): Promise<void> { return Promise.resolve(); }
   public setStorage(_scope: "local" | "session", _entries: readonly StorageEntry[]): Promise<void> { return Promise.resolve(); }
+  public removeHeaders(_names: readonly string[] | null): Promise<void> { return Promise.resolve(); }
+  public removeCookies(_names: readonly string[] | null, _domain: string, _path: string): Promise<void> { return Promise.resolve(); }
+  public removeStorage(_scope: "local" | "session", _names: readonly string[] | null): Promise<void> { return Promise.resolve(); }
   public setRequestOverrides(_entries: readonly RequestOverrideEntry[]): Promise<void> { return Promise.resolve(); }
   public wait(_kind: WaitKind, _options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void | JsonValue> { return Promise.resolve(); }
   public assert(_kind: AssertionKind, _options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void> { return Promise.resolve(); }

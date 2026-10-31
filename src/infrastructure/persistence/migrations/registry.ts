@@ -26,5 +26,9 @@ export const persistedSchemas = {
   },
   formulas: { name: t("navigation.formulas"), firstVersion: 1, currentVersion: FORMULA_SCHEMA_VERSION, migrations: [] },
   arrays: { name: t("navigation.arrays"), firstVersion: 1, currentVersion: ARRAY_RESOURCE_SCHEMA_VERSION, migrations: [] },
-  automations: { name: t("navigation.automations"), firstVersion: 1, currentVersion: AUTOMATION_SCHEMA_VERSION, migrations: [] }
+  automations: {
+    name: t("navigation.automations"), firstVersion: 1, currentVersion: AUTOMATION_SCHEMA_VERSION,
+    // Version 2 adds node types and comparison operators; existing node configurations retain their meaning.
+    migrations: [{ fromVersion: 1, toVersion: 2, migrate: (value) => ({ ...value, schemaVersion: 2 }) }]
+  }
 } satisfies Record<string, VersionedSchema>;

@@ -12,6 +12,7 @@ import { renderRequestOverrideEditor } from "../../../components/requestOverride
 import { renderCookieEditor, renderHeaderEditor, renderQueryParamEditor, renderStorageEditor } from "../../../components/sessionDataEditors";
 import type { ConfirmDestructiveAction } from "../../../components/confirmDestructiveAction";
 import { renderDataValidationInspector } from "./DataValidationInspector";
+import "../../../components/nameListEditor";
 
 const valueFrom = (event: Event): string => { const target = event.currentTarget; return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement ? target.value : ""; };
 
@@ -107,6 +108,9 @@ export const renderNodeInspector = (
         if (typeof dependency !== "string" || !item.visibleWhen.values.includes(dependency)) return nothing;
       }
       const value = field(item.key);
+      if (item.kind === "name-list") return html`<name-list-editor class="wide" .identity=${node.id + ":" + item.key} .label=${item.label}
+        .value=${typeof value === "string" ? value : ""} .confirmDeletion=${confirmDeletion}
+        .onValueChange=${(serialized: string) => update((draft) => { draft.config[item.key] = serialized; })}></name-list-editor>`;
       if (item.kind === "select") { const selected = typeof value === "string" ? value : ""; return html`<label><span>${item.label}</span><select .value=${live(selected)} @change=${(event: Event) => update((draft) => { const next = valueFrom(event); if (draft.type === "fill" && item.key === "mode" && next === "sequential" && draft.config.mode !== "sequential" && draft.config.delayMs === 0) draft.config.delayMs = DEFAULT_SEQUENTIAL_DELAY_MS; draft.config[item.key] = next; if (item.key === "generatorType") draft.config.resourceId = null; })}>${item.options?.map((option) => html`<option value=${option.value} .selected=${option.value === selected}>${option.label}</option>`)}</select></label>`; }
       if (item.kind === "textarea") return html`<label class="wide"><span>${item.label}</span><textarea rows="4" .value=${live(typeof value === "string" ? value : "")} @input=${(event: Event) => update((draft) => { draft.config[item.key] = valueFrom(event); })}></textarea></label>`;
       if (item.kind === "json") return html`<label class="wide"><span>${item.label}</span><textarea rows="4" .value=${live(JSON.stringify(value, null, 2) ?? "")} @change=${(event: Event) => update((draft) => { try { const parsed: unknown = JSON.parse(valueFrom(event)); if (parsed === null || typeof parsed === "string" || typeof parsed === "boolean" || typeof parsed === "number" || Array.isArray(parsed) || typeof parsed === "object") draft.config[item.key] = parsed as JsonValue; } catch { /* El documento conserva el último JSON válido. */ } })}></textarea></label>`;

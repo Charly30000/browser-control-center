@@ -16,6 +16,8 @@ Manual, Fórmulas, Arrays y Automatizaciones comparten un envelope JSON:
 
 `format` impide importar un tipo de archivo en otra pantalla. `schemaVersion` versiona el contrato exterior; `extensionVersion` deja trazabilidad de la versión que lo generó; y cada entidad dentro de `data` conserva además su propia versión de esquema. Un cambio incompatible del envelope requiere incrementar `IMPORT_EXPORT_SCHEMA_VERSION` y definir explícitamente su migración.
 
+El ejemplo anterior conserva una versión histórica de publicación. Las exportaciones nuevas toman la versión actual de `package.json` a través de `CURRENT_EXTENSION_VERSION` en `src/shared/extensionVersion.ts`; véase [Release](../release.md#versión-centralizada).
+
 La implementación se divide en tres carpetas:
 
 - `src/domain/importExport`: contrato puro y versiones;

@@ -60,6 +60,8 @@ Todo cambio funcional, de contrato, persistencia, navegador, seguridad, UI o rel
 
 - las pruebas unitarias o de integración afectadas;
 - la guía funcional correspondiente en `docs`;
+- la documentación copiable para IA y sus ejemplos cuando cambien opciones, pasos, valores predeterminados o JSON aceptado; consulta [su guía de mantenimiento](ai-documentation.md#mantenimiento-de-la-documentación);
+- el README solo cuando cambien de forma importante su presentación, funciones principales, instalación, primeros pasos o enlaces, o alguna afirmación deje de ser correcta; mantén coherentes sus secciones inglesa y española. Su objetivo es presentar la aplicación y favorecer su adopción; los detalles de uso se actualizan en `docs` y en la documentación para IA;
 - `architecture.md` o un ADR cuando cambien límites entre capas;
 - `CHANGELOG.md` cuando el cambio sea visible para el usuario;
 - `release.md` cuando afecte al paquete o al Marketplace.

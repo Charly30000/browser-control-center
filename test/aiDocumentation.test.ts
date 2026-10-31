@@ -5,7 +5,7 @@ import { parseArrayContent } from "../src/domain/arrays/arrayValidation";
 import { validateAutomationDocument } from "../src/domain/automations/automationValidation";
 import { AUTOMATION_NODE_TYPES } from "../src/domain/automations/automation";
 import { validateFormula } from "../src/domain/formulas/formulaValidation";
-import { CURRENT_EXTENSION_VERSION } from "../src/domain/importExport/importExportDocument";
+import { CURRENT_EXTENSION_VERSION } from "../src/shared/extensionVersion";
 import { isArrayResource } from "../src/infrastructure/persistence/arrayResourceSerializer";
 import { isAutomationDocument } from "../src/infrastructure/persistence/automationSerializer";
 import { isFormulaResource } from "../src/infrastructure/persistence/formulaSerializer";

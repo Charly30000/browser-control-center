@@ -11,6 +11,7 @@ import type { PlaywrightRuntimeProvider } from "../browser/playwrightRuntime";
 import { RequestOverrideRouter } from "../browser/requestOverrideRouter";
 import { toCookieParams, toHeaderRecord, toStorageValues } from "../browser/browserValueMapping";
 import { readDataPath, validateDataValue, type DataAssertionOperator, type DataAssertionSource } from "../../domain/automations/dataAssertion";
+import { ASSERTION_COMPARISONS } from "../../domain/automations/assertion";
 
 const textValue = (value: JsonValue): string => typeof value === "string" ? value : JSON.stringify(value);
 const optionText = (options: Readonly<Record<string, JsonValue>>, key: string, fallback = ""): string => typeof options[key] === "string" ? options[key] : fallback;
@@ -36,7 +37,8 @@ export class PlaywrightAutomationSessionFactory implements AutomationBrowserSess
   }
 }
 
-class PlaywrightAutomationSession implements AutomationBrowserSession {
+export class PlaywrightAutomationSession implements AutomationBrowserSession {
+  private headers: Record<string, string> = {};
   private lastResponseStatus: number | null = null;
   private readonly observedRequests: Array<{ readonly url: string; readonly method: string; readonly headers: Record<string, string>; readonly body: string | null }> = [];
   private readonly observedResponses: Array<{ readonly response: Response; readonly url: string; readonly status: number; readonly headers: Record<string, string> }> = [];
@@ -44,7 +46,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
   private readonly promptBindingName = `__browserControl_${randomUUID().replace(/-/g, "")}`;
   private activePromptMessage: string | null = null;
   private promptResolver: ((action: BrowserUserAction) => void) | null = null;
-  public constructor(private readonly lifecycle: BrowserLifecycleManager, private readonly context: BrowserContext, private readonly page: Page, private readonly router: RequestOverrideRouter, private readonly viewportSize: { readonly width: number; readonly height: number }, private readonly logger: Logger) {
+  public constructor(private readonly lifecycle: Pick<BrowserLifecycleManager, "stop">, private readonly context: BrowserContext, private readonly page: Page, private readonly router: RequestOverrideRouter, private readonly viewportSize: { readonly width: number; readonly height: number }, private readonly logger: Logger) {
     page.on("request", (request) => {
       this.remember(this.observedRequests, { url: request.url(), method: request.method(), headers: request.headers(), body: request.postData() });
     });
@@ -71,7 +73,28 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
     if (mode === "sequential") { await locator.fill("", { timeout: timeoutMs }); await locator.pressSequentially(valueText, { delay: delayMs, timeout: timeoutMs }); }
     else await locator.fill(valueText, { timeout: timeoutMs });
   }
-  public async setHeaders(entries: readonly HeaderEntry[]): Promise<void> { await this.context.setExtraHTTPHeaders(toHeaderRecord(entries)); }
+  public async setHeaders(entries: readonly HeaderEntry[]): Promise<void> {
+    const headers = toHeaderRecord(entries);
+    await this.context.setExtraHTTPHeaders(headers);
+    this.headers = headers;
+  }
+  public async removeHeaders(names: readonly string[] | null): Promise<void> {
+    const removed = new Set(names?.map((name) => name.toLowerCase()));
+    const headers = names === null ? {} : Object.fromEntries(Object.entries(this.headers).filter(([name]) => !removed.has(name.toLowerCase())));
+    await this.context.setExtraHTTPHeaders(headers);
+    this.headers = headers;
+  }
+  public async removeCookies(names: readonly string[] | null, domain: string, path: string): Promise<void> {
+    if (names === null) { await this.context.clearCookies(); return; }
+    for (const name of names) await this.context.clearCookies({ name, ...(domain === "" ? {} : { domain }), ...(path === "" ? {} : { path }) });
+  }
+  public async removeStorage(scope: "local" | "session", names: readonly string[] | null): Promise<void> {
+    await this.page.evaluate(({ scope, names }) => {
+      const storage = scope === "local" ? localStorage : sessionStorage;
+      if (names === null) storage.clear();
+      else for (const name of names) storage.removeItem(name);
+    }, { scope, names });
+  }
   public async setCookies(entries: readonly CookieEntry[]): Promise<void> {
     const url = this.page.url();
     if (url === "about:blank" && entries.some(({ enabled, domain }) => enabled && domain.trim() === "")) throw new Error(t("text.navigateFirstOrSpecifyTheCookieDomain"));
@@ -104,21 +127,26 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
     }
   }
   public async assert(kind: AssertionKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void> {
-    const selector = optionText(options, "selector"); const expected = optionText(options, "expected"); const locator = this.page.locator(selector).first();
-    switch (kind) {
-      case "exists": if (await locator.count() === 0) throw new Error(t("text.noElementExistsForArg0", { arg0: selector })); return;
-      case "visible": await locator.waitFor({ state: "visible", timeout: timeoutMs }); return;
-      case "text-equals": {
-        const actual = (await locator.textContent({ timeout: timeoutMs })) ?? "";
-        if (actual !== expected) {
-          const diagnostics = await this.viewportDiagnostics();
-          throw new Error(t("text.expectedTextArg0ReceivedArg1Arg2", { arg0: expected, arg1: actual, arg2: this.formatViewportDiagnostics(diagnostics) }));
-        }
-        return;
-      }
-      case "value-equals": { const actual = await locator.inputValue({ timeout: timeoutMs }); if (actual !== expected) throw new Error(t("text.expectedValueArg0ReceivedArg1", { arg0: expected, arg1: actual })); return; }
-      case "url-equals": if (this.page.url() !== expected) throw new Error(t("text.expectedURLArg0ReceivedArg1", { arg0: expected, arg1: this.page.url() })); return;
-      case "response-status": { const status = Number(expected); if (this.lastResponseStatus !== status) throw new Error(t("text.expectedStatusArg0ReceivedArg1", { arg0: status, arg1: this.lastResponseStatus ?? t("labels.none") })); return; }
+    const selector = optionText(options, "selector");
+    const locator = this.page.locator(selector).first();
+    if (kind === "exists" || kind === "not-exists") {
+      const exists = await locator.count() > 0;
+      if (exists !== (kind === "exists")) throw new Error(t("validation.elementExistence", { selector, kind }));
+      return;
+    }
+    if (kind === "visible" || kind === "not-visible") {
+      await locator.waitFor({ state: kind === "visible" ? "visible" : "hidden", timeout: timeoutMs });
+      return;
+    }
+    const { target, operator } = ASSERTION_COMPARISONS[kind];
+    const actual = target === "text" ? (await locator.textContent({ timeout: timeoutMs })) ?? ""
+      : target === "value" ? await locator.inputValue({ timeout: timeoutMs })
+      : target === "url" ? this.page.url() : this.lastResponseStatus;
+    const expected = target === "status" ? String(Number(optionText(options, "expected"))) : optionText(options, "expected");
+    const result = validateDataValue(actual, operator, expected, target === "text" || target === "value" ? selector : target);
+    if (!result.ok) {
+      const diagnostics = target === "text" ? this.formatViewportDiagnostics(await this.viewportDiagnostics()) : "";
+      throw new Error(`${result.error} ${diagnostics}`.trim());
     }
   }
   public async assertData(source: DataAssertionSource, operator: DataAssertionOperator, options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void> {

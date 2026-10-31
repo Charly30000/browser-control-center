@@ -16,6 +16,18 @@ Utiliza **Force stop**. El cierre normal dispone de timeout y debería caer auto
 
 Comprueba que sea UTF-8, corresponda al área correcta, no supere 100 MiB y conserve los campos del envelope. Un archivo de otra pantalla se rechaza expresamente.
 
+Los formatos antiguos compatibles se convierten automáticamente. Si el aviso indica una versión más nueva que la admitida, actualiza la extensión. No reduzcas `schemaVersion` ni sustituyas un documento por uno vacío para ocultar el error. Conserva el original y comparte el mensaje del aviso; una lectura o migración fallida no sobrescribe el archivo guardado.
+
+## Un perfil, fórmula o array ya no aparece
+
+Los selectores muestran solo elementos cuyos archivos guardados existen. Un borrador nuevo no es un recurso guardado hasta pulsar **Save** o completar un guardado automático tras editarlo. Si falta un archivo, importa una copia de seguridad y revisa las referencias de los campos que lo utilizaban.
+
+Si falta todo el catálogo, comprueba que estás usando el mismo perfil de usuario de VS Code y la misma extensión instalada desde Marketplace. Los datos pertenecen a esa instalación; cambiar de publisher o de perfil de VS Code puede mostrar otro almacenamiento. No borres las carpetas anteriores: usa los archivos conservados o una exportación para recuperar la configuración. Véase [Perfiles](profiles.md).
+
+## No sé qué navegador está seleccionado
+
+Abre **Manage browser** y consulta **Active browser**. Su valor refleja la selección guardada. **Verify selected** comprueba su disponibilidad. Cambiarlo cierra la sesión actual de Manual y las sesiones nuevas usan el proveedor elegido; guarda la configuración antes de cambiar.
+
 ## Una fórmula no termina
 
 El proceso aislado se elimina al alcanzar dos segundos. Revisa loops, promesas que no resuelven y excepciones en el panel **Salida → Browser Automation**.

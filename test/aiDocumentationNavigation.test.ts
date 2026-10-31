@@ -22,7 +22,6 @@ describe("navegación a Documentación para IA", () => {
     expect(isSidebarToExtensionMessage({ type: "sidebar.openPage", pageId: "aiDocumentation" })).toBe(true);
     expect(isSidebarToExtensionMessage({ type: "sidebar.openPage", pageId: "unknown" })).toBe(false);
     expect(manifest.contributes.commands.some(({ command }) => command === "browserControl.openAiDocumentation")).toBe(true);
-    expect(manifest.activationEvents).toContain("onCommand:browserControl.openAiDocumentation");
   });
 
   it("el mensaje del botón abre la página correcta y reutiliza su panel", () => {

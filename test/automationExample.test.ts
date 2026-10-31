@@ -4,15 +4,27 @@ import { AUTOMATION_NODE_TYPES } from "../src/domain/automations/automation";
 import { validateAutomationProcess } from "../src/domain/automations/automationValidation";
 import { AUTOMATION_EXAMPLE_URL, createCompleteAutomationExample, repairCompleteAutomationExamples } from "../src/domain/automations/exampleAutomation";
 import { createAutomationDocument } from "../src/domain/automations/automation";
+import { ASSERTION_KINDS } from "../src/domain/automations/assertion";
+import { DATA_ASSERTION_OPERATORS } from "../src/domain/automations/dataAssertion";
 
 describe("ejemplo completo de automatizaciones", () => {
+  it("covers all removal modes, assertion kinds and data operators in accessible examples", () => {
+    let sequence = 0;
+    const group = createCompleteAutomationExample(() => `example-${++sequence}`);
+    const nodes = group.processes.flatMap(({ nodes }) => nodes);
+    for (const type of ["remove-headers", "remove-cookies", "remove-storage"] as const) {
+      expect(new Set(nodes.filter((node) => node.type === type).map(({ config }) => config.mode))).toEqual(new Set(["selected", "all"]));
+    }
+    expect(new Set(nodes.filter(({ type }) => type === "assertion").map(({ config }) => config.kind))).toEqual(new Set(ASSERTION_KINDS));
+    expect(new Set(nodes.filter(({ type }) => type === "validate-data").map(({ config }) => config.operator))).toEqual(new Set(DATA_ASSERTION_OPERATORS));
+  });
   it("crea un proceso válido por tipo y termina con todos concatenados", () => {
     let sequence = 0;
     const group = createCompleteAutomationExample(() => `example-${sequence += 1}`);
     const dedicatedTypes = ["request-override", "navigate", "click", "fill", "fill", "set-headers", "set-cookies", "set-storage", "wait", "assertion", "validate-data", "extract-value", "set-variable", "wait-user", "capture-value"] as const;
     const concatenated = group.processes.at(-1);
 
-    expect(group.processes).toHaveLength(dedicatedTypes.length + 3);
+    expect(group.processes).toHaveLength(dedicatedTypes.length + 7);
     expect(group.processes[0]?.viewport).toMatchObject({ preset: "custom", width: 390, height: 844, hasTouch: true, isMobile: true });
     expect(group.processes[1]?.variables).toEqual({ initialName: "Ada", expectedGreeting: "Hello, Ada" });
     dedicatedTypes.forEach((type, index) => expect(group.processes[index + 2]?.nodes.some((node) => node.type === type)).toBe(true));
