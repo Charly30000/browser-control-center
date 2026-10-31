@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { AutomationGroup, AutomationProcess } from "../../domain/automations/automation";
 import type { GroupExecutionSummary, ProcessExecutionSnapshot } from "../../domain/automations/executionState";
 import type { Logger } from "../logging/logger";
@@ -18,7 +19,7 @@ export class AutomationExecutionCoordinator {
   public isRunning(): boolean { return this.active !== null; }
 
   public runProcess(group: AutomationGroup, process: AutomationProcess): Promise<void> {
-    if (this.active !== null) throw new Error("Ya hay una automatización en ejecución.");
+    if (this.active !== null) throw new Error(t("text.anAutomationIsAlreadyRunning"));
     const control = new ExecutionControl();
     const completion = this.runner.run(group.name, process, control, (snapshot) => this.forwardSnapshot(snapshot)).then(() => undefined).finally(() => { this.active = null; });
     this.active = { processId: process.id, control, completion, lastSnapshot: null };
@@ -26,7 +27,7 @@ export class AutomationExecutionCoordinator {
   }
 
   public runGroup(group: AutomationGroup): Promise<void> {
-    if (this.active !== null) throw new Error("Ya hay una automatización en ejecución.");
+    if (this.active !== null) throw new Error(t("text.anAutomationIsAlreadyRunning"));
     const control = new ExecutionControl();
     const completion = this.performGroup(group, control).finally(() => { this.active = null; });
     this.active = { processId: group.processes[0]?.id ?? "", control, completion, lastSnapshot: null };
@@ -51,7 +52,7 @@ export class AutomationExecutionCoordinator {
     const startedAt = Date.now();
     const prefix = `[${group.name}]`;
     const summary = (runningProcessId: string | null, stopped: boolean): GroupExecutionSummary => ({ groupId: group.id, total: group.processes.length, completed, failed, runningProcessId, stopped });
-    this.logger.info(`${prefix} [INICIO] Grupo iniciado (${group.processes.length} procesos).`);
+    this.logger.info(t("text.arg0STARTGroupStartedArg1Processes", { arg0: prefix, arg1: group.processes.length }));
     this.listener.onGroup(summary(null, false));
     try {
       for (const process of group.processes) {
@@ -62,20 +63,20 @@ export class AutomationExecutionCoordinator {
         this.listener.onGroup(summary(null, false));
       }
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "La ejecución del grupo ha fallado.";
-      this.logger.error(`${prefix} [ERROR] El grupo se interrumpió: ${message}`, error);
+      const message = error instanceof Error ? error.message : t("text.groupExecutionFailed");
+      this.logger.error(t("text.arg0ERRORGroupInterruptedArg1", { arg0: prefix, arg1: message }), error);
       throw error;
     }
     this.listener.onGroup(summary(null, control.signal.aborted));
     const elapsed = Date.now() - startedAt;
     const duration = elapsed < 1_000 ? `${elapsed} ms` : `${(elapsed / 1_000).toFixed(2)} s`;
-    if (control.signal.aborted) this.logger.warn(`${prefix} [CANCELADO] Grupo detenido tras ${completed}/${group.processes.length} procesos (${duration}).`);
-    else if (failed > 0) this.logger.error(`${prefix} [ERROR] Grupo completado con ${failed} proceso(s) fallido(s) de ${completed} (${duration}).`);
-    else this.logger.info(`${prefix} [OK] Grupo completado correctamente: ${completed}/${group.processes.length} procesos (${duration}).`);
+    if (control.signal.aborted) this.logger.warn(t("text.arg0CANCELLEDGroupStoppedAfterArg1Arg2ProcessesArg3", { arg0: prefix, arg1: completed, arg2: group.processes.length, arg3: duration }));
+    else if (failed > 0) this.logger.error(t("text.arg0ERRORGroupCompletedWithArg1FailedProcessEsOutOfArg2Arg3", { arg0: prefix, arg1: failed, arg2: completed, arg3: duration }));
+    else this.logger.info(t("text.arg0OKGroupCompletedSuccessfullyArg1Arg2ProcessesArg3", { arg0: prefix, arg1: completed, arg2: group.processes.length, arg3: duration }));
   }
 
   private requireActive(): ActiveExecution {
-    if (this.active === null) throw new Error("No hay una automatización en ejecución.");
+    if (this.active === null) throw new Error(t("text.noAutomationIsRunning"));
     return this.active;
   }
 

@@ -7,8 +7,9 @@ const configDirectory = dirname(fileURLToPath(import.meta.url));
 export default tseslint.config(
   { ignores: ["dist/**", "node_modules/**"] },
   ...tseslint.configs.recommendedTypeChecked,
+  { ...tseslint.configs.disableTypeChecked, files: ["src/localization/**/*.mjs"] },
   {
-    files: ["src/**/*.ts", "test/**/*.ts"],
+    files: ["src/**/*.{ts,mts}", "test/**/*.ts"],
     languageOptions: {
       parserOptions: {
         projectService: true,

@@ -1,9 +1,10 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import type { ArrayResourceService } from "../../application/arrays/arrayResourceService";
 import { ImportExportDocumentService, decodeResourceCollection } from "../../application/importExport/importExportDocumentService";
 import type { ArrayResource } from "../../domain/arrays/arrayResource";
 import { ArrayValueGenerator } from "../../domain/arrays/arrayValueGenerator";
-import { isArrayResource } from "../../infrastructure/persistence/arrayResourceSerializer";
+import { isArrayResource, arrayResourceCodec } from "../../infrastructure/persistence/arrayResourceSerializer";
 import { isArrayToExtensionMessage, type ArrayToExtensionMessage, type ExtensionToArrayMessage } from "../../shared/messages/arrayMessages";
 import { createWebviewHtml } from "../webview/createWebviewHtml";
 import { JsonImportExportFileService } from "../importExport/jsonImportExportFileService";
@@ -11,7 +12,7 @@ import { JsonImportExportFileService } from "../importExport/jsonImportExportFil
 export class ArraysPanelManager implements vscode.Disposable {
   private panel: vscode.WebviewPanel | null = null;
   private readonly disposables: vscode.Disposable[] = [];
-  private readonly documents = new ImportExportDocumentService("browser-control-center/arrays", decodeResourceCollection(isArrayResource, "arrays"));
+  private readonly documents = new ImportExportDocumentService("browser-control-center/arrays", decodeResourceCollection(isArrayResource, "arrays", arrayResourceCodec));
   private readonly files = new JsonImportExportFileService();
   private readonly generator = new ArrayValueGenerator();
 
@@ -23,15 +24,15 @@ export class ArraysPanelManager implements vscode.Disposable {
 
   public open(): void {
     if (this.panel !== null) { this.panel.reveal(vscode.ViewColumn.One); return; }
-    const panel = vscode.window.createWebviewPanel("browserControl.arrays", "Arrays", vscode.ViewColumn.One, {
+    const panel = vscode.window.createWebviewPanel("browserControl.arrays", t("navigation.arrays"), vscode.ViewColumn.One, {
       enableScripts: true,
       retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")]
     });
     this.panel = panel;
-    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "arrays", "Arrays");
+    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "arrays", t("navigation.arrays"));
     const messageSubscription = panel.webview.onDidReceiveMessage((message: unknown) => {
-      if (!isArrayToExtensionMessage(message)) { void this.notice("error", "Mensaje de Arrays no válido."); return; }
+      if (!isArrayToExtensionMessage(message)) { void this.notice("error", t("text.invalidArraysMessage")); return; }
       void this.handle(message);
     });
     panel.onDidDispose(() => { messageSubscription.dispose(); this.panel = null; });
@@ -39,19 +40,19 @@ export class ArraysPanelManager implements vscode.Disposable {
 
   public dispose(): void { this.panel?.dispose(); for (const disposable of this.disposables) disposable.dispose(); }
   public async refreshResourceCatalogs(): Promise<void> {
-    if (this.panel !== null) await this.post({ type: "array.resources", resources: this.service.getSummaries() });
+    if (this.panel !== null) await this.post({ type: "array.resources", resources: await this.service.getSummaries() });
   }
 
   private async handle(message: ArrayToExtensionMessage): Promise<void> {
     try {
       switch (message.type) {
         case "array.ready": await this.state(await this.service.getInitialState()); break;
-        case "array.new": await this.state(this.service.createDraft()); break;
+        case "array.new": await this.service.refreshCatalog(); await this.state(this.service.createDraft()); break;
         case "array.select": await this.state(await this.service.select(message.id)); break;
         case "array.save":
           await this.state(await this.service.save(message.resource), message.requestId);
           this.onResourcesChanged();
-          await this.notice("success", "Array guardado.");
+          await this.notice("success", t("text.arraySaved"));
           break;
         case "array.deleteSelected": await this.deleteSelected(message.ids); break;
         case "array.import": await this.importResources(); break;
@@ -60,60 +61,60 @@ export class ArraysPanelManager implements vscode.Disposable {
         case "array.applyJson": {
           const parsed = this.documents.deserialize(message.serialized);
           if (!parsed.ok) throw new Error(parsed.error);
-          if (parsed.value.data.length !== 1) throw new Error("El documento debe contener exactamente un array.");
+          if (parsed.value.data.length !== 1) throw new Error(t("text.theDocumentMustContainExactlyOneArray"));
           const resource = parsed.value.data[0];
-          if (resource === undefined) throw new Error("El documento no contiene ningún array.");
-          if (resource.id !== message.currentId) throw new Error("El ID del array no se puede cambiar desde el editor JSON.");
+          if (resource === undefined) throw new Error(t("text.theDocumentDoesNotContainAnyArrays"));
+          if (resource.id !== message.currentId) throw new Error(t("text.theArrayIDCannotBeChangedInTheJSONEditor"));
           await this.post({ type: "array.jsonApplied", resource });
-          await this.notice("success", "JSON validado y cargado como cambios sin guardar.");
+          await this.notice("success", t("text.jsonValidatedAndLoadedAsUnsavedChanges"));
           break;
         }
         case "array.test": {
           const value = this.generator.pick(message.resource.items);
           if (value === undefined) {
-            await this.notice("warning", "Sin resultado: el array está vacío.");
+            await this.notice("warning", t("text.noResultTheArrayIsEmpty"));
             break;
           }
           const valueType = value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
-          await this.notice("success", `Resultado (${valueType}): ${JSON.stringify(value)}`);
+          await this.notice("success", t("text.resultArg0Arg1", { arg0: valueType, arg1: JSON.stringify(value) }));
           break;
         }
       }
     } catch (error: unknown) {
       if (message.type === "array.save" && message.requestId !== undefined) {
-        await this.post({ type: "array.saveFailed", requestId: message.requestId, error: error instanceof Error ? error.message : "No se pudo guardar." });
+        await this.post({ type: "array.saveFailed", requestId: message.requestId, error: error instanceof Error ? error.message : t("text.couldNotSave") });
       }
-      await this.notice("error", error instanceof Error ? error.message : "Error inesperado en Arrays.");
+      await this.notice("error", error instanceof Error ? error.message : t("text.unexpectedErrorInArrays"));
     }
   }
 
   private async deleteSelected(ids: readonly string[]): Promise<void> {
-    if (ids.length === 0) { await this.post({ type: "array.operationCanceled" }); await this.notice("info", "Selecciona al menos un array."); return; }
+    if (ids.length === 0) { await this.post({ type: "array.operationCanceled" }); await this.notice("info", t("text.selectAtLeastOneArray")); return; }
     const answer = await vscode.window.showWarningMessage(
-      `¿Eliminar ${ids.length === 1 ? "el array seleccionado" : `los ${ids.length} arrays seleccionados`}?`,
-      { modal: true, detail: "Las referencias desde Manual quedarán marcadas como no disponibles." },
-      "Eliminar"
+      t("text.deleteArg0", { arg0: ids.length === 1 ? t("text.theSelectedArray") : t("text.theArg0SelectedArrays", { arg0: ids.length }) }),
+      { modal: true, detail: t("text.referencesFromManualWillBeMarkedAsUnavailable") },
+      t("actions.delete")
     );
-    if (answer !== "Eliminar") { await this.post({ type: "array.operationCanceled" }); return; }
+    if (answer !== t("actions.delete")) { await this.post({ type: "array.operationCanceled" }); return; }
     await this.state(await this.service.deleteSelected(ids));
     this.onResourcesChanged();
-    await this.notice("success", "Arrays eliminados.");
+    await this.notice("success", t("text.arraysDeleted"));
   }
 
   private async importResources(): Promise<void> {
-    const contents = await this.files.read({ filterName: "Documento de arrays", openLabel: "Importar arrays" });
+    const contents = await this.files.read({ filterName: t("text.arraysDocument"), openLabel: t("text.importArrays") });
     if (contents === null) { await this.post({ type: "array.operationCanceled" }); return; }
     const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) { await this.notice("error", parsed.error); return; }
     await this.state(await this.service.importMany(parsed.value.data));
     this.onResourcesChanged();
-    await this.notice("success", "Arrays importados.");
+    await this.notice("success", t("text.arraysImported"));
   }
 
   private async exportResource(resource: ArrayResource): Promise<void> {
-    const exported = await this.files.write(this.documents.serialize([resource]), { suggestedName: resource.name, suffix: ".arrays.json", filterName: "Documento de arrays", saveLabel: "Exportar array" });
+    const exported = await this.files.write(this.documents.serialize([resource]), { suggestedName: resource.name, suffix: ".arrays.json", filterName: t("text.arraysDocument"), saveLabel: t("text.exportArray") });
     if (!exported) return;
-    await this.notice("success", "Array exportado.");
+    await this.notice("success", t("text.arrayExported"));
   }
 
   private async state(state: Awaited<ReturnType<ArrayResourceService["getInitialState"]>>, requestId?: string): Promise<void> {

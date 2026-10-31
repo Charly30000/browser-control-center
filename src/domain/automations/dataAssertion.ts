@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { failure, success, type Result } from "../../shared/result";
 
 export const DATA_ASSERTION_SOURCES = ["request", "response", "cookie", "localStorage", "sessionStorage"] as const;
@@ -54,28 +55,28 @@ export const readDataPath = (value: unknown, path: string): unknown => {
 
 export const validateDataValue = (actual: unknown, operator: DataAssertionOperator, expected: string, label: string): Result<void> => {
   const exists = actual !== undefined && actual !== null;
-  if (operator === "exists") return exists ? success(undefined) : failure(`No existe ${label}.`);
-  if (operator === "not-exists") return exists ? failure(`Se esperaba que ${label} no existiera, pero contiene ${asText(actual)}.`) : success(undefined);
-  if (!exists) return failure(`No existe ${label}; no se puede aplicar el operador ${operator}.`);
+  if (operator === "exists") return exists ? success(undefined) : failure(t("text.arg0DoesNotExist", { arg0: label }));
+  if (operator === "not-exists") return exists ? failure(t("text.expectedArg0NotToExistButItContainsArg1", { arg0: label, arg1: asText(actual) })) : success(undefined);
+  if (!exists) return failure(t("text.arg0DoesNotExistCannotApplyOperatorArg1", { arg0: label, arg1: operator }));
 
   const actualText = asText(actual);
   switch (operator) {
-    case "equals": return actualText === expected ? success(undefined) : failure(`Valor esperado «${expected}», recibido «${actualText}» en ${label}.`);
-    case "not-equals": return actualText !== expected ? success(undefined) : failure(`El valor de ${label} no debía ser «${expected}».`);
-    case "contains": return actualText.includes(expected) ? success(undefined) : failure(`El valor de ${label} no contiene «${expected}».`);
+    case "equals": return actualText === expected ? success(undefined) : failure(t("text.expectedValueArg0ReceivedArg1AtArg2", { arg0: expected, arg1: actualText, arg2: label }));
+    case "not-equals": return actualText !== expected ? success(undefined) : failure(t("text.theValueAtArg0MustNotBeArg1", { arg0: label, arg1: expected }));
+    case "contains": return actualText.includes(expected) ? success(undefined) : failure(t("text.theValueAtArg0DoesNotContainArg1", { arg0: label, arg1: expected }));
     case "matches": {
-      try { return new RegExp(expected).test(actualText) ? success(undefined) : failure(`El valor de ${label} no coincide con /${expected}/.`); }
-      catch { return failure("La expresión regular esperada no es válida."); }
+      try { return new RegExp(expected).test(actualText) ? success(undefined) : failure(t("text.theValueAtArg0DoesNotMatchArg1", { arg0: label, arg1: expected })); }
+      catch { return failure(t("text.theExpectedRegularExpressionIsInvalid")); }
     }
     case "json-equals": {
       let expectedValue: unknown;
       try { expectedValue = JSON.parse(expected) as unknown; }
-      catch { return failure("El valor esperado debe ser JSON válido."); }
+      catch { return failure(t("text.theExpectedValueMustBeValidJSON")); }
       const actualValue = typeof actual === "string" ? parseJson(actual) : actual;
       return JSON.stringify(canonical(actualValue)) === JSON.stringify(canonical(expectedValue))
         ? success(undefined)
-        : failure(`El JSON recibido en ${label} no coincide con el esperado.`);
+        : failure(t("text.theJSONReceivedAtArg0DoesNotMatchTheExpectedValue", { arg0: label }));
     }
-    default: return failure("Operador de validación no soportado.");
+    default: return failure(t("text.unsupportedValidationOperator"));
   }
 };

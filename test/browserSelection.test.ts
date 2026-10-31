@@ -31,8 +31,8 @@ describe("BrowserSelectionService", () => {
       get: () => preferences,
       set: vi.fn((value: BrowserPreferences) => { preferences = value; return Promise.resolve(); })
     };
-    const managed = provider("managed-chromium", "Chromium administrado");
-    const chrome = provider("system-chrome", "Google Chrome instalado");
+    const managed = provider("managed-chromium", "Managed Chromium");
+    const chrome = provider("system-chrome", "Installed Google Chrome");
     const service = new BrowserSelectionService([managed, chrome], preferencesDao);
 
     expect((await service.resolveLaunchConfiguration()).providerId).toBe("managed-chromium");
@@ -47,8 +47,8 @@ describe("BrowserSelectionService", () => {
       get: () => ({ version: 1, selectedProviderId: "managed-chromium" }),
       set: () => Promise.resolve()
     };
-    const service = new BrowserSelectionService([provider("managed-chromium", "Chromium administrado")], preferencesDao);
+    const service = new BrowserSelectionService([provider("managed-chromium", "Managed Chromium")], preferencesDao);
 
-    await expect(service.select("unknown" as never)).rejects.toThrow("no está registrado");
+    await expect(service.select("unknown" as never)).rejects.toThrow("is not registered");
   });
 });

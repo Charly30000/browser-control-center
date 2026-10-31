@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { AutomationDocument, AutomationProcess } from "./automation";
 
 export type AutomationSelectionScope =
@@ -9,10 +10,10 @@ export const selectAutomationDocument = (
   scope: AutomationSelectionScope
 ): AutomationDocument => {
   const group = document.groups.find(({ id }) => id === scope.groupId);
-  if (group === undefined) throw new Error("El grupo seleccionado ya no existe.");
+  if (group === undefined) throw new Error(t("text.theSelectedGroupNoLongerExists"));
   if (scope.kind === "group") return { ...structuredClone(document), name: group.name, groups: [structuredClone(group)] };
   const process = group.processes.find(({ id }) => id === scope.processId);
-  if (process === undefined) throw new Error("El flujo seleccionado ya no existe.");
+  if (process === undefined) throw new Error(t("text.theSelectedFlowNoLongerExists"));
   return {
     ...structuredClone(document),
     name: process.name,
@@ -27,10 +28,10 @@ export const applyAutomationDocumentSelection = (
   createId: () => string
 ): AutomationDocument => {
   const selectedGroup = selected.groups[0];
-  if (selectedGroup === undefined) throw new Error("El JSON no contiene ningún grupo.");
+  if (selectedGroup === undefined) throw new Error(t("text.theJSONDoesNotContainAnyGroups"));
   const result = structuredClone(current);
   const groupIndex = result.groups.findIndex(({ id }) => id === scope.groupId);
-  if (groupIndex < 0) throw new Error("El grupo seleccionado ya no existe.");
+  if (groupIndex < 0) throw new Error(t("text.theSelectedGroupNoLongerExists"));
   if (scope.kind === "group") {
     const otherGroups = result.groups.filter(({ id }) => id !== scope.groupId);
     const occupiedIds = new Set<string>([result.id]);
@@ -49,11 +50,11 @@ export const applyAutomationDocumentSelection = (
     return result;
   }
   const selectedProcess = selectedGroup.processes[0];
-  if (selectedProcess === undefined) throw new Error("El JSON no contiene ningún flujo.");
+  if (selectedProcess === undefined) throw new Error(t("text.theJSONDoesNotContainAnyFlows"));
   const targetGroup = result.groups[groupIndex];
-  if (targetGroup === undefined) throw new Error("El grupo seleccionado ya no existe.");
+  if (targetGroup === undefined) throw new Error(t("text.theSelectedGroupNoLongerExists"));
   const processIndex = targetGroup.processes.findIndex(({ id }) => id === scope.processId);
-  if (processIndex < 0) throw new Error("El flujo seleccionado ya no existe.");
+  if (processIndex < 0) throw new Error(t("text.theSelectedFlowNoLongerExists"));
   const occupiedIds = new Set<string>([result.id]);
   const otherProcessNames: string[] = [];
   for (const group of result.groups) {
@@ -118,7 +119,7 @@ const availableId = (requested: string, occupied: ReadonlySet<string>, createId:
 };
 
 const availableName = (requested: string, occupied: readonly string[]): string => {
-  const base = requested.trim() || "importado";
+  const base = requested.trim() || t("labels.imported");
   const normalized = new Set(occupied.map((name) => name.trim().toLocaleLowerCase()));
   if (!normalized.has(base.toLocaleLowerCase())) return base;
   let suffix = 1;

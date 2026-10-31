@@ -1,3 +1,4 @@
+import { t } from "../../../../localization";
 import { html, nothing, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
 import type { NodeDescriptor } from "../../../../application/automations/nodeRegistry";
@@ -50,7 +51,7 @@ export const renderNodeInspector = (
   selectElement: (fieldKey: string) => void,
   confirmDeletion: ConfirmDestructiveAction
 ): TemplateResult => {
-  if (node === null || descriptor === null) return html`<section class="node-inspector"><h2>Inspector</h2><p class="empty-hint">Selecciona un nodo.</p></section>`;
+  if (node === null || descriptor === null) return html`<section class="node-inspector"><h2>${t("text.inspector")}</h2><p class="empty-hint">${t("text.selectANode")}</p></section>`;
   const field = (key: string): JsonValue | undefined => {
     const value = node.config[key];
     if (node.type === "capture-value" && value === undefined) {
@@ -62,7 +63,7 @@ export const renderNodeInspector = (
   };
   const queryParams = collectionEntries<QueryParamEntry>(node, "queryParams");
   const composedUrl = node.type === "navigate" ? buildUrlWithQueryParams(typeof node.config.url === "string" ? node.config.url : "", queryParams) : null;
-  return html`<section class="node-inspector"><header><div><h2>${descriptor.title}</h2><small>${node.id}</small></div><label>Timeout (ms)<input type="number" min="1" .value=${live(node.timeoutMs === null ? "" : String(node.timeoutMs))} placeholder=${String(descriptor.defaultTimeoutMs)} @change=${(event: Event) => update((draft) => { const raw = valueFrom(event); draft.timeoutMs = raw === "" ? null : Math.max(1, Number(raw)); })}></label></header>
+  return html`<section class="node-inspector"><header><div><h2>${descriptor.title}</h2><small>${node.id}</small></div><label>${t("text.timeoutMs")}<input type="number" min="1" .value=${live(node.timeoutMs === null ? "" : String(node.timeoutMs))} placeholder=${String(descriptor.defaultTimeoutMs)} @change=${(event: Event) => update((draft) => { const raw = valueFrom(event); draft.timeoutMs = raw === "" ? null : Math.max(1, Number(raw)); })}></label></header>
     ${node.type === "request-override" ? html`
       <div class="inspector-overrides">
         ${renderRequestOverrideEditor(overrideEntries(node), {
@@ -73,9 +74,9 @@ export const renderNodeInspector = (
         })}
       </div>
     ` : node.type === "navigate" ? html`<div class="inspector-session-data">
-      <label><span>URL base</span><input type="url" .value=${live(typeof node.config.url === "string" ? node.config.url : "")} @input=${(event: Event) => update((draft) => { draft.config.url = valueFrom(event); })}></label>
+      <label><span>${t("text.baseURL")}</span><input type="url" .value=${live(typeof node.config.url === "string" ? node.config.url : "")} @input=${(event: Event) => update((draft) => { draft.config.url = valueFrom(event); })}></label>
       <p class=${composedUrl?.ok ? "session-url-preview" : "inline-error"}>${composedUrl?.ok ? composedUrl.value : composedUrl?.error}</p>
-      <h3>Query params</h3>
+      <h3>${t("text.queryParams")}</h3>
       ${renderQueryParamEditor(queryParams, {
         add: () => update((draft) => updateCollection<QueryParamEntry>(draft, "queryParams", (entries) => { entries.push(createQueryParam(crypto.randomUUID())); })),
         update: (id, change) => update((draft) => updateCollection<QueryParamEntry>(draft, "queryParams", (entries) => { const entry = entries.find((item) => item.id === id); if (entry) change(entry); })),
@@ -93,7 +94,7 @@ export const renderNodeInspector = (
       remove: (id) => update((draft) => updateCollection<CookieEntry>(draft, "entries", (entries) => { const index = entries.findIndex((item) => item.id === id); if (index >= 0) entries.splice(index, 1); })),
       confirmDeletion
     })}</div>` : node.type === "set-storage" ? html`<div class="inspector-session-data">
-      <label><span>Ámbito</span><select .value=${live(typeof node.config.scope === "string" ? node.config.scope : "local")} @change=${(event: Event) => update((draft) => { draft.config.scope = valueFrom(event); })}><option value="local">localStorage</option><option value="session">sessionStorage</option></select></label>
+      <label><span>${t("text.scope")}</span><select .value=${live(typeof node.config.scope === "string" ? node.config.scope : "local")} @change=${(event: Event) => update((draft) => { draft.config.scope = valueFrom(event); })}><option value="local">${t("text.localstorage")}</option><option value="session">${t("text.sessionstorage")}</option></select></label>
       ${renderStorageEditor(collectionEntries<StorageEntry>(node, "entries"), {
         add: () => update((draft) => updateCollection<StorageEntry>(draft, "entries", (entries) => { entries.push(createStorageEntry(crypto.randomUUID())); })),
         update: (id, change) => update((draft) => updateCollection<StorageEntry>(draft, "entries", (entries) => { const entry = entries.find((item) => item.id === id); if (entry) change(entry); })),
@@ -112,14 +113,14 @@ export const renderNodeInspector = (
       if (item.kind === "resource") {
         const generatorType = node.config.generatorType; const catalog = generatorType === "formula" ? resources.formulas : generatorType === "array" ? resources.arrays : [];
         const selected = typeof value === "string" ? value : "";
-        return generatorType === "formula" || generatorType === "array" ? html`<label><span>${item.label}</span><select .value=${live(selected)} @change=${(event: Event) => update((draft) => { draft.config[item.key] = valueFrom(event) || null; })}><option value="" .selected=${selected === ""}>Selecciona…</option>${catalog.map((resource) => html`<option value=${resource.id} .selected=${resource.id === selected}>${resource.name}</option>`)}</select></label>` : nothing;
+        return generatorType === "formula" || generatorType === "array" ? html`<label><span>${item.label}</span><select .value=${live(selected)} @change=${(event: Event) => update((draft) => { draft.config[item.key] = valueFrom(event) || null; })}><option value="" .selected=${selected === ""}>${t("text.select")}</option>${catalog.map((resource) => html`<option value=${resource.id} .selected=${resource.id === selected}>${resource.name}</option>`)}</select></label>` : nothing;
       }
       if (item.kind === "checkbox") return html`<label class="check"><input type="checkbox" .checked=${live(value === true)} @change=${(event: Event) => update((draft) => { draft.config[item.key] = event.currentTarget instanceof HTMLInputElement && event.currentTarget.checked; })}><span>${item.label}</span></label>`;
       const inputText = value === undefined || value === null ? "" : typeof value === "string" ? value : typeof value === "number" || typeof value === "boolean" ? `${value}` : JSON.stringify(value) ?? "";
-      if (item.key === "selector") return html`<label><span>${item.label}</span><span class="field-with-action"><input type="text" .value=${live(inputText)} @input=${(event: Event) => update((draft) => { draft.config[item.key] = valueFrom(event); })}><button title="Seleccionar el elemento en el navegador abierto" @click=${() => selectElement(item.key)}>Seleccionar</button></span></label>`;
+      if (item.key === "selector") return html`<label><span>${item.label}</span><span class="field-with-action"><input type="text" .value=${live(inputText)} @input=${(event: Event) => update((draft) => { draft.config[item.key] = valueFrom(event); })}><button title=${t("text.selectTheElementInTheOpenBrowser")} @click=${() => selectElement(item.key)}>${t("text.select2")}</button></span></label>`;
       return html`<label><span>${item.label}</span><input type=${item.kind === "number" ? "number" : "text"} .value=${live(inputText)} @input=${(event: Event) => update((draft) => { const raw = valueFrom(event); draft.config[item.key] = item.kind === "number" ? Number(raw) : raw; })}></label>`;
     })}</div>`}
-    ${node.timeoutMs !== null && !Number.isFinite(node.timeoutMs) ? html`<p class="inline-error">El timeout no es válido.</p>` : nothing}
+    ${node.timeoutMs !== null && !Number.isFinite(node.timeoutMs) ? html`<p class="inline-error">${t("text.theTimeoutIsInvalid")}</p>` : nothing}
     ${validationError === null ? nothing : html`<p class="inline-error">${validationError}</p>`}
   </section>`;
 };

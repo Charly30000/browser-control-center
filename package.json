@@ -1,7 +1,7 @@
 {
   "name": "browser-control-center",
-  "displayName": "Browser Control Center",
-  "description": "Panel de control para testing manual asistido y automatización web desde VS Code.",
+  "displayName": "%extension.displayName%",
+  "description": "%extension.description%",
   "version": "0.4.0",
   "publisher": "Leviax",
   "license": "Apache-2.0",
@@ -41,34 +41,34 @@
     "commands": [
       {
         "command": "browserControl.openManual",
-        "title": "Browser Control: Abrir Manual"
+        "title": "%commands.openManual%"
       },
       {
         "command": "browserControl.openFormulas",
-        "title": "Browser Control: Abrir Fórmulas"
+        "title": "%commands.openFormulas%"
       },
       {
         "command": "browserControl.openArrays",
-        "title": "Browser Control: Abrir Arrays"
+        "title": "%commands.openArrays%"
       },
       {
         "command": "browserControl.openAutomations",
-        "title": "Browser Control: Abrir Automatizaciones"
+        "title": "%commands.openAutomations%"
       },
       {
         "command": "browserControl.openAiDocumentation",
-        "title": "Browser Control: Abrir Documentación para IA"
+        "title": "%commands.openAiDocumentation%"
       },
       {
         "command": "browserControl.manageBrowser",
-        "title": "Browser Control: Gestionar navegador"
+        "title": "%commands.manageBrowser%"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "browserControl",
-          "title": "Browser Control",
+          "title": "%views.browserControl%",
           "icon": "resources/activity-bar-icon.svg"
         }
       ]
@@ -78,17 +78,21 @@
         {
           "type": "webview",
           "id": "browserControl.sidebar",
-          "name": "Control de navegador"
+          "name": "%views.sidebar%"
         }
       ]
     }
   },
   "scripts": {
+    "localization": "node src/localization/generate.mjs",
+    "pretypecheck": "npm run localization",
+    "pretest": "npm run localization",
     "dev": "node esbuild.mjs --watch",
     "build": "node esbuild.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint src test",
+    "prelint": "npm run localization",
     "verify": "npm run typecheck && npm test && npm run lint && npm run build",
     "vscode:prepublish": "npm run verify",
     "package": "vsce package"

@@ -1,0 +1,13 @@
+{
+  "manual": {
+    "schemaVersion": 1, "id": "historical-profile", "name": "Existing profile", "url": "https://example.test",
+    "queryParams": [], "headers": [{"id":"header","key":"X-Test","value":"keep","enabled":true}],
+    "cookies": [{"id":"cookie","name":"example","value":"keep","domain":"example.test","path":"/","expires":null,"secure":false,"httpOnly":true,"sameSite":"Lax","enabled":true}],
+    "localStorage": [], "sessionStorage": [], "requestOverrides": [],
+    "generatorBindings": [{"id":"input","generatorType":"string","selector":"#name","propertyKind":"value","propertyName":"","min":"0","max":"100","resourceId":null,"literalValue":"Existing text","enabled":true}],
+    "viewport": {"width":800,"height":600}, "createdAt":"2026-01-01T00:00:00.000Z", "updatedAt":"2026-01-02T00:00:00.000Z"
+  },
+  "formulas": {"schemaVersion":1,"id":"historical-formula","name":"Existing formula","code":"function generate() { return 'keep'; }","createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-02T00:00:00.000Z"},
+  "arrays": {"schemaVersion":1,"id":"historical-array","name":"Existing array","items":["keep",{"id":42}],"createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-02T00:00:00.000Z"},
+  "automations": {"schemaVersion":1,"id":"historical-automation","name":"Existing automation","groups":[{"id":"group","name":"Existing group","processes":[]}],"createdAt":"2026-01-01T00:00:00.000Z","updatedAt":"2026-01-02T00:00:00.000Z"}
+}

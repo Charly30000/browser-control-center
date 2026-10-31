@@ -18,6 +18,6 @@ describe("query params", () => {
   });
 
   it("rechaza URLs inválidas", () => {
-    expect(buildUrlWithQueryParams("no es una url", [])).toEqual({ ok: false, error: "La URL no es válida." });
+    expect(buildUrlWithQueryParams("no es una url", [])).toEqual({ ok: false, error: "The URL is invalid." });
   });
 });

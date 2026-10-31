@@ -25,7 +25,7 @@ describe("documento común de importación y exportación", () => {
     const parsed = documents().deserialize(serialized);
 
     expect(parsed.ok).toBe(false);
-    if (!parsed.ok) expect(parsed.error).toContain("formato esperado");
+    if (!parsed.ok) expect(parsed.error).toContain("expected format");
   });
 
   it("rechaza versiones de envelope no compatibles", () => {
@@ -39,7 +39,7 @@ describe("documento común de importación y exportación", () => {
     const parsed = documents().deserialize(serialized);
 
     expect(parsed.ok).toBe(false);
-    if (!parsed.ok) expect(parsed.error).toContain("Versión de importación no compatible");
+    if (!parsed.ok) expect(parsed.error).toContain("Unsupported import version");
   });
 
   it("mantiene compatibilidad con documentos directos heredados", () => {

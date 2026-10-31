@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { BrowserPreferences, BrowserProviderId, BrowserProviderSnapshot } from "../../domain/browser/browserProvider";
 import type { StateDataDao } from "../persistence/applicationDataDao";
 import type { BrowserLaunchConfigurationProvider, BrowserProvider } from "./browserProvider";
@@ -19,7 +20,7 @@ export class BrowserSelectionService implements BrowserLaunchConfigurationProvid
   }
 
   public async select(providerId: BrowserProviderId): Promise<void> {
-    if (!this.providers.has(providerId)) throw new Error(`El navegador «${providerId}» no está registrado.`);
+    if (!this.providers.has(providerId)) throw new Error(t("text.browserArg0IsNotRegistered", { arg0: providerId }));
     await this.preferencesDao.set({ version: 1, selectedProviderId: providerId });
     this.emit();
   }
@@ -40,7 +41,7 @@ export class BrowserSelectionService implements BrowserLaunchConfigurationProvid
   private requireSelected(): BrowserProvider {
     const id = this.getSelectedProviderId();
     const provider = this.providers.get(id);
-    if (provider === undefined) throw new Error(`El navegador seleccionado «${id}» no está disponible.`);
+    if (provider === undefined) throw new Error(t("text.theSelectedBrowserArg0IsUnavailable", { arg0: id }));
     return provider;
   }
 

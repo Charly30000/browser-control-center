@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import { createWebviewHtml } from "../webview/createWebviewHtml";
 
@@ -8,13 +9,13 @@ export class AiDocumentationPanel implements vscode.Disposable {
 
   public open(): void {
     if (this.panel !== null) { this.panel.reveal(vscode.ViewColumn.One); return; }
-    const panel = vscode.window.createWebviewPanel("browserControl.aiDocumentation", "Documentación para IA", vscode.ViewColumn.One, {
+    const panel = vscode.window.createWebviewPanel("browserControl.aiDocumentation", t("navigation.aiDocumentation"), vscode.ViewColumn.One, {
       enableScripts: true,
       retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")]
     });
     this.panel = panel;
-    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "aiDocumentation", "Documentación para IA");
+    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "aiDocumentation", t("navigation.aiDocumentation"));
     panel.onDidDispose(() => { if (this.panel === panel) this.panel = null; });
   }
 

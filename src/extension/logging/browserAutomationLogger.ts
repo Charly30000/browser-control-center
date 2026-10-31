@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type * as vscode from "vscode";
 import type { Logger } from "../../application/logging/logger";
 import { redactSensitiveText } from "../../application/logging/redactSensitiveText";
@@ -14,7 +15,7 @@ export class BrowserAutomationLogger implements Logger, vscode.Disposable {
   public info(message: string): void { this.write("info", message); }
   public warn(message: string): void { this.write("warning", message); }
   public error(message: string, error?: unknown): void {
-    const detail = error instanceof Error ? `\n${error.stack ?? error.message}` : error === undefined ? "" : `\n${JSON.stringify(error) ?? "Error no serializable"}`;
+    const detail = error instanceof Error ? `\n${error.stack ?? error.message}` : error === undefined ? "" : `\n${JSON.stringify(error) ?? t("text.nonSerializableError")}`;
     this.write("error", `${message}${detail}`);
   }
   public dispose(): void { this.output.dispose(); }

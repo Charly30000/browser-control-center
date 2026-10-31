@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import {
   MANUAL_PROFILE_SCHEMA_VERSION,
   type CookieEntry,
@@ -7,11 +8,12 @@ import {
   type QueryParamEntry,
   type RequestOverrideEntry,
   type StorageEntry,
-  type ViewportConfiguration,
-  defaultViewport
+  type ViewportConfiguration
 } from "../../domain/manual/manualProfile";
 import { failure, success, type Result } from "../../shared/result";
 import { isOptionalEditorPreferences } from "../../domain/resources/editorPreferences";
+import { migrateSchema } from "../../application/persistence/schemaMigration";
+import { persistedSchemas } from "./migrations/registry";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -88,22 +90,6 @@ const isViewport = (value: unknown): value is ViewportConfiguration =>
   typeof value.deviceScaleFactor === "number" && Number.isFinite(value.deviceScaleFactor) && value.deviceScaleFactor > 0 &&
   isBoolean(value.hasTouch) && isBoolean(value.isMobile);
 
-const migrateVersionOne = (value: UnknownRecord): unknown => {
-  if (value.schemaVersion !== 1 || !Array.isArray(value.generatorBindings)) return value;
-  const legacyViewport = isRecord(value.viewport) &&
-    typeof value.viewport.width === "number" && typeof value.viewport.height === "number"
-    ? { ...defaultViewport(), preset: "custom" as const, width: value.viewport.width, height: value.viewport.height }
-    : defaultViewport();
-  return {
-    ...value,
-    schemaVersion: MANUAL_PROFILE_SCHEMA_VERSION,
-    viewport: legacyViewport,
-    generatorBindings: value.generatorBindings.map((binding): unknown => isRecord(binding)
-      ? { ...binding, inputMode: "instant", delayMs: 0 }
-      : null)
-  };
-};
-
 export const isManualProfile = (value: unknown): value is ManualProfile =>
   isRecord(value) &&
   value.schemaVersion === MANUAL_PROFILE_SCHEMA_VERSION &&
@@ -129,17 +115,19 @@ export const deserializeProfile = (serialized: string): Result<ManualProfile> =>
   try {
     parsed = JSON.parse(serialized);
   } catch {
-    return failure("El archivo no contiene JSON válido.");
+    return failure(t("text.theFileDoesNotContainValidJSON"));
   }
   if (!isRecord(parsed)) {
-    return failure("El perfil debe ser un objeto JSON.");
+    return failure(t("text.theProfileMustBeAJSONObject"));
   }
-  parsed = migrateVersionOne(parsed);
-  if (!isRecord(parsed)) return failure("El perfil debe ser un objeto JSON.");
+  const migrated = migrateSchema(parsed, persistedSchemas.manual);
+  if (!migrated.ok) return migrated;
+  parsed = migrated.value;
+  if (!isRecord(parsed)) return failure(t("text.theProfileMustBeAJSONObject"));
   if (parsed.schemaVersion !== MANUAL_PROFILE_SCHEMA_VERSION) {
-    return failure(`Versión de perfil no compatible. Se esperaba ${MANUAL_PROFILE_SCHEMA_VERSION}.`);
+    return failure(t("text.unsupportedProfileVersionExpectedArg0", { arg0: MANUAL_PROFILE_SCHEMA_VERSION }));
   }
   return isManualProfile(parsed)
     ? success(parsed)
-    : failure("El contenido no tiene la estructura de un perfil Manual válido.");
+    : failure(t("text.theContentDoesNotHaveTheStructureOfAValidManualProfile"));
 };

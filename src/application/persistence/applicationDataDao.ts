@@ -12,6 +12,7 @@ export interface DataCodec<T> {
 }
 
 export interface EntityDataDao<T> {
+  exists(id: string): Promise<boolean>;
   load(id: string): Promise<T | null>;
   save(value: T): Promise<void>;
   delete(id: string): Promise<void>;

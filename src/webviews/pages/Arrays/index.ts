@@ -1,3 +1,4 @@
+import { t } from "../../../localization";
 import { LitElement, html, nothing } from "lit";
 import type { ArrayResource } from "../../../domain/arrays/arrayResource";
 import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
@@ -27,6 +28,7 @@ const fieldValue = (event: Event): string => {
 class ArraysApp extends LitElement {
   private resource: ArrayResource | null = null;
   private savedResource: ArrayResource | null = null;
+  private baselineResource: ArrayResource | null = null;
   private resources: readonly GlobalResourceSummary[] = [];
   private content = "[]";
   private savedContent = "";
@@ -50,46 +52,46 @@ class ArraysApp extends LitElement {
   public override disconnectedCallback(): void { window.removeEventListener("message", this.onMessage); super.disconnectedCallback(); }
 
   protected override render() {
-    if (this.resource === null) return html`<main class="resource-shell loading">Cargando arrays…</main>`;
+    if (this.resource === null) return html`<main class="resource-shell loading">${t("text.loadingArrays")}</main>`;
     const validation = parseArrayContent(this.content);
-    const dirty = isResourceDirty(this.resource, this.savedResource) || this.content !== this.savedContent;
-    const validationMessage = validation.ok ? `JSON válido · ${validation.value.length} elementos` : validation.error;
+    const dirty = this.hasUnsavedChanges();
+    const validationMessage = validation.ok ? t("text.validJSONArg0Items", { arg0: validation.value.length }) : validation.error;
     return html`
       <main class="resource-shell arrays-page">
         ${renderAutoSaveControl(isAutoSaveEnabled(this.resource.preferences), this.toggleAutoSave)}
         <header class="page-header">
-          <div class="page-title"><span class="resource-icon">${renderSectionIcon("arrays")}</span><div><h1>Arrays</h1><p>Colecciones JSON globales y reutilizables.</p></div></div>
+          <div class="page-title"><span class="resource-icon">${renderSectionIcon("arrays")}</span><div><h1>${t("navigation.arrays")}</h1><p>${t("text.globalReusableJSONCollections")}</p></div></div>
           <div class="toolbar">
-            <button class="primary" @click=${() => this.guardTransition(() => this.post({ type: "array.new" }), "¿Guardar el array antes de crear otro?")}>Agregar</button>
-            <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "array.deleteSelected", ids: [...this.selectedIds] }), "¿Guardar el array actual antes de eliminar la selección?")}>Eliminar seleccionados</button>
-            <button @click=${() => this.guardTransition(() => this.post({ type: "array.import" }), "¿Guardar el array antes de importar?")}>Importar</button>
+            <button class="primary" @click=${() => this.guardTransition(() => this.post({ type: "array.new" }), t("text.saveTheArrayBeforeCreatingAnotherOne"))}>${t("text.add2")}</button>
+            <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "array.deleteSelected", ids: [...this.selectedIds] }), t("text.saveTheCurrentArrayBeforeDeletingTheSelection"))}>${t("text.deleteSelected")}</button>
+            <button @click=${() => this.guardTransition(() => this.post({ type: "array.import" }), t("text.saveTheArrayBeforeImporting"))}>${t("actions.import")}</button>
           </div>
         </header>
         <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
         <div class="resource-layout">
           <aside class="resource-list">
-            <header class="resource-section-header"><div><h2>Mis arrays</h2><p>Colecciones guardadas</p></div><span class="resource-count" aria-label=${`${this.resources.length} arrays guardados`}>${this.resources.length}</span></header>
-            ${this.resources.length === 0 ? html`<p class="empty-list">No hay arrays guardados.</p>` : html`
+            <header class="resource-section-header"><div><h2>${t("text.myArrays")}</h2><p>${t("text.savedCollections")}</p></div><span class="resource-count" aria-label=${t("text.arg0SavedArrays", { arg0: this.resources.length })}>${this.resources.length}</span></header>
+            ${this.resources.length === 0 ? html`<p class="empty-list">${t("text.noSavedArrays")}</p>` : html`
               <ul>${this.resources.map((item) => html`<li class=${item.id === this.resource?.id ? "resource-item current" : "resource-item"}>
-                <input type="checkbox" aria-label=${`Seleccionar ${item.name}`} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
-                <button class="resource-name" title=${item.name} aria-current=${item.id === this.resource?.id ? "true" : nothing} @click=${() => this.guardTransition(() => this.post({ type: "array.select", id: item.id }), "¿Guardar el array antes de cambiar de selección?")}><span class="resource-item-icon">${renderSectionIcon("arrays")}</span><span class="resource-item-title">${item.name}</span></button>
+                <input type="checkbox" aria-label=${t("text.selectArg0", { arg0: item.name })} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
+                <button class="resource-name" title=${item.name} aria-current=${item.id === this.resource?.id ? "true" : nothing} @click=${() => this.guardTransition(() => this.post({ type: "array.select", id: item.id }), t("text.saveTheArrayBeforeChangingTheSelection"))}><span class="resource-item-icon">${renderSectionIcon("arrays")}</span><span class="resource-item-title">${item.name}</span></button>
               </li>`)}</ul>
             `}
-            ${this.selectedIds.size === 0 ? nothing : html`<p class="selection-summary">${this.selectedIds.size} ${this.selectedIds.size === 1 ? "array seleccionado" : "arrays seleccionados"}</p>`}
+            ${this.selectedIds.size === 0 ? nothing : html`<p class="selection-summary">${this.selectedIds.size} ${this.selectedIds.size === 1 ? t("text.selectedArray") : t("text.selectedArrays")}</p>`}
           </aside>
           <section class="resource-editor">
-            <header class="resource-section-header editor-header"><div><h2>Editor del array</h2><p>Prepara los valores que quieres reutilizar</p></div><div class="editor-header-meta"><span class="resource-type">JSON</span><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span></div></header>
+            <header class="resource-section-header editor-header"><div><h2>${t("text.arrayEditor")}</h2><p>${t("text.prepareTheValuesYouWantToReuse")}</p></div><div class="editor-header-meta"><span class="resource-type">${t("text.json")}</span><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? t("saveState.saving") : dirty ? t("saveState.dirty") : this.savedResource === null ? t("saveState.new") : t("saveState.saved")}</span></div></header>
             <div class="editor-content">
-              <label class="resource-name-field"><span>Nombre del array</span><input .value=${this.resource.name} @input=${(event: Event) => this.changeName(fieldValue(event))}></label>
-              <label class="resource-code-field"><span>Contenido JSON</span><textarea class="code-editor" spellcheck="false" .value=${this.content} @input=${this.changeContent}></textarea></label>
+              <label class="resource-name-field"><span>${t("text.arrayName")}</span><input .value=${this.resource.name} @input=${(event: Event) => this.changeName(fieldValue(event))}></label>
+              <label class="resource-code-field"><span>${t("text.jsonContent")}</span><textarea class="code-editor" spellcheck="false" .value=${this.content} @input=${this.changeContent}></textarea></label>
               <div class=${validation.ok ? "result-panel success" : "result-panel error"}>${validationMessage}</div>
-              <p class="execution-note">Probar selecciona aleatoriamente un elemento del contenido actual sin guardar el array.</p>
+              <p class="execution-note">${t("text.testRandomlySelectsAnItemFromTheCurrentContentWithoutSavingTheArray")}</p>
               <div class="editor-actions">
-                <button @click=${this.validate}>Validar</button>
-                <button ?disabled=${!validation.ok} @click=${this.test}>Probar</button>
-                <button class="primary" ?disabled=${!validation.ok || this.saves.pending} @click=${this.save}>Guardar</button>
-                <button @click=${this.exportResource}>Exportar</button>
-                <button @click=${this.viewJson}>Ver JSON</button>
+                <button @click=${this.validate}>${t("text.validate")}</button>
+                <button ?disabled=${!validation.ok} @click=${this.test}>${t("text.test")}</button>
+                <button class="primary" ?disabled=${!validation.ok || this.saves.pending} @click=${this.save}>${t("actions.save")}</button>
+                <button @click=${this.exportResource}>${t("actions.export")}</button>
+                <button @click=${this.viewJson}>${t("actions.viewJson")}</button>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
             </div>
@@ -98,7 +100,7 @@ class ArraysApp extends LitElement {
       </main>
       ${this.jsonDocument === null ? nothing : html`<json-document-editor
         .value=${this.jsonDocument}
-        .heading=${`JSON de ${this.resource.name}`}
+        .heading=${t("text.jsonForArg0", { arg0: this.resource.name })}
         .errorMessage=${this.notice.tone === "error" ? this.notice.message : ""}
         @json-editor-change=${this.changeJson}
         @json-editor-close=${this.closeJsonEditor}
@@ -114,6 +116,7 @@ class ArraysApp extends LitElement {
       this.saves.reset();
       this.changingResource = false;
       this.resource = structuredClone(event.data.state.resource);
+      this.baselineResource = structuredClone(event.data.state.resource);
       this.savedResource = event.data.state.savedResource === null ? null : structuredClone(event.data.state.savedResource);
       this.resources = event.data.state.resources;
       this.content = JSON.stringify(this.resource.items, null, 2);
@@ -131,6 +134,7 @@ class ArraysApp extends LitElement {
       if (submitted === null || this.resource?.id !== saved.id) return;
       this.resource = reconcileSavedResource(this.resource, submitted.resource, saved);
       this.savedResource = structuredClone(event.data.state.savedResource);
+      this.baselineResource = structuredClone(saved);
       this.resources = event.data.state.resources;
       this.savedContent = JSON.stringify(saved.items, null, 2);
       if (this.content === submitted.content) this.content = this.savedContent;
@@ -210,7 +214,7 @@ class ArraysApp extends LitElement {
       this.content = candidate;
       this.autoSave.activity();
       this.notice = size.shouldWarn
-        ? { tone: "warning", message: `El array ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` }
+        ? { tone: "warning", message: t("text.theArrayUsesArg0OfArg1", { arg0: formatBytes(size.bytes), arg1: formatBytes(MAX_DOCUMENT_BYTES) }) }
         : { tone: "info", message: "" };
     }
     this.requestUpdate();
@@ -219,7 +223,7 @@ class ArraysApp extends LitElement {
   private readonly validate = (): void => {
     const validation = parseArrayContent(this.content);
     this.notice = validation.ok
-      ? { tone: "success", message: `JSON válido · ${validation.value.length} elementos.` }
+      ? { tone: "success", message: t("text.validJSONArg0Items2", { arg0: validation.value.length }) }
       : { tone: "error", message: validation.error };
     this.requestUpdate();
   };
@@ -237,7 +241,7 @@ class ArraysApp extends LitElement {
     return true;
   };
 
-  private hasUnsavedChanges(): boolean { return this.resource !== null && (isResourceDirty(this.resource, this.savedResource) || this.content !== this.savedContent); }
+  private hasUnsavedChanges(): boolean { return this.resource !== null && (isResourceDirty(this.resource, this.baselineResource) || this.content !== this.savedContent); }
 
   private finishSaveTransition(): void {
     if (!this.awaitingSaveTransition) return;

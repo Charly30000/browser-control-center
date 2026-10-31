@@ -1,9 +1,11 @@
+import { t } from "../../localization";
 import { randomUUID } from "node:crypto";
 import type { GlobalResource, GlobalResourceSummary, ResourceEditorState } from "../../domain/resources/globalResource";
 import { hasDuplicateResourceName, nextResourceName } from "../../domain/resources/resourceNaming";
 import type { Result } from "../../shared/result";
 import { ResourceImportService, type ResourceIdentityFactory } from "../importExport/resourceImportService";
 import type { ResourceDataDao, ResourceMetadata, StateDataDao } from "../persistence/applicationDataDao";
+import { pruneCatalog } from "../persistence/pruneCatalog";
 
 export interface ResourceDefinition<T extends GlobalResource> extends ResourceIdentityFactory<T> {
   readonly baseName: string;
@@ -26,7 +28,7 @@ export class ResourceCrudService<T extends GlobalResource> {
   ) {}
 
   public async getInitialState(): Promise<ResourceEditorState<T>> {
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const ids = [metadata.selectedResourceId, ...metadata.resources.map(({ id }) => id)]
       .filter((id): id is string => id !== null);
     for (const id of new Set(ids)) {
@@ -44,20 +46,20 @@ export class ResourceCrudService<T extends GlobalResource> {
   }
 
   public async select(id: string): Promise<ResourceEditorState<T>> {
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const resource = await this.resourceDao.load(id);
-    if (resource === null) throw new Error("El recurso seleccionado ya no existe.");
+    if (resource === null) throw new Error(t("text.theSelectedResourceNoLongerExists"));
     await this.metadataDao.set({ ...metadata, selectedResourceId: id });
     return { resource, savedResource: structuredClone(resource), resources: metadata.resources };
   }
 
   public async save(draft: T): Promise<ResourceEditorState<T>> {
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const validation = this.definition.validate(draft);
     if (!validation.ok) throw new Error(validation.error);
     const name = draft.name.trim();
     if (hasDuplicateResourceName(name, draft.id, metadata.resources)) {
-      throw new Error(`Ya existe un recurso llamado «${name}».`);
+      throw new Error(t("text.aResourceNamedArg0AlreadyExists", { arg0: name }));
     }
     const resource = this.definition.withIdentity(draft, draft.id, name, new Date().toISOString());
     await this.resourceDao.save(resource);
@@ -71,7 +73,7 @@ export class ResourceCrudService<T extends GlobalResource> {
   public async deleteSelected(ids: readonly string[]): Promise<ResourceEditorState<T>> {
     const idSet = new Set(ids);
     await Promise.all([...idSet].map((id) => this.resourceDao.delete(id)));
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const resources = metadata.resources.filter(({ id }) => !idSet.has(id));
     const selectedResourceId = resources.some(({ id }) => id === metadata.selectedResourceId)
       ? metadata.selectedResourceId
@@ -84,14 +86,23 @@ export class ResourceCrudService<T extends GlobalResource> {
 
   public async getAll(): Promise<T[]> {
     const resources: T[] = [];
-    for (const summary of this.metadataDao.get().resources) {
+    for (const summary of (await this.refreshCatalog()).resources) {
       const resource = await this.resourceDao.load(summary.id);
       if (resource !== null) resources.push(resource);
     }
     return resources;
   }
 
-  public getSummaries(): readonly GlobalResourceSummary[] { return this.metadataDao.get().resources; }
+  public async getSummaries(): Promise<readonly GlobalResourceSummary[]> { return (await this.refreshCatalog()).resources; }
+
+  public async refreshCatalog(): Promise<ResourceMetadata> {
+    const resources = await pruneCatalog(this.metadataDao.get().resources, (id) => this.resourceDao.exists(id), () => this.metadataDao.get().resources);
+    const current = this.metadataDao.get();
+    const selectedResourceId = resources.some(({ id }) => id === current.selectedResourceId) ? current.selectedResourceId : resources[0]?.id ?? null;
+    const updated = { ...current, resources, selectedResourceId };
+    if (JSON.stringify(updated) !== JSON.stringify(current)) await this.metadataDao.set(updated);
+    return updated;
+  }
 
   public async importMany(imported: readonly T[]): Promise<ResourceEditorState<T>> {
     return (await this.importManyWithResolution(imported)).state;
@@ -100,7 +111,7 @@ export class ResourceCrudService<T extends GlobalResource> {
   public async importManyWithResolution(imported: readonly T[]): Promise<ResourceImportResult<T>> {
     for (const resource of imported) {
       const validation = this.definition.validate(resource);
-      if (!validation.ok) throw new Error(`No se puede importar «${resource.name}»: ${validation.error}`);
+      if (!validation.ok) throw new Error(t("text.cannotImportArg0Arg1", { arg0: resource.name, arg1: validation.error }));
     }
     const existing = await this.getAll();
     const resolution = this.importService.resolve(existing, imported, randomUUID, this.definition);

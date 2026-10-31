@@ -4,6 +4,7 @@ import { chromium, type Browser, type Page } from "playwright-core";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createArrayResource, type ArrayResource } from "../src/domain/arrays/arrayResource";
 import { createFormula, type FormulaResource } from "../src/domain/formulas/formula";
+import { createCompleteAutomationExample } from "../src/domain/automations/exampleAutomation";
 import { createAutomationDocument, createAutomationGroup, createAutomationNode, createAutomationProcess, type AutomationDocument } from "../src/domain/automations/automation";
 
 const realBrowserSuite = process.env.BCC_REAL_BROWSER_TESTS === "1" ? describe : describe.skip;
@@ -38,7 +39,7 @@ const acknowledge = async (page: Page, prefix: string, request: SaveRequest) => 
   const value = request.resource ?? request.document;
   if (value === undefined) throw new Error("Falta el documento guardado.");
   await post(page, { type: `${prefix}.saved`, requestId: request.requestId, ...editorState(prefix, value) });
-  await vi.waitFor(async () => expect(await page.locator(".dirty-state").textContent()).not.toBe("Guardando…"));
+  await vi.waitFor(async () => expect(await page.locator(".dirty-state").textContent()).not.toBe("Saving…"));
 };
 
 realBrowserSuite("guardado automático compartido", () => {
@@ -71,11 +72,97 @@ realBrowserSuite("guardado automático compartido", () => {
       : prefix === "formula" ? createFormula("formula", "Original") : createAutomationDocument("automation");
     if ("groups" in value) value.groups = [{ ...createAutomationGroup("group", "Original"), processes: [createAutomationProcess("process")] }];
     await post(page, { type: `${prefix}.state`, ...editorState(prefix, value) });
-    await page.getByRole("switch", { name: "Guardado automático", exact: true }).waitFor();
+    await page.getByRole("switch", { name: "Auto-save", exact: true }).waitFor();
     await page.clock.install({ time: new Date("2026-10-30T12:00:00Z") });
     await page.clock.pauseAt(new Date("2026-10-30T12:00:01Z"));
     return page;
   };
+
+  it.each(cases.filter(({ prefix }) => prefix !== "automation"))("$page: permite abandonar un borrador sin editar y protege los cambios reales", async ({ page: name, prefix, editor }) => {
+    const page = await open(name, prefix);
+    try {
+      const draft = prefix === "array" ? createArrayResource("untouched", "New draft") : createFormula("untouched", "New draft");
+      const other = { id: "saved-other", name: "Other", updatedAt: draft.updatedAt };
+      const field = page.locator(editor).first();
+      const loadDraft = async () => {
+        await post(page, { type: `${prefix}.state`, state: { resource: draft, savedResource: null, resources: [other] } });
+        await vi.waitFor(async () => expect(await field.inputValue()).toBe("New draft"));
+      };
+      await loadDraft();
+      expect(await page.locator(".dirty-state").textContent()).toBe("Not saved yet");
+      await page.getByRole("checkbox", { name: "Select Other", exact: true }).check();
+      await page.clock.runFor(6_000);
+      expect(await requests(page)).toHaveLength(0);
+      await page.locator(".resource-name").click();
+      await vi.waitFor(async () => expect((await messages(page)).filter(({ type }) => type === `${prefix}.select`)).toHaveLength(1));
+      expect(await page.locator("unsaved-changes-dialog").count()).toBe(0);
+
+      await loadDraft();
+      await field.fill("Edited draft");
+      await page.locator(".resource-name").click();
+      await page.getByRole("dialog").waitFor();
+      expect((await messages(page)).filter(({ type }) => type === `${prefix}.select`)).toHaveLength(1);
+      await page.getByRole("button", { name: "Cancel", exact: true }).click();
+      expect(await field.inputValue()).toBe("Edited draft");
+      await field.fill("New draft");
+      await page.locator(".resource-name").click();
+      await vi.waitFor(async () => expect((await messages(page)).filter(({ type }) => type === `${prefix}.select`)).toHaveLength(2));
+      expect(await page.locator("unsaved-changes-dialog").count()).toBe(0);
+    } finally { await page.close(); }
+  });
+
+  it.each(cases.filter(({ prefix }) => prefix !== "automation"))("$page: cambia de recurso sin avisos al abrirlo y después de guardarlo", async ({ page: name, prefix, editor }) => {
+    const page = await open(name, prefix);
+    try {
+      const field = page.locator(editor).first();
+      const original = prefix === "array" ? { ...createArrayResource("original", "Original"), items: ["value"] } : createFormula("original", "Original");
+      const other = { id: "saved-other", name: "Other", updatedAt: original.updatedAt };
+      await post(page, { type: `${prefix}.state`, ...editorState(prefix, original) });
+      await post(page, { type: `${prefix}.resources`, resources: [other] });
+      await page.locator(".resource-name").click();
+      await vi.waitFor(async () => expect((await messages(page)).filter(({ type }) => type === `${prefix}.select`)).toHaveLength(1));
+      expect(await page.locator("unsaved-changes-dialog").count()).toBe(0);
+
+      await post(page, { type: `${prefix}.state`, ...editorState(prefix, original) });
+      await post(page, { type: `${prefix}.resources`, resources: [other] });
+      await field.fill("Saved edit");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      const request = (await requests(page))[0]!;
+      await acknowledge(page, prefix, request);
+      await post(page, { type: `${prefix}.resources`, resources: [other] });
+      await page.locator(".resource-name").click();
+      await vi.waitFor(async () => expect((await messages(page)).filter(({ type }) => type === `${prefix}.select`)).toHaveLength(2));
+      expect(await page.locator("unsaved-changes-dialog").count()).toBe(0);
+      expect(await requests(page)).toHaveLength(1);
+    } finally { await page.close(); }
+  });
+
+  it("selecciona procesos desde el fondo de la tarjeta y con teclado sin interferir con sus botones", async () => {
+    const page = await open("Automatizaciones", "automation");
+    try {
+      const first = createAutomationProcess("first", "First process");
+      const second = createAutomationProcess("second", "Second process");
+      first.nodes = [createAutomationNode("first-node", "navigate", { x: 80, y: 70 })];
+      second.nodes = [createAutomationNode("second-node", "click", { x: 80, y: 70 })];
+      const document = { ...createAutomationDocument("cards"), groups: [{ ...createAutomationGroup("cards-group", "Cards"), processes: [first, second] }] };
+      await post(page, { type: "automation.state", ...editorState("automation", document) });
+      const firstCard = page.locator('[data-process-id="first"]');
+      const secondCard = page.locator('[data-process-id="second"]');
+      await secondCard.locator(".process-heading .tree-kind").click();
+      await page.locator('[data-node-id="second-node"]').waitFor();
+      await firstCard.click({ position: { x: 2, y: 2 } });
+      await page.locator('[data-node-id="first-node"]').waitFor();
+      await secondCard.focus();
+      await page.keyboard.press("Space");
+      await page.locator('[data-node-id="second-node"]').waitFor();
+      await firstCard.getByRole("button", { name: "Copy process", exact: true }).click();
+      expect(await secondCard.getAttribute("class")).toContain("selected");
+      expect(await page.locator('[data-node-id="first-node"]').count()).toBe(0);
+      await page.clock.runFor(6_000);
+      expect(await requests(page)).toHaveLength(0);
+      expect((await messages(page)).some(({ type }) => type.includes(".run"))).toBe(false);
+    } finally { await page.close(); }
+  });
 
   it.each(cases)("$page: guarda por defecto sin tocar el interruptor", async ({ page: name, prefix, editor }) => {
     const page = await open(name, prefix);
@@ -87,14 +174,14 @@ realBrowserSuite("guardado automático compartido", () => {
       const saves = await requests(page);
       expect(saves).toHaveLength(1);
       await acknowledge(page, prefix, saves[0]!);
-      expect(await page.locator(".dirty-state").textContent()).toBe("Guardado");
+      expect(await page.locator(".dirty-state").textContent()).toBe("Saved");
     } finally { await page.close(); }
   });
 
   it.each(cases)("$page: switch al principio, espera reiniciable, errores y ediciones durante el guardado", async ({ page: name, prefix, editor }) => {
     const page = await open(name, prefix);
     try {
-      const control = page.getByRole("switch", { name: "Guardado automático", exact: true });
+      const control = page.getByRole("switch", { name: "Auto-save", exact: true });
       expect(await control.count()).toBe(1);
       expect(await page.locator("main > :first-child").getAttribute("class")).toBe("auto-save-bar");
       expect(await control.isChecked()).toBe(true);
@@ -122,25 +209,25 @@ realBrowserSuite("guardado automático compartido", () => {
       expect(await field.inputValue()).toBe("Cambio posterior");
       await acknowledge(page, prefix, first);
       expect(await field.inputValue()).toBe("Cambio posterior");
-      expect(await page.locator(".dirty-state").textContent()).toBe("Cambios sin guardar");
+      expect(await page.locator(".dirty-state").textContent()).toBe("Unsaved changes");
       await page.clock.runFor(5_000);
       expect(await requests(page)).toHaveLength(2);
       const second = (await requests(page))[1]!;
       await post(page, { type: `${prefix}.saved`, requestId: first.requestId, ...editorState(prefix, first.resource ?? first.document!) });
-      expect(await page.locator(".dirty-state").textContent()).toBe("Guardando…");
+      expect(await page.locator(".dirty-state").textContent()).toBe("Saving…");
       await post(page, { type: `${prefix}.saveFailed`, requestId: second.requestId, error: "Error de guardado" });
-      await vi.waitFor(async () => expect(await page.locator(".dirty-state").textContent()).toBe("Cambios sin guardar"));
+      await vi.waitFor(async () => expect(await page.locator(".dirty-state").textContent()).toBe("Unsaved changes"));
       await page.clock.runFor(10_000);
       expect(await requests(page)).toHaveLength(2);
 
       await control.uncheck();
       await page.clock.runFor(6_000);
       expect(await requests(page)).toHaveLength(2);
-      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      await page.getByRole("button", { name: "Save", exact: true }).click();
       const third = (await requests(page))[2]!;
       expect(third.resource?.preferences ?? third.document?.preferences).toEqual({ autoSaveEnabled: false });
       await acknowledge(page, prefix, third);
-      expect(await page.locator(".dirty-state").textContent()).toBe("Guardado");
+      expect(await page.locator(".dirty-state").textContent()).toBe("Saved");
       await post(page, { type: `${prefix}.state`, ...editorState(prefix, third.resource ?? third.document!) });
       expect(await control.isChecked()).toBe(false);
       await page.clock.runFor(10_000);
@@ -153,7 +240,7 @@ realBrowserSuite("guardado automático compartido", () => {
           : { ...third.resource as FormulaResource, name: "Generar emails de prueba", code: 'function generate() {\n  const id = Math.floor(Math.random() * 10000);\n  return "usuario" + id + "@example.test";\n}' };
         await post(page, { type: `${prefix}.state`, ...editorState(prefix, preview) });
         await post(page, { type: `${prefix}.resources`, resources: [preview, { ...preview, id: "other", name: prefix === "array" ? "Códigos postales de las oficinas de prueba" : "Nombres para completar formularios de registro" }, { ...preview, id: "third", name: prefix === "array" ? "Tipos de cuenta disponibles" : "Generar identificadores de pedidos" }] });
-        await page.getByRole("checkbox", { name: `Seleccionar ${preview.name}`, exact: true }).check();
+        await page.getByRole("checkbox", { name: `Select ${preview.name}`, exact: true }).check();
         for (const theme of ["dark", "light"] as const) {
           await page.emulateMedia({ colorScheme: theme });
           await page.setViewportSize({ width: 1320, height: 1020 });
@@ -175,7 +262,7 @@ realBrowserSuite("guardado automático compartido", () => {
       await post(page, { type: "automation.state", ...editorState("automation", document) });
       const node = page.locator(".flow-node");
       await node.waitFor();
-      await page.getByRole("switch", { name: "Guardado automático", exact: true }).check();
+      await page.getByRole("switch", { name: "Auto-save", exact: true }).check();
       const bounds = await node.boundingBox();
       if (bounds === null) throw new Error("No se encontró el nodo para arrastrarlo.");
       await page.mouse.move(bounds.x + 20, bounds.y + 20);
@@ -196,7 +283,7 @@ realBrowserSuite("guardado automático compartido", () => {
   it("Arrays no guarda contenido JSON inválido y permite corregirlo antes de guardar", async () => {
     const page = await open("Arrays", "array");
     try {
-      await page.getByRole("switch", { name: "Guardado automático", exact: true }).check();
+      await page.getByRole("switch", { name: "Auto-save", exact: true }).check();
       await page.locator(".code-editor").fill("[incompleto");
       await page.clock.runFor(6_000);
       expect(await requests(page)).toHaveLength(0);
@@ -219,7 +306,7 @@ realBrowserSuite("guardado automático compartido", () => {
       await page.addStyleTag({ content: ".automation-tree { height: 500px; overflow-y: auto; }" });
       const document = createAutomationDocument("automation");
       document.preferences = { autoSaveEnabled: true };
-      document.groups = Array.from({ length: 15 }, (_, index) => ({ ...createAutomationGroup(`group-${index}`, `Grupo ${index + 1}`), expanded: false }));
+      document.groups = Array.from({ length: 15 }, (_, index) => ({ ...createAutomationGroup(`group-${index}`, `Group ${index + 1}`), expanded: false }));
       await post(page, { type: "automation.state", ...editorState("automation", document) });
       const tree = page.locator(".automation-tree");
       const handle = tree.locator('.tree-group-heading .row-drag-handle').first();
@@ -275,12 +362,12 @@ realBrowserSuite("guardado automático compartido", () => {
       const groupOrder = () => page.locator(".tree-group").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-group-id")));
       const processOrder = (id: string) => group(id).locator(".process-row").evaluateAll((elements) => elements.map((element) => element.getAttribute("data-process-id")));
       await group("empty").waitFor();
-      await group("one").getByRole("button", { name: "Contraer grupo", exact: true }).click();
+      await group("one").getByRole("button", { name: "Collapse group", exact: true }).click();
       expect(await group("one").locator(".process-list").isVisible()).toBe(false);
       await groupHandle("empty").dragTo(group("one").locator(".tree-group-header"), { targetPosition: { x: 16, y: 3 } });
       await vi.waitFor(async () => expect(await groupOrder()).toEqual(["empty", "one", "two"]));
-      expect(await group("one").getByRole("button", { name: "Expandir grupo", exact: true }).getAttribute("aria-expanded")).toBe("false");
-      await group("one").getByRole("button", { name: "Expandir grupo", exact: true }).click();
+      expect(await group("one").getByRole("button", { name: "Expand group", exact: true }).getAttribute("aria-expanded")).toBe("false");
+      await group("one").getByRole("button", { name: "Expand group", exact: true }).click();
 
       await row("second").locator(".row-drag-handle").dragTo(row("first"), { targetPosition: { x: 16, y: 3 } });
       await vi.waitFor(async () => expect(await processOrder("one")).toEqual(["second", "first"]));
@@ -290,13 +377,13 @@ realBrowserSuite("guardado automático compartido", () => {
       await row("third").locator(".row-drag-handle").dragTo(group("empty").locator(".tree-group-header"));
       await vi.waitFor(async () => expect(await processOrder("empty")).toEqual(["third"]));
       expect(await group("empty").locator(".process-list").isVisible()).toBe(false);
-      expect(await group("empty").locator(".tree-count").textContent()).toBe("1 proceso");
+      expect(await group("empty").locator(".tree-count").textContent()).toBe("1 process");
 
       await groupHandle("one").focus();
       await page.keyboard.press("Alt+ArrowDown");
       await vi.waitFor(async () => expect(await groupOrder()).toEqual(["empty", "two", "one"]));
-      await group("one").getByRole("button", { name: "Contraer grupo", exact: true }).click();
-      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      await group("one").getByRole("button", { name: "Collapse group", exact: true }).click();
+      await page.getByRole("button", { name: "Save", exact: true }).click();
       const saved = (await requests(page))[0]!;
       expect(saved.document?.groups.map(({ id, expanded, processes }) => ({ id, expanded, processes: processes.map(({ id }) => id) }))).toEqual([
         { id: "empty", expanded: false, processes: ["third"] },
@@ -308,7 +395,7 @@ realBrowserSuite("guardado automático compartido", () => {
       expect(await group("one").locator(".process-list").isVisible()).toBe(false);
       expect(await group("empty").locator(".process-list").isVisible()).toBe(false);
       expect(await group("two").locator(".process-list").isVisible()).toBe(true);
-      await page.getByRole("switch", { name: "Guardado automático", exact: true }).check();
+      await page.getByRole("switch", { name: "Auto-save", exact: true }).check();
       await groupHandle("one").dragTo(group("two").locator(".tree-group-header"), { targetPosition: { x: 16, y: 3 } });
       await page.clock.runFor(4_999);
       expect(await requests(page)).toHaveLength(1);
@@ -317,6 +404,22 @@ realBrowserSuite("guardado automático compartido", () => {
       expect((await messages(page)).some(({ type }) => type.includes(".run"))).toBe(false);
     } finally { await page.close(); }
   }, 20_000);
+
+  it("shows English guidance for an existing Spanish example without renaming user data", async () => {
+    const page = await open("Automatizaciones", "automation");
+    try {
+      let sequence = 0;
+      const group = createCompleteAutomationExample(() => `legacy-${sequence += 1}`);
+      group.processes = [group.processes.at(-1)!];
+      group.processes[0]!.name = "18 · Todos concatenados";
+      const document = { ...createAutomationDocument("legacy-document"), groups: [group] };
+      await post(page, { type: "automation.state", ...editorState("automation", document) });
+      await page.locator(".process-name").click();
+      expect(await page.locator(".example-guide summary").textContent()).toBe("How the connected example works");
+      expect(await page.locator(".process-name").inputValue()).toBe("18 · Todos concatenados");
+      expect(await page.locator(".dirty-state").textContent()).toBe("Saved");
+    } finally { await page.close(); }
+  });
 
   it("distingue los grupos de sus procesos y permite renombrarlos sin perder sus identidades", async () => {
     const page = await open("Automatizaciones", "automation", true);
@@ -334,31 +437,31 @@ realBrowserSuite("guardado automático compartido", () => {
       const group = page.locator('[data-group-id="group"]');
       const processRow = group.locator('[data-process-id="second"]');
       await processRow.waitFor();
-      expect(await group.locator(".tree-group-heading .tree-kind").textContent()).toContain("Grupo");
-      expect(await processRow.locator(".tree-kind").textContent()).toBe("Proceso");
+      expect(await group.locator(".tree-group-heading .tree-kind").textContent()).toContain("Group");
+      expect(await processRow.locator(".tree-kind").textContent()).toBe("Process");
       const groupName = "Acceso y validación de la cuenta de pruebas";
       const processName = "Comprobar los datos completos del formulario";
-      await group.getByRole("textbox", { name: "Nombre del grupo", exact: true }).fill(groupName);
-      await processRow.getByRole("textbox", { name: "Nombre del proceso", exact: true }).fill(processName);
+      await group.getByRole("textbox", { name: "Group name", exact: true }).fill(groupName);
+      await processRow.getByRole("textbox", { name: "Process name", exact: true }).fill(processName);
       const identity = page.locator(".process-identity");
-      expect(await identity.getByRole("textbox", { name: "Nombre del grupo", exact: true }).inputValue()).toBe(groupName);
-      expect(await identity.getByRole("textbox", { name: "Nombre del proceso", exact: true }).inputValue()).toBe(processName);
-      const sidebarWidth = await processRow.getByRole("textbox", { name: "Nombre del proceso", exact: true }).evaluate((input) => input.getBoundingClientRect().width);
+      expect(await identity.getByRole("textbox", { name: "Group name", exact: true }).inputValue()).toBe(groupName);
+      expect(await identity.getByRole("textbox", { name: "Process name", exact: true }).inputValue()).toBe(processName);
+      const sidebarWidth = await processRow.getByRole("textbox", { name: "Process name", exact: true }).evaluate((input) => input.getBoundingClientRect().width);
       expect(sidebarWidth).toBeGreaterThan(240);
       for (const input of await identity.locator("input").all()) {
         expect(await input.evaluate((element) => element.getBoundingClientRect().width)).toBeGreaterThan(300);
       }
 
-      await group.getByRole("button", { name: "Añadir proceso", exact: true }).click();
+      await group.getByRole("button", { name: "Add process", exact: true }).click();
       const added = group.locator(".process-row").last();
-      await vi.waitFor(async () => expect(await added.getByRole("textbox", { name: "Nombre del proceso", exact: true }).evaluate((input: HTMLInputElement) => globalThis.document.activeElement === input && input.selectionStart === 0 && input.selectionEnd === input.value.length)).toBe(true));
+      await vi.waitFor(async () => expect(await added.getByRole("textbox", { name: "Process name", exact: true }).evaluate((input: HTMLInputElement) => globalThis.document.activeElement === input && input.selectionStart === 0 && input.selectionEnd === input.value.length)).toBe(true));
       await page.keyboard.type("Consultar el resumen final");
-      expect(await added.getByRole("textbox", { name: "Nombre del proceso", exact: true }).inputValue()).toBe("Consultar el resumen final");
-      await added.getByRole("combobox", { name: "Mover proceso a grupo", exact: true }).selectOption("other");
+      expect(await added.getByRole("textbox", { name: "Process name", exact: true }).inputValue()).toBe("Consultar el resumen final");
+      await added.getByRole("combobox", { name: "Move process to group", exact: true }).selectOption("other");
       const moved = page.locator('[data-group-id="other"] .process-row');
       await moved.waitFor();
-      expect(await moved.getByRole("textbox", { name: "Nombre del proceso", exact: true }).inputValue()).toBe("Consultar el resumen final");
-      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      expect(await moved.getByRole("textbox", { name: "Process name", exact: true }).inputValue()).toBe("Consultar el resumen final");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
       const saved = (await requests(page))[0]!.document!;
       expect(saved.groups[0]?.id).toBe("group");
       expect(saved.groups[0]?.name).toBe(groupName);
@@ -366,8 +469,8 @@ realBrowserSuite("guardado automático compartido", () => {
       expect(saved.groups[1]?.processes[0]?.name).toBe("Consultar el resumen final");
       expect((await messages(page)).some(({ type }) => type.includes(".run"))).toBe(false);
       await acknowledge(page, "automation", (await requests(page))[0]!);
-      await page.getByRole("switch", { name: "Guardado automático", exact: true }).check();
-      await moved.getByRole("textbox", { name: "Nombre del proceso", exact: true }).fill("Verificar el resumen final");
+      await page.getByRole("switch", { name: "Auto-save", exact: true }).check();
+      await moved.getByRole("textbox", { name: "Process name", exact: true }).fill("Verificar el resumen final");
       await page.clock.runFor(5_000);
       expect((await requests(page))[1]?.document?.groups[1]?.processes[0]?.name).toBe("Verificar el resumen final");
 

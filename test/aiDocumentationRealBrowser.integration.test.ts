@@ -31,7 +31,7 @@ realBrowserSuite("documentación para IA en el navegador", () => {
       const buttons = page.getByRole("navigation").getByRole("button");
       await buttons.nth(4).waitFor();
       expect(await buttons.count()).toBe(5);
-      expect(await buttons.nth(4).innerText()).toBe("Documentación para IA");
+      expect(await buttons.nth(4).innerText()).toBe("AI Documentation");
       await buttons.nth(4).click();
       const messages = await page.evaluate(() => (window as unknown as { messages: unknown[] }).messages);
       expect(messages).toContainEqual({ type: "sidebar.openPage", pageId: "aiDocumentation" });
@@ -46,22 +46,22 @@ realBrowserSuite("documentación para IA en el navegador", () => {
         Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: (text: string) => { Object.assign(window, { copied: text }); return Promise.resolve(); } } });
       });
       await page.addScriptTag({ content: scripts.get("documentation")! });
-      const content = page.getByRole("textbox", { name: "Documentación para IA copiable" });
+      const content = page.getByRole("textbox", { name: "Copyable AI documentation" });
       await content.waitFor();
-      expect(await content.inputValue()).toContain("## Estructura JSON exacta");
+      expect(await content.inputValue()).toContain("## Exact JSON structure");
       await page.getByRole("combobox").selectOption("formulas");
-      await page.waitForFunction(() => document.querySelector("textarea")?.value.includes("— Fórmulas:"));
-      expect(await content.inputValue()).not.toContain("## Estructura JSON exacta");
-      await page.getByRole("button", { name: "Copiar documentación" }).click();
-      await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent?.includes("Documentación copiada"));
+      await page.waitForFunction(() => document.querySelector("textarea")?.value.includes("— Formulas:"));
+      expect(await content.inputValue()).not.toContain("## Exact JSON structure");
+      await page.getByRole("button", { name: "Copy documentation" }).click();
+      await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent?.includes("Documentation copied"));
       expect(await page.evaluate(() => (window as unknown as { copied: string }).copied)).toBe(await content.inputValue());
-      await page.getByRole("button", { name: "Seleccionar todo" }).click();
+      await page.getByRole("button", { name: "Select all" }).click();
       expect(await content.evaluate((element: HTMLTextAreaElement) => element.selectionEnd - element.selectionStart)).toBe((await content.inputValue()).length);
       await page.evaluate(() => {
         Object.defineProperty(navigator, "clipboard", { value: { writeText: () => Promise.reject(new Error("Sin portapapeles")) } });
         document.execCommand = () => false;
       });
-      await page.getByRole("button", { name: "Copiar documentación" }).click();
+      await page.getByRole("button", { name: "Copy documentation" }).click();
       await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent?.includes("Ctrl+C"));
       expect(await content.evaluate((element: HTMLTextAreaElement) => document.activeElement === element)).toBe(true);
     } finally { await page.close(); }

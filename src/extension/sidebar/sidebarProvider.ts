@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import type { BrowserSelectionService } from "../../application/browser/browserSelectionService";
 import type { BrowserActionsService } from "../../application/manual/browserActionsService";
@@ -16,7 +17,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, vscode.Dispo
   public resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")] };
-    view.webview.html = createWebviewHtml(view.webview, this.extensionUri, "sidebar", "Browser Control");
+    view.webview.html = createWebviewHtml(view.webview, this.extensionUri, "sidebar", t("text.browserControl"));
     view.onDidDispose(() => { this.view = null; });
     view.webview.onDidReceiveMessage((message: unknown) => {
       if (!isSidebarToExtensionMessage(message)) return;
@@ -36,7 +37,7 @@ export class SidebarProvider implements vscode.WebviewViewProvider, vscode.Dispo
     const response: ExtensionToSidebarMessage = {
       type: "sidebar.state",
       providerId,
-      providerName: selected?.displayName ?? "Navegador",
+      providerName: selected?.displayName ?? t("text.browser"),
       providerState: selected?.state ?? "missing",
       lifecycle: this.browser.getSnapshot().lifecycle
     };

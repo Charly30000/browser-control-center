@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { Logger } from "../logging/logger";
 import type { GeneratorValueResolver } from "../manual/generatorValueResolver";
 import type { JsonValue } from "../../domain/manual/storageValue";
@@ -33,9 +34,9 @@ export class ExecutionContext {
 
   public previousOutput(): JsonValue {
     const [nodeId] = this.inputNodeIds;
-    if (this.inputNodeIds.length !== 1 || nodeId === undefined) throw new Error("Guardar dato necesita exactamente un nodo anterior conectado.");
+    if (this.inputNodeIds.length !== 1 || nodeId === undefined) throw new Error(t("text.saveDataRequiresExactlyOneConnectedPredecessorNode"));
     const value = this.nodeOutputs.get(nodeId);
-    if (value === undefined) throw new Error("El nodo anterior no ha producido ningún dato.");
+    if (value === undefined) throw new Error(t("text.thePreviousNodeDidNotProduceAnyData"));
     return structuredClone(value);
   }
 
@@ -49,7 +50,7 @@ export class ExecutionContext {
 
   public resolveConfig(config: Readonly<Record<string, JsonValue>>): Record<string, JsonValue> {
     const resolved = this.variables.resolve(config);
-    if (!resolved.ok || resolved.value === null || Array.isArray(resolved.value) || typeof resolved.value !== "object") throw new Error(resolved.ok ? "La configuración resuelta no es un objeto." : resolved.error);
+    if (!resolved.ok || resolved.value === null || Array.isArray(resolved.value) || typeof resolved.value !== "object") throw new Error(resolved.ok ? t("text.theResolvedConfigurationIsNotAnObject") : resolved.error);
     return { ...resolved.value };
   }
 
@@ -61,7 +62,7 @@ export class ExecutionContext {
       else if (action === "retry") this.control.retryUser(nodeId);
       else if (action === "stop") this.control.stop(false);
       else this.control.stop(false);
-    }).catch((error: unknown) => this.info("Pause / Wait User", `No se pudo mostrar el control en el navegador: ${error instanceof Error ? error.message : String(error)}`));
+    }).catch((error: unknown) => this.info(t("text.pauseWaitUser"), t("text.couldNotDisplayTheControlInTheBrowserArg0", { arg0: error instanceof Error ? error.message : String(error) })));
     try { return await controlAction; }
     finally { await this.browser.hideUserPrompt().catch(() => undefined); this.options.onWaitingUser(nodeId, false); }
   }

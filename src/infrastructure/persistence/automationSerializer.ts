@@ -1,9 +1,12 @@
+import { t } from "../../localization";
 import { AUTOMATION_NODE_TYPES, AUTOMATION_SCHEMA_VERSION, type AutomationDocument, type AutomationEdge, type AutomationGroup, type AutomationNode, type AutomationProcess } from "../../domain/automations/automation";
 import type { ViewportConfiguration } from "../../domain/manual/manualProfile";
 import { isJsonValue } from "../../domain/manual/storageValue";
 import { repairCompleteAutomationExamples } from "../../domain/automations/exampleAutomation";
 import { failure, success, type Result } from "../../shared/result";
 import { isOptionalEditorPreferences } from "../../domain/resources/editorPreferences";
+import { migrateSchema } from "../../application/persistence/schemaMigration";
+import { persistedSchemas } from "./migrations/registry";
 
 type UnknownRecord = Record<string, unknown>;
 const record = (value: unknown): value is UnknownRecord => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -22,8 +25,12 @@ export const isAutomationDocument = (value: unknown): value is AutomationDocumen
 export const serializeAutomation = (document: AutomationDocument): string => JSON.stringify(document, null, 2);
 export const deserializeAutomation = (serialized: string): Result<AutomationDocument> => {
   let value: unknown;
-  try { value = JSON.parse(serialized); } catch { return failure("El archivo no contiene JSON válido."); }
-  if (!record(value)) return failure("La automatización debe ser un objeto JSON.");
-  if (value.schemaVersion !== AUTOMATION_SCHEMA_VERSION) return failure(`Versión no compatible. Se esperaba ${AUTOMATION_SCHEMA_VERSION}.`);
-  return isAutomationDocument(value) ? success(repairCompleteAutomationExamples(value)) : failure("La estructura de la automatización no es válida.");
+  try { value = JSON.parse(serialized); } catch { return failure(t("text.theFileDoesNotContainValidJSON")); }
+  if (!record(value)) return failure(t("text.theAutomationMustBeAJSONObject"));
+  const migrated = migrateSchema(value, persistedSchemas.automations);
+  if (!migrated.ok) return migrated;
+  value = migrated.value;
+  if (!record(value)) return failure(t("text.theAutomationMustBeAJSONObject"));
+  if (value.schemaVersion !== AUTOMATION_SCHEMA_VERSION) return failure(t("text.unsupportedVersionExpectedArg0", { arg0: AUTOMATION_SCHEMA_VERSION }));
+  return isAutomationDocument(value) ? success(repairCompleteAutomationExamples(value)) : failure(t("text.theAutomationStructureIsInvalid"));
 };

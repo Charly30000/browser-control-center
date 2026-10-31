@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { failure, success, type Result } from "../../shared/result";
 import type { GeneratorBinding, GeneratorType } from "../manual/manualProfile";
 import { generateCif, generateDni, generateNie } from "./spanishIdentifiers";
@@ -36,10 +37,10 @@ export const generateNumber = (minText: string, maxText: string, random: RandomS
   const min = Number(minText);
   const max = Number(maxText);
   if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    return failure("Los límites del generador numérico no son válidos.");
+    return failure(t("text.theNumericGeneratorLimitsAreInvalid"));
   }
   if (min > max) {
-    return failure("El mínimo no puede ser mayor que el máximo.");
+    return failure(t("text.theMinimumCannotExceedTheMaximum"));
   }
   const precision = Math.max(decimalPlaces(minText), decimalPlaces(maxText));
   const generated = min === max ? min : min + random.next() * (max - min);
@@ -84,8 +85,8 @@ export const generateValue = (
     case "cif":
       return success(generateCif(random));
     case "formula":
-      return failure("Las fórmulas estarán disponibles en una fase posterior.");
+      return failure(t("text.formulasWillBeAvailableInALaterRelease"));
     case "array":
-      return failure("Los arrays estarán disponibles en una fase posterior.");
+      return failure(t("text.arraysWillBeAvailableInALaterRelease"));
   }
 };

@@ -30,6 +30,6 @@ describe("SystemChromeProvider", () => {
     const inspection = await provider.inspect();
     expect(inspection.state).toBe("missing");
     expect(inspection.detail).toContain("Chrome no encontrado");
-    await expect(provider.resolveLaunchConfiguration()).rejects.toThrow("no está instalado");
+    await expect(provider.resolveLaunchConfiguration()).rejects.toThrow("is not installed");
   });
 });

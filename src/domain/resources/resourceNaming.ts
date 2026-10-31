@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { GlobalResourceSummary } from "./globalResource";
 
 const suffixPattern = /^(.*?)(?:-(\d+))?$/;
@@ -11,7 +12,7 @@ export const nextResourceName = (baseName: string, existingNames: readonly strin
 };
 
 export const uniqueImportedResourceName = (requestedName: string, existingNames: readonly string[]): string => {
-  const trimmed = requestedName.trim() || "resource";
+  const trimmed = requestedName.trim() || t("labels.resource");
   const occupied = new Set(existingNames.map((name) => name.toLocaleLowerCase()));
   if (!occupied.has(trimmed.toLocaleLowerCase())) return trimmed;
   const base = suffixPattern.exec(trimmed)?.[1] || trimmed;

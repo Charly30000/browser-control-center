@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { JsonValue } from "../manual/storageValue";
 import { failure, success, type Result } from "../../shared/result";
 
@@ -9,7 +10,7 @@ export class VariableStore {
   private readonly values: Map<string, JsonValue>;
   public constructor(initial: Readonly<Record<string, JsonValue>> = {}) { this.values = new Map(Object.entries(initial)); }
   public set(name: string, value: JsonValue): Result<void> {
-    if (!isVariableName(name)) return failure(`«${name}» no es un nombre de variable válido.`);
+    if (!isVariableName(name)) return failure(t("text.arg0IsNotAValidVariableName", { arg0: name }));
     this.values.set(name, structuredClone(value)); return success(undefined);
   }
   public get(name: string): JsonValue | undefined { const value = this.values.get(name); return value === undefined ? undefined : structuredClone(value); }
@@ -32,7 +33,7 @@ export class VariableStore {
     const exact = EXACT_VARIABLE.exec(value);
     if (exact?.[1] !== undefined) {
       const resolved = this.values.get(exact[1]);
-      return resolved === undefined ? failure(`La variable «${exact[1]}» no existe.`) : success(structuredClone(resolved));
+      return resolved === undefined ? failure(t("text.variableArg0DoesNotExist", { arg0: exact[1] })) : success(structuredClone(resolved));
     }
     const missing: string[] = [];
     const interpolated = value.replace(VARIABLE, (_match, name: string) => {
@@ -40,6 +41,6 @@ export class VariableStore {
       if (resolved === undefined) { missing.push(name); return ""; }
       return typeof resolved === "string" ? resolved : JSON.stringify(resolved);
     });
-    return missing[0] === undefined ? success(interpolated) : failure(`La variable «${missing[0]}» no existe.`);
+    return missing[0] === undefined ? success(interpolated) : failure(t("text.variableArg0DoesNotExist", { arg0: missing[0] }));
   }
 }

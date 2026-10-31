@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { AutomationNodeConfig, AutomationNodeType } from "../../domain/automations/automation";
 import type { Result } from "../../shared/result";
 import type { ExecutionContext } from "./executionContext";
@@ -34,12 +35,12 @@ export interface NodeDescriptor {
 export class NodeRegistry {
   private readonly definitions = new Map<AutomationNodeType, NodeDefinition>();
   public register(definition: NodeDefinition): this {
-    if (this.definitions.has(definition.type)) throw new Error(`El nodo «${definition.type}» ya está registrado.`);
+    if (this.definitions.has(definition.type)) throw new Error(t("text.nodeArg0IsAlreadyRegistered", { arg0: definition.type }));
     this.definitions.set(definition.type, definition); return this;
   }
   public get(type: AutomationNodeType): NodeDefinition {
     const definition = this.definitions.get(type);
-    if (definition === undefined) throw new Error(`El tipo de nodo «${type}» no está registrado.`);
+    if (definition === undefined) throw new Error(t("text.nodeTypeArg0IsNotRegistered", { arg0: type }));
     return definition;
   }
   public has(type: string): boolean { return this.definitions.has(type as AutomationNodeType); }

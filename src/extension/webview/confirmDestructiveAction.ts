@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import type { DestructiveActionConfirmation } from "../../shared/messages/destructiveConfirmationMessages";
 
@@ -8,7 +9,7 @@ export const confirmDestructiveAction = async ({ question, detail }: Destructive
   const answer = await vscode.window.showWarningMessage(
     question,
     options,
-    "Eliminar"
+    t("actions.delete")
   );
-  return answer === "Eliminar";
+  return answer === t("actions.delete");
 };

@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { LitElement, html, nothing } from "lit";
 import { renderSectionIcon, type SectionIcon } from "./sectionIcon";
 
@@ -29,7 +30,7 @@ export class SectionCard extends LitElement {
           <div part="identity">
             ${this.icon === "" ? nothing : html`<span part="icon">${renderSectionIcon(this.icon)}</span>`}
             <div part="heading-group">
-              <div part="title-row"><h2 part="heading">${this.heading}</h2>${this.count < 0 ? nothing : html`<span part="count" aria-label=${`${this.count} ${this.count === 1 ? "elemento" : "elementos"}`}>${this.count}</span>`}</div>
+              <div part="title-row"><h2 part="heading">${this.heading}</h2>${this.count < 0 ? nothing : html`<span part="count" aria-label=${`${this.count} ${this.count === 1 ? "elemento" : t("text.items")}`}>${this.count}</span>`}</div>
               ${this.description ? html`<p part="description">${this.description}</p>` : nothing}
             </div>
           </div>

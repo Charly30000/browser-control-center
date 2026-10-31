@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { ViewportConfiguration } from "../manual/manualProfile";
 import { defaultViewport, DEFAULT_SEQUENTIAL_DELAY_MS } from "../manual/manualProfile";
 import type { JsonValue } from "../manual/storageValue";
@@ -59,11 +60,11 @@ export interface AutomationDocument {
 }
 
 export const createAutomationDocument = (id: string, now = new Date().toISOString()): AutomationDocument => ({
-  schemaVersion: AUTOMATION_SCHEMA_VERSION, id, name: "Automatizaciones", groups: [], createdAt: now, updatedAt: now
+  schemaVersion: AUTOMATION_SCHEMA_VERSION, id, name: t("navigation.automations"), groups: [], createdAt: now, updatedAt: now
 });
 
-export const createAutomationGroup = (id: string, name = "Nuevo grupo"): AutomationGroup => ({ id, name, processes: [] });
-export const createAutomationProcess = (id: string, name = "Nuevo proceso"): AutomationProcess => ({ id, name, viewport: defaultViewport(), nodes: [], edges: [], variables: {} });
+export const createAutomationGroup = (id: string, name = t("text.newGroup")): AutomationGroup => ({ id, name, processes: [] });
+export const createAutomationProcess = (id: string, name = t("text.newProcess")): AutomationProcess => ({ id, name, viewport: defaultViewport(), nodes: [], edges: [], variables: {} });
 
 const defaultConfigs: Record<AutomationNodeType, AutomationNodeConfig> = {
   navigate: { url: "https://example.com", queryParams: [] },
@@ -80,7 +81,7 @@ const defaultConfigs: Record<AutomationNodeType, AutomationNodeConfig> = {
   "extract-value": { selector: "", property: "textContent", attribute: "", outputVariable: "extractedValue" },
   "set-variable": { name: "variable", value: "" },
   "capture-value": { source: "previous", selector: "", property: "value", attribute: "", path: "", valueType: "auto", outputVariable: "capturedValue" },
-  "wait-user": { message: "Completa la acción en el navegador y pulsa Continuar." }
+  "wait-user": { message: t("text.completeTheActionInTheBrowserAndClickContinue") }
 };
 
 export const createAutomationNode = (id: string, type: AutomationNodeType, position: Point): AutomationNode => ({

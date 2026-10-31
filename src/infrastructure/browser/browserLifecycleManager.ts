@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -83,11 +84,11 @@ export class BrowserLifecycleManager {
         this.session = null;
         this.server = null;
         this.setState("crashed");
-        void this.cleanSessionPath().catch((error: unknown) => this.logger.error("No se pudo limpiar la sesión cerrada inesperadamente.", error));
-        this.logger.error(`${configuration.displayName} se ha cerrado de forma inesperada.`);
+        void this.cleanSessionPath().catch((error: unknown) => this.logger.error(t("text.couldNotCleanUpTheUnexpectedlyClosedSession"), error));
+        this.logger.error(t("text.arg0ClosedUnexpectedly", { arg0: configuration.displayName }));
       });
       this.setState("running");
-      this.logger.info(`Sesión limpia y aislada de ${configuration.displayName} iniciada.`);
+      this.logger.info(t("text.cleanIsolatedArg0SessionStarted", { arg0: configuration.displayName }));
       return this.session;
     } catch (error: unknown) {
       if (this.server !== null) await this.server.kill().catch(() => undefined);
@@ -95,7 +96,7 @@ export class BrowserLifecycleManager {
       this.session = null;
       await this.cleanSessionPath();
       this.setState("crashed");
-      this.logger.error(`No se pudo iniciar ${configuration.displayName}.`, error);
+      this.logger.error(t("text.couldNotStartArg0", { arg0: configuration.displayName }), error);
       throw error;
     }
   }
@@ -110,13 +111,13 @@ export class BrowserLifecycleManager {
     try {
       await context?.close().catch(() => undefined);
       if (server !== null) {
-        if (mode === "force") await server.kill().catch((error: unknown) => this.logger.error("No se pudo terminar el proceso del navegador.", error));
+        if (mode === "force") await server.kill().catch((error: unknown) => this.logger.error(t("text.couldNotTerminateTheBrowserProcess"), error));
         else await this.closeServer(server);
       }
     } finally {
       await this.cleanSessionPath();
       this.setState("stopped");
-      this.logger.info(mode === "force" ? "Navegador detenido a la fuerza." : "Navegador detenido.");
+      this.logger.info(mode === "force" ? t("text.browserForceStopped") : t("text.browserStopped"));
     }
   }
 
@@ -131,11 +132,11 @@ export class BrowserLifecycleManager {
     try {
       await Promise.race([
         server.close(),
-        new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error("Timeout al cerrar el navegador.")), 3_000); })
+        new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(t("text.timedOutWhileClosingTheBrowser"))), 3_000); })
       ]);
     } catch (error: unknown) {
-      this.logger.warn("El cierre normal del navegador falló; se intentará una parada forzada.");
-      await server.kill().catch((killError: unknown) => this.logger.error("No se pudo forzar el cierre del navegador.", killError ?? error));
+      this.logger.warn(t("text.normalBrowserShutdownFailedAForcedStopWillBeAttempted"));
+      await server.kill().catch((killError: unknown) => this.logger.error(t("text.couldNotForceCloseTheBrowser"), killError ?? error));
     } finally {
       if (timer !== undefined) clearTimeout(timer);
     }

@@ -1,10 +1,11 @@
+import { t } from "../../localization";
 import type { Page } from "playwright-core";
 import type { ElementTarget } from "../../domain/browser/browserBridge";
 
 export class ElementPickerService {
   public async pick(page: Page): Promise<ElementTarget> {
     await page.bringToFront();
-    return page.evaluate(() => new Promise<ElementTarget>((resolvePromise) => {
+    return page.evaluate((cancelledMessage) => new Promise<ElementTarget>((resolvePromise) => {
       const overlay = document.createElement("div");
       overlay.style.cssText = "position:fixed;pointer-events:none;z-index:2147483647;border:2px solid #007acc;background:rgba(0,122,204,.12);display:none";
       document.documentElement.append(overlay);
@@ -61,11 +62,11 @@ export class ElementPickerService {
       const cancel = (event: KeyboardEvent): void => {
         if (event.key !== "Escape") return;
         cleanup();
-        resolvePromise({ selector: "", tagName: "", preview: "Selección cancelada" });
+        resolvePromise({ selector: "", tagName: "", preview: cancelledMessage });
       };
       document.addEventListener("pointermove", hover, true);
       document.addEventListener("click", choose, true);
       document.addEventListener("keydown", cancel, true);
-    }));
+    }), t("text.selectionCancelled"));
   }
 }

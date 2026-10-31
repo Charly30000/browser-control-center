@@ -1,5 +1,7 @@
 # Página Arrays
 
+Cambiar de array no pide guardar si no has editado el recurso, incluido un borrador nuevo recién abierto. Un borrador sin editar muestra **Not saved yet** y no se guarda automáticamente solo por abrir la página o marcar casillas de selección. Al editar se activa la protección Guardar/Descartar/Cancelar; tras guardar, cambiar de array vuelve a ser directo. Las ediciones realizadas durante un guardado siguen pendientes.
+
 La lista **Mis arrays** muestra el número de colecciones guardadas y destaca la que estás editando. Las casillas permiten marcar varios arrays y muestran cuántos has seleccionado para eliminarlos. El editor tiene una cabecera propia con el tipo JSON y el estado **Guardado / Cambios sin guardar / Guardando…**, un campo amplio para el nombre y una zona de contenido más espaciosa. **Agregar** es la acción principal de la cabecera.
 
 ## Modelo y validación

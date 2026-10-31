@@ -1,7 +1,9 @@
+import { t } from "../../localization";
 import { randomUUID } from "node:crypto";
 import { createEmptyManualProfile, type ManualProfile, type ProfileSummary } from "../../domain/manual/manualProfile";
 import { nextUntitledName } from "../../domain/manual/profileNaming";
 import { resolveImportedIdentity } from "../importExport/importIdentityResolver";
+import { pruneCatalog } from "../persistence/pruneCatalog";
 import type { EntityDataDao, ProfileMetadata, StateDataDao } from "../persistence/applicationDataDao";
 
 export interface ManualProfileState {
@@ -17,7 +19,7 @@ export class ManualProfileService {
   ) {}
 
   public async getInitialState(): Promise<ManualProfileState> {
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const preferredIds = [metadata.selectedProfileId, ...metadata.profiles.map(({ id }) => id)]
       .filter((id): id is string => id !== null);
 
@@ -30,6 +32,15 @@ export class ManualProfileService {
     return this.createDraft();
   }
 
+  public async refreshCatalog(): Promise<ProfileMetadata> {
+    const profiles = await pruneCatalog(this.metadataDao.get().profiles, (id) => this.profileDao.exists(id), () => this.metadataDao.get().profiles);
+    const current = this.metadataDao.get();
+    const selectedProfileId = profiles.some(({ id }) => id === current.selectedProfileId) ? current.selectedProfileId : profiles[0]?.id ?? null;
+    const updated = { ...current, profiles, selectedProfileId };
+    if (JSON.stringify(updated) !== JSON.stringify(current)) await this.metadataDao.set(updated);
+    return updated;
+  }
+
   public createDraft(): ManualProfileState {
     const metadata = this.metadataDao.get();
     const name = nextUntitledName(metadata.profiles.map(({ name: existingName }) => existingName));
@@ -38,22 +49,22 @@ export class ManualProfileService {
   }
 
   public async select(id: string): Promise<ManualProfileState> {
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const profile = await this.profileDao.load(id);
     if (profile === null) {
-      throw new Error("El perfil seleccionado ya no existe.");
+      throw new Error(t("text.theSelectedProfileNoLongerExists"));
     }
     await this.metadataDao.set({ ...metadata, selectedProfileId: id });
     return { profile, savedProfile: structuredClone(profile), profiles: metadata.profiles };
   }
 
   public async save(draft: ManualProfile): Promise<ManualProfileState> {
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const now = new Date().toISOString();
     const name = draft.name.trim() || "untitled";
     const normalizedName = name.toLocaleLowerCase();
     if (metadata.profiles.some(({ id, name: existingName }) => id !== draft.id && existingName.trim().toLocaleLowerCase() === normalizedName)) {
-      throw new Error(`Ya existe un perfil llamado «${name}».`);
+      throw new Error(t("text.aProfileNamedArg0AlreadyExists", { arg0: name }));
     }
     const profile: ManualProfile = { ...structuredClone(draft), name, updatedAt: now };
     await this.profileDao.save(profile);
@@ -67,7 +78,7 @@ export class ManualProfileService {
 
   public async delete(id: string): Promise<ManualProfileState> {
     await this.profileDao.delete(id);
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     const profiles = metadata.profiles.filter((profile) => profile.id !== id);
     const updatedMetadata: ProfileMetadata = { version: 1, selectedProfileId: profiles[0]?.id ?? null, profiles };
     await this.metadataDao.set(updatedMetadata);
@@ -78,7 +89,7 @@ export class ManualProfileService {
   }
 
   public async import(profileToImport: ManualProfile): Promise<ManualProfileState> {
-    const metadata = this.metadataDao.get();
+    const metadata = await this.refreshCatalog();
     if (metadata.profiles.some(({ id }) => id === profileToImport.id)) {
       const existing = await this.profileDao.load(profileToImport.id);
       if (existing !== null && JSON.stringify(existing) === JSON.stringify(profileToImport)) return this.select(existing.id);

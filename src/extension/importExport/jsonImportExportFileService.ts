@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import { MAX_DOCUMENT_BYTES, documentSizeLimitMessage } from "../../domain/importExport/documentSize";
 
@@ -37,7 +38,7 @@ export class JsonImportExportFileService {
     const contents = await vscode.workspace.fs.readFile(source);
     if (contents.byteLength > this.maxImportBytes) throw new Error(documentSizeLimitMessage(contents.byteLength));
     try { return new TextDecoder("utf-8", { fatal: true }).decode(contents).replace(/^\uFEFF/, ""); }
-    catch { throw new Error("El archivo JSON debe estar codificado en UTF-8 para evitar alterar caracteres durante la importación."); }
+    catch { throw new Error(t("text.theJSONFileMustBeUTF8EncodedToPreserveCharactersDuringImport")); }
   }
 
   public async write(contents: string, options: ExportDialogOptions): Promise<boolean> {

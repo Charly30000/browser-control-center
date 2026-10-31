@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { AutomationDocument, AutomationEdge, AutomationGroup, AutomationNode, AutomationProcess } from "../../domain/automations/automation";
 import { resolveImportedId, resolveImportedIdentity } from "./importIdentityResolver";
 
@@ -21,7 +22,7 @@ export class AutomationImportService {
     createId: () => string,
     now = new Date().toISOString()
   ): AutomationDocument {
-    if (imported.groups.length === 0) throw new Error("El documento importado no contiene grupos.");
+    if (imported.groups.length === 0) throw new Error(t("text.theImportedDocumentDoesNotContainAnyGroups"));
     const occupiedIds = documentIds(current);
     const groupNames = current.groups.map(({ name }) => name);
     const processNames = current.groups.flatMap(({ processes }) => processes.map(({ name }) => name));

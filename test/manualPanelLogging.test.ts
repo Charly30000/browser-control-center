@@ -7,8 +7,11 @@ import type { ManualProfileService } from "../src/application/manual/manualProfi
 import { createEmptyManualProfile, createGeneratorBinding, type ManualProfile } from "../src/domain/manual/manualProfile";
 import type { BrowserAutomationLogger } from "../src/extension/logging/browserAutomationLogger";
 import { ManualPanelManager } from "../src/extension/manual/manualPanel";
-import type { ManualToExtensionMessage } from "../src/shared/messages/manualMessages";
+import type { ManualToExtensionMessage, ExtensionToManualMessage } from "../src/shared/messages/manualMessages";
 import { failure } from "../src/shared/result";
+import historical from "./fixtures/persistence/historical.json";
+import { createImportExportDocument } from "../src/domain/importExport/importExportDocument";
+import { MANUAL_PROFILE_SCHEMA_VERSION } from "../src/domain/manual/manualProfile";
 
 const mocks = vi.hoisted(() => ({ createWebviewPanel: vi.fn() }));
 vi.mock("vscode", () => ({
@@ -86,6 +89,18 @@ describe("avisos de Inputs / Generadores en Manual", () => {
 });
 
 describe("confirmación del guardado de Manual", () => {
+  it("migra el perfil antiguo incluido en un paquete JSON antes de mostrarlo", async () => {
+    const harness = createHarness();
+    const document = createImportExportDocument("browser-control-center/manual-profile", { bundleVersion: 1, profile: historical.manual, formulas: [historical.formulas], arrays: [historical.arrays] });
+    harness.receive({ type: "manual.applyJson", currentId: historical.manual.id, serialized: JSON.stringify(document) });
+    await vi.waitFor(() => expect(harness.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "manual.jsonApplied" })));
+    const applied = harness.postMessage.mock.calls.map((call) => call[0] as ExtensionToManualMessage).find((message) => message.type === "manual.jsonApplied");
+    if (applied?.type !== "manual.jsonApplied") throw new Error("No migrated bundle was posted.");
+    expect(applied.bundle.profile).toMatchObject({ id: historical.manual.id, schemaVersion: MANUAL_PROFILE_SCHEMA_VERSION, headers: historical.manual.headers });
+    expect(harness.save).not.toHaveBeenCalled();
+    harness.manager.dispose();
+  });
+
   it("devuelve la solicitud guardada sin sustituirla por un cambio de perfil", async () => {
     const harness = createHarness();
     harness.receive({ type: "manual.save", requestId: "save-1", profile, resources: null });

@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { BrowserContext, Page } from "playwright-core";
 import type { BrowserLaunchConfigurationProvider } from "../../application/browser/browserProvider";
 import type { Logger } from "../../application/logging/logger";
@@ -110,7 +111,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
     const page = await this.ensurePage();
     const fallbackUrl = page.url();
     if (fallbackUrl === "about:blank" && cookies.some(({ enabled, domain }) => enabled && domain.trim() === "")) {
-      throw new Error("Navega primero a una URL o indica el dominio de la cookie.");
+      throw new Error(t("text.navigateToAURLFirstOrSpecifyTheCookieDomain"));
     }
     const values = toCookieParams(cookies, fallbackUrl);
     await this.requireContext().addCookies(values);
@@ -128,7 +129,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
 
   public applyRequestOverrides(overrides: readonly RequestOverrideEntry[]): Promise<void> {
     const router = this.router;
-    if (router === null) throw new Error("No hay una sesión de navegador activa.");
+    if (router === null) throw new Error(t("text.noBrowserSessionIsActive"));
     router.update(overrides.filter(({ enabled }) => enabled));
     this.logger.debug(`${overrides.length} overrides configurados.`);
     return Promise.resolve();
@@ -137,9 +138,9 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
   public async applyInputBindings(bindings: readonly ResolvedInputBinding[]): Promise<void> {
     const page = await this.ensurePage();
     for (const binding of bindings) {
-      if (binding.selector.trim() === "") throw new Error("El selector del generador es obligatorio.");
+      if (binding.selector.trim() === "") throw new Error(t("text.theGeneratorSelectorIsRequired"));
       const locator = page.locator(binding.selector).first();
-      if (await locator.count() === 0) throw new Error("No se encontró el elemento en la página actual.");
+      if (await locator.count() === 0) throw new Error(t("text.theElementWasNotFoundOnTheCurrentPage"));
       const originalValue = await locator.evaluate((element, configuration) => {
         if (configuration.propertyKind === "attribute") return element.getAttribute(configuration.propertyName);
         return (element as unknown as Record<string, unknown>)[configuration.propertyKind === "property" ? configuration.propertyName : configuration.propertyKind];
@@ -159,7 +160,7 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
 
   public async selectElement(): Promise<ElementTarget> {
     const result = await this.picker.pick(await this.ensurePage());
-    if (result.selector === "") throw new Error("Selección cancelada.");
+    if (result.selector === "") throw new Error(t("text.selectionCancelled2"));
     return result;
   }
 
@@ -192,12 +193,12 @@ export class PlaywrightBrowserBridge implements BrowserBridge {
 
   private requireContext(): BrowserContext {
     const context = this.lifecycle.getSession()?.context;
-    if (context === undefined) throw new Error("Abre el navegador antes de aplicar la configuración.");
+    if (context === undefined) throw new Error(t("text.openTheBrowserBeforeApplyingTheConfiguration"));
     return context;
   }
 
   private requireRegistry(): BrowserPageRegistry {
-    if (this.registry === null) throw new Error("No hay una sesión de navegador activa.");
+    if (this.registry === null) throw new Error(t("text.noBrowserSessionIsActive"));
     return this.registry;
   }
 

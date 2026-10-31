@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { LitElement, html, nothing } from "lit";
 import {
   assessDocumentSize,
@@ -17,7 +18,7 @@ export class JsonDocumentEditor extends LitElement {
   };
 
   public value = "";
-  public heading = "Ver JSON";
+  public heading = t("actions.viewJson");
   public errorMessage = "";
   private copyMessage = "";
   private sizeMessage = "";
@@ -44,20 +45,20 @@ export class JsonDocumentEditor extends LitElement {
           <header>
             <div>
               <h2 id="json-editor-heading">${this.heading}</h2>
-              <p>Edita el documento versionado o cópialo. Los cambios se validarán antes de volver al editor.</p>
+              <p>${t("text.editOrCopyTheVersionedDocumentChangesWillBeValidatedBeforeReturningToTheEditor")}</p>
             </div>
-            <button type="button" aria-label="Cerrar editor JSON" title="Cerrar" @click=${this.close}>×</button>
+            <button type="button" aria-label=${t("text.closeJSONEditor")} title=${t("actions.close")} @click=${this.close}>×</button>
           </header>
-          <textarea class="json-document-content" spellcheck="false" aria-label="Documento JSON" .value=${this.value} @input=${this.updateValue}></textarea>
+          <textarea class="json-document-content" spellcheck="false" aria-label=${t("text.jsonDocument")} .value=${this.value} @input=${this.updateValue}></textarea>
           <footer>
             ${this.errorMessage !== ""
               ? html`<span class="json-editor-error" role="alert">${this.errorMessage}</span>`
               : this.sizeMessage !== "" ? html`<span class="json-editor-error" role="status">${this.sizeMessage}</span>`
                 : this.copyMessage === "" ? nothing : html`<span role="status">${this.copyMessage}</span>`}
-            <button type="button" @click=${this.selectAll}>Seleccionar todo</button>
-            <button type="button" @click=${this.copy}>Copiar</button>
-            <button type="button" @click=${this.close}>Cerrar</button>
-            <button type="button" class="primary" @click=${this.apply}>Aplicar cambios</button>
+            <button type="button" @click=${this.selectAll}>${t("text.selectAll")}</button>
+            <button type="button" @click=${this.copy}>${t("actions.copy")}</button>
+            <button type="button" @click=${this.close}>${t("actions.close")}</button>
+            <button type="button" class="primary" @click=${this.apply}>${t("text.applyChanges")}</button>
           </footer>
         </section>
       </div>
@@ -76,7 +77,7 @@ export class JsonDocumentEditor extends LitElement {
     }
     this.value = candidate;
     this.sizeMessage = size.shouldWarn
-      ? `El documento ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.`
+      ? t("text.theDocumentUsesArg0OfArg1", { arg0: formatBytes(size.bytes), arg1: formatBytes(MAX_DOCUMENT_BYTES) })
       : "";
     this.copyMessage = "";
     this.dispatchEvent(new CustomEvent<JsonEditorApplyDetail>("json-editor-change", {
@@ -95,10 +96,10 @@ export class JsonDocumentEditor extends LitElement {
   private readonly copy = async (): Promise<void> => {
     try {
       await navigator.clipboard.writeText(this.value);
-      this.copyMessage = "JSON copiado.";
+      this.copyMessage = t("text.jsonCopied");
     } catch {
       this.selectAll();
-      this.copyMessage = document.execCommand("copy") ? "JSON copiado." : "No se pudo copiar automáticamente; usa Ctrl+C.";
+      this.copyMessage = document.execCommand("copy") ? t("text.jsonCopied") : t("text.couldNotCopyAutomaticallyUseCtrlC");
     }
     this.requestUpdate();
   };

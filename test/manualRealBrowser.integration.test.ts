@@ -8,6 +8,7 @@ import { silentLogger } from "../src/application/logging/logger";
 import { createCookie, createEmptyManualProfile, createGeneratorBinding, createHeader, createQueryParam, createRequestOverride, createStorageEntry, defaultViewport, type ManualProfile } from "../src/domain/manual/manualProfile";
 import type { ManualToExtensionMessage } from "../src/shared/messages/manualMessages";
 import { PlaywrightBrowserBridge } from "../src/infrastructure/browser/playwrightBrowserBridge";
+import { ElementPickerService } from "../src/infrastructure/browser/elementPickerService";
 import type { BrowserLifecycleManager } from "../src/infrastructure/browser/browserLifecycleManager";
 import { success } from "../src/shared/result";
 
@@ -27,7 +28,7 @@ const freezeClock = async (page: Page) => {
 
 const acknowledgeSave = async (page: Page, request: Extract<ManualToExtensionMessage, { type: "manual.save" }>) => {
   await page.evaluate(({ requestId, profile }) => window.postMessage({ type: "manual.saved", requestId, state: { profile, savedProfile: profile, profiles: [{ id: profile.id, name: profile.name, updatedAt: profile.updatedAt }], browser: { lifecycle: "running", pages: [], activePageId: null }, resources: { formulas: [], arrays: [] } } }, "*"), { requestId: request.requestId, profile: request.profile });
-  await vi.waitFor(async () => expect(await page.locator(".save-state").textContent()).not.toBe("Guardando…"));
+  await vi.waitFor(async () => expect(await page.locator(".save-state").textContent()).not.toBe("Saving…"));
 };
 
 realBrowserSuite("Manual con navegador real", () => {
@@ -57,6 +58,17 @@ realBrowserSuite("Manual con navegador real", () => {
     return page;
   };
 
+  it("returns the English cancellation label from the isolated element picker", async () => {
+    const page = await browser.newPage();
+    try {
+      await page.setContent("<!doctype html><html><body><button>Pick me</button></body></html>");
+      const result = new ElementPickerService().pick(page);
+      await page.waitForFunction(() => document.querySelector("div")?.style.zIndex === "2147483647");
+      await page.keyboard.press("Escape");
+      expect(await result).toEqual({ selector: "", tagName: "", preview: "Selection cancelled" });
+    } finally { await page.close(); }
+  });
+
   it("mueve el único botón Aplicar al minimizar y no aplica al cargar, editar ni recibir estados", async () => {
     const page = await browser.newPage();
     try {
@@ -74,10 +86,10 @@ realBrowserSuite("Manual con navegador real", () => {
       await page.evaluate((profile) => window.postMessage({ type: "manual.state", state: { profile, savedProfile: profile, profiles: [{ id: profile.id, name: profile.name, updatedAt: profile.updatedAt }], browser: { lifecycle: "running", pages: [], activePageId: null }, resources: { formulas: [], arrays: [] } } }, "*"), profile);
       const row = page.locator(".row-details");
       await row.waitFor();
-      await row.getByText("Texto", { exact: true }).locator("..").locator("input").fill("Grace");
-      const writingMode = row.getByText("Escritura", { exact: true }).locator("..").locator("select");
+      await row.getByText("Text", { exact: true }).locator("..").locator("input").fill("Grace");
+      const writingMode = row.getByText("Typing", { exact: true }).locator("..").locator("select");
       await writingMode.selectOption("sequential");
-      const delay = row.getByText("Retraso por tecla (ms)", { exact: true }).locator("..").locator("input");
+      const delay = row.getByText("Delay per key (ms)", { exact: true }).locator("..").locator("input");
       expect(await delay.inputValue()).toBe("100");
       await delay.fill("145");
       await writingMode.selectOption("instant");
@@ -89,14 +101,14 @@ realBrowserSuite("Manual con navegador real", () => {
       for (const selector of [".row-details", ".session-details", ".request-override-row"]) {
         const entry = page.locator(selector);
         await entry.evaluate((element: HTMLDetailsElement) => { element.open = false; });
-        await entry.locator("summary").getByRole("button", { name: "Aplicar", exact: true }).waitFor();
-        expect(await entry.getByRole("button", { name: "Aplicar", exact: true, includeHidden: true }).count()).toBe(1);
-        await entry.locator("summary").getByRole("button", { name: "Aplicar", exact: true }).click();
+        await entry.locator("summary").getByRole("button", { name: "Apply", exact: true }).waitFor();
+        expect(await entry.getByRole("button", { name: "Apply", exact: true, includeHidden: true }).count()).toBe(1);
+        await entry.locator("summary").getByRole("button", { name: "Apply", exact: true }).click();
         expect(await entry.evaluate((element: HTMLDetailsElement) => element.open)).toBe(false);
         await entry.evaluate((element: HTMLDetailsElement) => { element.open = true; });
-        await entry.locator("summary").getByRole("button", { name: "Aplicar", exact: true }).waitFor({ state: "detached" });
-        expect(await entry.getByRole("button", { name: "Aplicar", exact: true, includeHidden: true }).count()).toBe(1);
-        expect(await entry.getByRole("button", { name: "Aplicar", exact: true }).isVisible()).toBe(true);
+        await entry.locator("summary").getByRole("button", { name: "Apply", exact: true }).waitFor({ state: "detached" });
+        expect(await entry.getByRole("button", { name: "Apply", exact: true, includeHidden: true }).count()).toBe(1);
+        expect(await entry.getByRole("button", { name: "Apply", exact: true }).isVisible()).toBe(true);
       }
       const messages = await page.evaluate(() => (window as unknown as { messages: ManualToExtensionMessage[] }).messages);
       expect(messages.filter(({ type }) => type === "browser.apply")).toHaveLength(3);
@@ -120,30 +132,30 @@ realBrowserSuite("Manual con navegador real", () => {
       profile.requestOverrides = ["first", "second"].map((id) => ({ ...createRequestOverride(id), matcher: `https://example.test/api/${id}` }));
       await page.evaluate((profile) => window.postMessage({ type: "manual.state", state: { profile, savedProfile: profile, profiles: [{ id: profile.id, name: profile.name, updatedAt: profile.updatedAt }], browser: { lifecycle: "running", pages: [], activePageId: null }, resources: { formulas: [], arrays: [] } } }, "*"), profile);
       await page.locator(".row-details").first().waitFor();
-      for (const heading of ["Cookies", "Request Overrides", "Inputs / Generadores"]) {
+      for (const heading of ["Cookies", "Request Overrides", "Inputs / Generators"]) {
         const group = page.locator(`section-card[heading="${heading}"]`);
         const before = await page.locator("section-card").evaluateAll((cards, current) => cards.filter((card) => card.getAttribute("heading") !== current).flatMap((card) => [...card.querySelectorAll("details")].map((row) => row.open)), heading);
         expect(await group.locator('[part="count"]').textContent()).toBe("2");
-        await group.getByRole("button", { name: "Expandir todos", exact: true }).click();
+        await group.getByRole("button", { name: "Expand all", exact: true }).click();
         await page.waitForFunction((heading) => [...document.querySelectorAll(`section-card[heading="${heading}"] details`)].every((row) => (row as HTMLDetailsElement).open), heading);
-        await group.getByRole("button", { name: "Contraer todos", exact: true }).click();
+        await group.getByRole("button", { name: "Collapse all", exact: true }).click();
         await page.waitForFunction((heading) => [...document.querySelectorAll(`section-card[heading="${heading}"] details`)].every((row) => !(row as HTMLDetailsElement).open), heading);
-        expect(await group.getByRole("button", { name: "Aplicar", exact: true, includeHidden: true }).count()).toBe(2);
-        expect(await group.getByRole("button", { name: "Aplicar", exact: true }).count()).toBe(2);
+        expect(await group.getByRole("button", { name: "Apply", exact: true, includeHidden: true }).count()).toBe(2);
+        expect(await group.getByRole("button", { name: "Apply", exact: true }).count()).toBe(2);
         const after = await page.locator("section-card").evaluateAll((cards, current) => cards.filter((card) => card.getAttribute("heading") !== current).flatMap((card) => [...card.querySelectorAll("details")].map((row) => row.open)), heading);
         expect(after).toEqual(before);
       }
-      expect(await page.locator(".save-state").textContent()).toBe("Cambios sin guardar");
+      expect(await page.locator(".save-state").textContent()).toBe("Unsaved changes");
       const messages = await page.evaluate(() => (window as unknown as { messages: ManualToExtensionMessage[] }).messages);
       expect(messages.filter(({ type }) => type === "browser.apply" || type === "manual.save")).toHaveLength(0);
-      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      await page.getByRole("button", { name: "Save", exact: true }).click();
       const [request] = await savedRequests(page);
       if (request === undefined) throw new Error("No se recibió el guardado de las preferencias.");
       for (const field of ["cookies", "requestOverrides", "generatorBindings"] as const) expect(request.profile[field].map(({ expanded }) => expanded)).toEqual([false, false]);
       await acknowledgeSave(page, request);
       await showProfile(page, JSON.parse(JSON.stringify(request.profile)) as ManualProfile);
       expect(await page.locator("details").evaluateAll((rows) => rows.every((row) => !(row as HTMLDetailsElement).open))).toBe(true);
-      expect(await page.locator(".save-state").textContent()).toBe("Guardado");
+      expect(await page.locator(".save-state").textContent()).toBe("Saved");
 
       if (process.env.BCC_CAPTURE_PREVIEWS === "1") {
         for (const theme of ["dark", "light"] as const) {
@@ -160,11 +172,11 @@ realBrowserSuite("Manual con navegador real", () => {
         window.postMessage({ type: "manual.state", state: { profile: empty, savedProfile: empty, profiles: [], browser: { lifecycle: "running", pages: [], activePageId: null }, resources: { formulas: [], arrays: [] } } }, "*");
       }, profile);
       await page.waitForFunction(() => document.querySelectorAll(".row-details, .session-details, .request-override-row").length === 0);
-      for (const heading of ["Cookies", "Request Overrides", "Inputs / Generadores"]) {
+      for (const heading of ["Cookies", "Request Overrides", "Inputs / Generators"]) {
         const group = page.locator(`section-card[heading="${heading}"]`);
         expect(await group.locator('[part="count"]').textContent()).toBe("0");
-        expect(await group.getByRole("button", { name: "Expandir todos", exact: true }).isDisabled()).toBe(true);
-        expect(await group.getByRole("button", { name: "Contraer todos", exact: true }).isDisabled()).toBe(true);
+        expect(await group.getByRole("button", { name: "Expand all", exact: true }).isDisabled()).toBe(true);
+        expect(await group.getByRole("button", { name: "Collapse all", exact: true }).isDisabled()).toBe(true);
       }
     } finally { await page.close(); }
   });
@@ -181,24 +193,24 @@ realBrowserSuite("Manual con navegador real", () => {
       expect(requests).toHaveLength(1);
       expect(requests[0]!.profile.name).toBe("Cambio con guardado predeterminado");
       await acknowledgeSave(page, requests[0]!);
-      expect(await page.locator(".save-state").textContent()).toBe("Guardado");
+      expect(await page.locator(".save-state").textContent()).toBe("Saved");
     } finally { await page.close(); }
   });
 
   it("guarda tras 5 segundos de inactividad, conserva ediciones durante el guardado y se puede desactivar", async () => {
-    const profile = createEmptyManualProfile("auto-save", "Guardado automático");
+    const profile = createEmptyManualProfile("auto-save", "Auto-save");
     profile.generatorBindings = [{ ...createGeneratorBinding("input"), expanded: false }];
     const page = await openProfile(profile);
     try {
       await freezeClock(page);
       const name = page.locator(".profile-name input");
-      expect(await page.getByRole("switch", { name: "Guardado automático", exact: true }).isChecked()).toBe(true);
-      await page.getByRole("switch", { name: "Guardado automático", exact: true }).uncheck();
+      expect(await page.getByRole("switch", { name: "Auto-save", exact: true }).isChecked()).toBe(true);
+      await page.getByRole("switch", { name: "Auto-save", exact: true }).uncheck();
       await name.fill("Sin guardado automático");
       await page.clock.runFor(6_000);
       expect(await savedRequests(page)).toHaveLength(0);
 
-      await page.getByRole("switch", { name: "Guardado automático", exact: true }).check();
+      await page.getByRole("switch", { name: "Auto-save", exact: true }).check();
       await page.clock.runFor(4_000);
       await name.fill("Primer borrador");
       await page.clock.runFor(4_999);
@@ -211,7 +223,7 @@ realBrowserSuite("Manual con navegador real", () => {
       await name.fill("Edición durante el guardado");
       await acknowledgeSave(page, first);
       expect(await name.inputValue()).toBe("Edición durante el guardado");
-      expect(await page.locator(".save-state").textContent()).toBe("Cambios sin guardar");
+      expect(await page.locator(".save-state").textContent()).toBe("Unsaved changes");
       await page.clock.runFor(5_000);
       const requests = await savedRequests(page);
       expect(requests).toHaveLength(2);
@@ -222,15 +234,15 @@ realBrowserSuite("Manual con navegador real", () => {
 
       await name.fill("No guardar aún");
       await page.clock.runFor(4_000);
-      await page.getByRole("switch", { name: "Guardado automático", exact: true }).uncheck();
+      await page.getByRole("switch", { name: "Auto-save", exact: true }).uncheck();
       await page.clock.runFor(6_000);
       expect(await savedRequests(page)).toHaveLength(2);
-      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      await page.getByRole("button", { name: "Save", exact: true }).click();
       const manualSave = (await savedRequests(page))[2]!;
       expect(manualSave.profile.preferences?.autoSaveEnabled).toBe(false);
       await acknowledgeSave(page, manualSave);
       await showProfile(page, manualSave.profile);
-      expect(await page.getByRole("switch", { name: "Guardado automático", exact: true }).isChecked()).toBe(false);
+      expect(await page.getByRole("switch", { name: "Auto-save", exact: true }).isChecked()).toBe(false);
       expect(await page.evaluate(() => (window as unknown as { messages: ManualToExtensionMessage[] }).messages.some(({ type }) => type === "browser.apply"))).toBe(false);
     } finally { await page.close(); }
   });
@@ -256,8 +268,8 @@ realBrowserSuite("Manual con navegador real", () => {
       await page.clock.runFor(6_000);
       expect(await savedRequests(page)).toHaveLength(0);
       await page.locator("json-document-editor").evaluate((editor) => editor.dispatchEvent(new CustomEvent("json-editor-close")));
-      await page.getByRole("button", { name: "Nuevo", exact: true }).click();
-      await page.getByRole("dialog", { name: "Cambios sin guardar", exact: true }).waitFor();
+      await page.getByRole("button", { name: "New", exact: true }).click();
+      await page.getByRole("dialog", { name: "Unsaved changes", exact: true }).waitFor();
       await page.clock.runFor(6_000);
       expect(await savedRequests(page)).toHaveLength(0);
       await page.locator("unsaved-changes-dialog").evaluate((dialog) => dialog.dispatchEvent(new CustomEvent("unsaved-choice", { detail: "discard" })));
@@ -294,8 +306,8 @@ realBrowserSuite("Manual con navegador real", () => {
       profile.generatorBindings = ids.map((id) => ({ ...createGeneratorBinding(id), selector: `#${id}`, literalValue: `value-${id}` }));
       await page.evaluate((profile) => window.postMessage({ type: "manual.state", state: { profile, savedProfile: profile, profiles: [{ id: profile.id, name: profile.name, updatedAt: profile.updatedAt }], browser: { lifecycle: "running", pages: [], activePageId: null }, resources: { formulas: [], arrays: [] } } }, "*"), profile);
       await page.locator(".row-details").first().waitFor();
-      await page.locator('section-card[heading="Inputs / Generadores"]').getByRole("button", { name: "Contraer todos", exact: true }).click();
-      await page.locator('section-card[heading="Request Overrides"]').getByRole("button", { name: "Contraer todos", exact: true }).click();
+      await page.locator('section-card[heading="Inputs / Generators"]').getByRole("button", { name: "Collapse all", exact: true }).click();
+      await page.locator('section-card[heading="Request Overrides"]').getByRole("button", { name: "Collapse all", exact: true }).click();
       const firstCookie = page.locator('[data-reorder-group="cookies"][data-reorder-row="first"]');
       await firstCookie.evaluate((element: HTMLDetailsElement) => { element.open = true; });
       await firstCookie.locator(".session-details-grid").waitFor();
@@ -325,8 +337,8 @@ realBrowserSuite("Manual con navegador real", () => {
       await page.keyboard.press("Alt+ArrowDown");
       await page.waitForFunction(() => document.querySelector('[data-reorder-group="headers"]')?.getAttribute("data-reorder-row") === "first");
 
-      expect(await page.locator(".save-state").textContent()).toBe("Cambios sin guardar");
-      await page.getByRole("button", { name: "Guardar", exact: true }).click();
+      expect(await page.locator(".save-state").textContent()).toBe("Unsaved changes");
+      await page.getByRole("button", { name: "Save", exact: true }).click();
       const messages = await page.evaluate(() => (window as unknown as { messages: ManualToExtensionMessage[] }).messages);
       expect(messages.some(({ type }) => type === "browser.apply" || type === "browser.syncOverrides")).toBe(false);
       const saved = messages.find((message) => message.type === "manual.save");
@@ -366,7 +378,7 @@ realBrowserSuite("Manual con navegador real", () => {
       expect(await page.locator("#name").inputValue()).toBe("original");
       const result = await service.apply(profile, "generators", null);
       expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.error).toContain("Aplicados 3 de 5");
+      if (!result.ok) expect(result.error).toContain("Applied 3 of 5");
       expect(await page.locator("#last").inputValue()).toContain("Ada");
       expect(await page.locator("#notes").inputValue()).toBe("Ada\n");
       await page.evaluate(() => { const input = document.createElement("input"); input.id = "missing"; document.body.append(input); });

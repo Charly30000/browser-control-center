@@ -14,6 +14,6 @@ describe("validación de arrays", () => {
   });
 
   it("rechaza una raíz que no sea array", () => {
-    expect(parseArrayContent('{"city":"Madrid"}')).toEqual({ ok: false, error: "La raíz del JSON debe ser un array." });
+    expect(parseArrayContent('{"city":"Madrid"}')).toEqual({ ok: false, error: "The JSON root must be an array." });
   });
 });

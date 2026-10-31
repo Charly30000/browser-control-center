@@ -41,7 +41,7 @@ describe("navegación a Documentación para IA", () => {
 
     receive?.({ type: "sidebar.openPage", pageId: "aiDocumentation" });
     expect(mocks.executeCommand).toHaveBeenCalledWith("browserControl.openAiDocumentation");
-    expect(mocks.createWebviewPanel).toHaveBeenCalledWith("browserControl.aiDocumentation", "Documentación para IA", 1, expect.objectContaining({ enableScripts: true }));
+    expect(mocks.createWebviewPanel).toHaveBeenCalledWith("browserControl.aiDocumentation", "AI Documentation", 1, expect.objectContaining({ enableScripts: true }));
     expect(panel.webview.html).toContain("aiDocumentation.js");
     expect(panel.webview.html).toContain("aiDocumentation.css");
 

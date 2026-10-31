@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { getLocale } from "../../localization";
 import { createNonce } from "./nonce";
 import { createContentSecurityPolicy } from "./contentSecurityPolicy";
 
@@ -14,7 +15,7 @@ export const createWebviewHtml = (
   const csp = createContentSecurityPolicy(webview.cspSource, nonce, entryName === "automations");
 
   return `<!doctype html>
-<html lang="es">
+<html lang="${getLocale()}">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">

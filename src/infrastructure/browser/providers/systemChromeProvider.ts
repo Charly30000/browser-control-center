@@ -1,3 +1,4 @@
+import { t } from "../../../localization";
 import type { BrowserProvider } from "../../../application/browser/browserProvider";
 import type { BrowserLaunchConfiguration, BrowserProviderSnapshot } from "../../../domain/browser/browserProvider";
 import type { PlaywrightRuntimeProvider } from "../playwrightRuntime";
@@ -17,23 +18,23 @@ export class SystemChromeProvider implements BrowserProvider {
       await browser.close();
       this.cached = {
         id: this.id,
-        displayName: "Google Chrome instalado",
+        displayName: t("text.installedGoogleChrome"),
         state: "ready",
         browserVersion,
         executablePath: null,
-        detail: "Google Chrome está instalado y Playwright puede iniciarlo mediante el canal estable.",
+        detail: t("text.googleChromeIsInstalledAndPlaywrightCanLaunchItUsingTheStableChannel"),
         installable: false
       };
     } catch (error: unknown) {
       this.cached = {
         id: this.id,
-        displayName: "Google Chrome instalado",
+        displayName: t("text.installedGoogleChrome"),
         state: "missing",
         browserVersion: null,
         executablePath: null,
         detail: error instanceof Error
-          ? `No se pudo iniciar Google Chrome: ${error.message}`
-          : "No se encontró una instalación compatible de Google Chrome.",
+          ? t("text.couldNotStartGoogleChromeArg0", { arg0: error.message })
+          : t("text.noCompatibleGoogleChromeInstallationWasFound"),
         installable: false
       };
     }
@@ -42,7 +43,7 @@ export class SystemChromeProvider implements BrowserProvider {
 
   public async resolveLaunchConfiguration(): Promise<BrowserLaunchConfiguration> {
     const snapshot = await this.inspect();
-    if (snapshot.state !== "ready") throw new Error("Google Chrome no está instalado o Playwright no puede iniciarlo.");
+    if (snapshot.state !== "ready") throw new Error(t("text.googleChromeIsNotInstalledOrPlaywrightCannotLaunchIt"));
     return { providerId: this.id, displayName: snapshot.displayName, engine: "chromium", executablePath: null, channel: "chrome" };
   }
 }

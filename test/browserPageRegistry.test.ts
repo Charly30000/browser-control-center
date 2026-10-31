@@ -5,7 +5,7 @@ import { BrowserPageRegistry } from "../src/infrastructure/browser/browserPageRe
 class FakePage {
   private readonly listeners = new Map<string, Set<() => void>>();
   public currentUrl = "about:blank";
-  public currentTitle = "Nueva pestaña";
+  public currentTitle = "New tab";
   public readonly bringToFront = vi.fn(() => Promise.resolve());
   public url(): string { return this.currentUrl; }
   public title(): Promise<string> { return Promise.resolve(this.currentTitle); }

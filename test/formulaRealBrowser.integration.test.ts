@@ -10,7 +10,7 @@ const realBrowserSuite = process.env.BCC_REAL_BROWSER_TESTS === "1" ? describe :
 const chrome = {
   resolveLaunchConfiguration: () => Promise.resolve({
     providerId: "system-chrome" as const,
-    displayName: "Google Chrome instalado",
+    displayName: "Installed Google Chrome",
     engine: "chromium" as const,
     executablePath: null,
     channel: "chrome"
@@ -34,5 +34,13 @@ realBrowserSuite("fórmulas con navegador real", () => {
     const result = await new PlaywrightFormulaExecutionService(chrome, runtime, silentLogger, 200).execute(formula);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("timeout");
+  }, 20_000);
+
+  it("reports the English missing-function error inside the isolated page", async () => {
+    const formula = createFormula("missing-generate", "Missing function");
+    formula.code = "const value = 1;";
+    const result = await new PlaywrightFormulaExecutionService(chrome, runtime, silentLogger).execute(formula);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("The formula must declare function generate().");
   }, 20_000);
 });

@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { html, nothing } from "lit";
 import { ref } from "lit/directives/ref.js";
 import type { EntryDropPosition } from "../../domain/manual/reorderEntries";
@@ -106,7 +107,7 @@ export class RowReorderController {
     this.preview = document.createElement("div");
     this.preview.className = "row-drag-preview";
     this.preview.setAttribute("aria-hidden", "true");
-    this.preview.textContent = this.active.handle.getAttribute("aria-label") ?? "Mover elemento";
+    this.preview.textContent = this.active.handle.getAttribute("aria-label") ?? t("text.moveItem");
     document.body.append(this.preview);
   }
 
@@ -186,7 +187,7 @@ export const rowDropZone = (options: RowDropZoneOptions) => {
 };
 
 export const renderRowDragHandle = (options: RowReorderOptions | undefined, id: string, label: string) => options === undefined ? nothing : html`
-  <button type="button" class="row-drag-handle" draggable="false" aria-label=${`Mover ${label}`} title="Arrastra para cambiar el orden · Usa la rueda para desplazarte · Alt+↑ / Alt+↓"
+  <button type="button" class="row-drag-handle" draggable="false" aria-label=${t("text.moveArg0", { arg0: label })} title=${t("text.dragToReorderUseTheMouseWheelToScrollAltAlt")}
     @click=${(event: Event) => { event.preventDefault(); event.stopPropagation(); }}
     @pointerdown=${(event: PointerEvent) => options.controller.start(event, options.group, id)}
     @keydown=${(event: KeyboardEvent) => options.controller.keyboard(event, options, id)}>

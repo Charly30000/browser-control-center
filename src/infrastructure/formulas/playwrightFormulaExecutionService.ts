@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { performance } from "node:perf_hooks";
 import type { Browser, BrowserContext, BrowserServer } from "playwright-core";
 import type { FormulaExecutionResult, FormulaExecutionService } from "../../application/formulas/formulaExecutionService";
@@ -41,23 +42,23 @@ export class PlaywrightFormulaExecutionService implements FormulaExecutionServic
       const page = await context.newPage();
       await page.addScriptTag({ content: formula.code });
 
-      const execution = page.evaluate(async () => {
+      const execution = page.evaluate(async (missingFunctionMessage) => {
         const candidate = (globalThis as typeof globalThis & { generate?: unknown }).generate;
-        if (typeof candidate !== "function") throw new Error("La fórmula debe declarar function generate().");
+        if (typeof candidate !== "function") throw new Error(missingFunctionMessage);
         return await (candidate as () => unknown)();
-      });
+      }, t("text.theFormulaMustDeclareFunctionGenerate"));
       const timeout = new Promise<never>((_resolve, reject) => {
         timer = setTimeout(() => {
           void server?.kill();
-          reject(new Error(`La fórmula superó el timeout de ${this.timeoutMs} ms.`));
+          reject(new Error(t("text.theFormulaExceededTheArg0MsTimeout", { arg0: this.timeoutMs })));
         }, this.timeoutMs);
       });
       const value: unknown = await Promise.race([execution, timeout]);
-      if (value !== undefined && !isJsonValue(value)) return failure("La fórmula debe devolver un valor JSON o undefined.");
+      if (value !== undefined && !isJsonValue(value)) return failure(t("text.theFormulaMustReturnAJSONValueOrUndefined"));
       return success({ value, valueType: value === null ? "null" : Array.isArray(value) ? "array" : typeof value, durationMs: performance.now() - startedAt });
     } catch (error: unknown) {
-      this.logger.warn(error instanceof Error ? error.message : "La ejecución de la fórmula ha fallado.");
-      return failure(error instanceof Error ? error.message : "La ejecución de la fórmula ha fallado.");
+      this.logger.warn(error instanceof Error ? error.message : t("text.formulaExecutionFailed"));
+      return failure(error instanceof Error ? error.message : t("text.formulaExecutionFailed"));
     } finally {
       if (timer !== undefined) clearTimeout(timer);
       await context?.close().catch(() => undefined);

@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { BrowserContext, Page, Response } from "playwright-core";
 import { randomUUID } from "node:crypto";
 import type { Logger } from "../../application/logging/logger";
@@ -61,7 +62,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
     await this.page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
     const diagnostics = await this.viewportDiagnostics();
     if (diagnostics.innerWidth !== this.viewportSize.width || diagnostics.innerHeight !== this.viewportSize.height) {
-      this.logger.warn(`[Viewport] Se solicitó ${this.viewportSize.width}×${this.viewportSize.height}, pero el DOM informa ${diagnostics.innerWidth}×${diagnostics.innerHeight}. ${this.formatViewportDiagnostics(diagnostics)}`);
+      this.logger.warn(t("text.viewportRequestedArg0Arg1ButTheDOMReportsArg2Arg3Arg4", { arg0: this.viewportSize.width, arg1: this.viewportSize.height, arg2: diagnostics.innerWidth, arg3: diagnostics.innerHeight, arg4: this.formatViewportDiagnostics(diagnostics) }));
     }
   }
   public async click(selector: string, timeoutMs: number): Promise<void> { await this.page.locator(selector).first().click({ timeout: timeoutMs }); }
@@ -73,7 +74,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
   public async setHeaders(entries: readonly HeaderEntry[]): Promise<void> { await this.context.setExtraHTTPHeaders(toHeaderRecord(entries)); }
   public async setCookies(entries: readonly CookieEntry[]): Promise<void> {
     const url = this.page.url();
-    if (url === "about:blank" && entries.some(({ enabled, domain }) => enabled && domain.trim() === "")) throw new Error("Navega primero o indica el dominio de la cookie.");
+    if (url === "about:blank" && entries.some(({ enabled, domain }) => enabled && domain.trim() === "")) throw new Error(t("text.navigateFirstOrSpecifyTheCookieDomain"));
     await this.context.addCookies(toCookieParams(entries, url));
   }
   public async setStorage(scope: "local" | "session", entries: readonly StorageEntry[]): Promise<void> {
@@ -105,19 +106,19 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
   public async assert(kind: AssertionKind, options: Readonly<Record<string, JsonValue>>, timeoutMs: number): Promise<void> {
     const selector = optionText(options, "selector"); const expected = optionText(options, "expected"); const locator = this.page.locator(selector).first();
     switch (kind) {
-      case "exists": if (await locator.count() === 0) throw new Error(`No existe ningún elemento para «${selector}».`); return;
+      case "exists": if (await locator.count() === 0) throw new Error(t("text.noElementExistsForArg0", { arg0: selector })); return;
       case "visible": await locator.waitFor({ state: "visible", timeout: timeoutMs }); return;
       case "text-equals": {
         const actual = (await locator.textContent({ timeout: timeoutMs })) ?? "";
         if (actual !== expected) {
           const diagnostics = await this.viewportDiagnostics();
-          throw new Error(`Texto esperado «${expected}», recibido «${actual}». ${this.formatViewportDiagnostics(diagnostics)}`);
+          throw new Error(t("text.expectedTextArg0ReceivedArg1Arg2", { arg0: expected, arg1: actual, arg2: this.formatViewportDiagnostics(diagnostics) }));
         }
         return;
       }
-      case "value-equals": { const actual = await locator.inputValue({ timeout: timeoutMs }); if (actual !== expected) throw new Error(`Valor esperado «${expected}», recibido «${actual}».`); return; }
-      case "url-equals": if (this.page.url() !== expected) throw new Error(`URL esperada «${expected}», recibida «${this.page.url()}».`); return;
-      case "response-status": { const status = Number(expected); if (this.lastResponseStatus !== status) throw new Error(`Status esperado ${status}, recibido ${this.lastResponseStatus ?? "ninguno"}.`); return; }
+      case "value-equals": { const actual = await locator.inputValue({ timeout: timeoutMs }); if (actual !== expected) throw new Error(t("text.expectedValueArg0ReceivedArg1", { arg0: expected, arg1: actual })); return; }
+      case "url-equals": if (this.page.url() !== expected) throw new Error(t("text.expectedURLArg0ReceivedArg1", { arg0: expected, arg1: this.page.url() })); return;
+      case "response-status": { const status = Number(expected); if (this.lastResponseStatus !== status) throw new Error(t("text.expectedStatusArg0ReceivedArg1", { arg0: status, arg1: this.lastResponseStatus ?? t("labels.none") })); return; }
     }
   }
   public async assertData(source: DataAssertionSource, operator: DataAssertionOperator, options: Readonly<Record<string, JsonValue>>, _timeoutMs: number): Promise<void> {
@@ -131,7 +132,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
     if (source === "request") {
       const request = this.findLast(this.observedRequests, urlPattern);
       actual = request === undefined ? undefined : readDataPath(request, path);
-      label = `el campo «${path}» de la última request${urlPattern === "" ? "" : ` que contiene «${urlPattern}»`}`;
+      label = t("text.fieldArg0OfTheLastRequestArg1", { arg0: path, arg1: urlPattern === "" ? "" : t("validation.urlFilterSuffix", { url: urlPattern }) });
     } else if (source === "response") {
       const observed = this.findLast(this.observedResponses, urlPattern);
       if (observed === undefined) actual = undefined;
@@ -143,11 +144,11 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
         }
         actual = readDataPath({ url: observed.url, status: observed.status, headers: observed.headers, body }, path);
       }
-      label = `el campo «${path}» de la última response${urlPattern === "" ? "" : ` que contiene «${urlPattern}»`}`;
+      label = t("text.fieldArg0OfTheLastResponseArg1", { arg0: path, arg1: urlPattern === "" ? "" : t("validation.urlFilterSuffix", { url: urlPattern }) });
     } else if (source === "cookie") {
       const cookie = (await this.context.cookies()).find(({ name }) => name === key);
       actual = cookie === undefined ? undefined : readDataPath(cookie, path === "" ? "value" : path);
-      label = `la cookie «${key}»${path === "" || path === "value" ? "" : `, propiedad «${path}»`}`;
+      label = t("text.cookieArg0Arg1", { arg0: key, arg1: path === "" || path === "value" ? "" : t("validation.propertySuffix", { path }) });
     } else {
       const raw = await this.page.evaluate(({ storageScope, storageKey }) => {
         const storage = storageScope === "localStorage" ? localStorage : sessionStorage;
@@ -202,7 +203,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
   private formatViewportDiagnostics(diagnostics: Awaited<ReturnType<PlaywrightAutomationSession["viewportDiagnostics"]>>): string {
     const playwright = diagnostics.playwright === null ? "null" : `${diagnostics.playwright.width}×${diagnostics.playwright.height}`;
     const visual = diagnostics.visualWidth === null || diagnostics.visualHeight === null ? "null" : `${diagnostics.visualWidth}×${diagnostics.visualHeight} (escala ${diagnostics.visualScale ?? "null"})`;
-    return `Viewport Playwright: ${playwright}; inner: ${diagnostics.innerWidth}×${diagnostics.innerHeight}; outer: ${diagnostics.outerWidth}×${diagnostics.outerHeight}; screen: ${diagnostics.screenWidth}×${diagnostics.screenHeight}; visual: ${visual}; DPR: ${diagnostics.devicePixelRatio}.`;
+    return t("text.playwrightViewportArg0InnerArg1Arg2OuterArg3Arg4ScreenArg5Arg6VisualArg7DPRArg8", { arg0: playwright, arg1: diagnostics.innerWidth, arg2: diagnostics.innerHeight, arg3: diagnostics.outerWidth, arg4: diagnostics.outerHeight, arg5: diagnostics.screenWidth, arg6: diagnostics.screenHeight, arg7: visual, arg8: diagnostics.devicePixelRatio });
   }
   private findLast<T extends { readonly url: string }>(entries: readonly T[], pattern: string): T | undefined {
     for (let index = entries.length - 1; index >= 0; index -= 1) {
@@ -220,7 +221,7 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
     this.promptBindingInstalled = true;
   }
   private async renderUserPrompt(message: string): Promise<void> {
-    await this.page.evaluate(({ promptMessage, bindingName }) => {
+    await this.page.evaluate(({ promptMessage, bindingName, labels }) => {
       const id = "__browser-control-wait";
       document.querySelector(`#${id}`)?.remove();
       const host = document.createElement("div"); host.id = id;
@@ -230,12 +231,12 @@ class PlaywrightAutomationSession implements AutomationBrowserSession {
       const style = document.createElement("style");
       style.textContent = `:host{all:initial}.bar{box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;color:#f8fafc;background:#1e293bee;border-bottom:1px solid #64748b;font:13px system-ui,sans-serif;box-shadow:0 4px 16px #0005;pointer-events:auto}.message{min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.title{font-weight:700}button{padding:6px 11px;border:1px solid #94a3b8;border-radius:5px;color:#f8fafc;background:#334155;font:inherit;cursor:pointer}button:hover{background:#475569}.continue{border-color:#86efac;background:#166534}.stop{border-color:#fca5a5;background:#991b1b}`;
       const bar = document.createElement("div"); bar.className = "bar";
-      const title = document.createElement("span"); title.className = "title"; title.textContent = "Automatización pausada";
+      const title = document.createElement("span"); title.className = "title"; title.textContent = labels.title;
       const text = document.createElement("span"); text.className = "message"; text.textContent = promptMessage;
       const action = (value: "continue" | "retry" | "stop"): void => { const bridge = (window as unknown as Record<string, unknown>)[bindingName]; if (typeof bridge === "function") void (bridge as (next: string) => Promise<void>)(value); };
       const button = (label: string, value: "continue" | "retry" | "stop", className = ""): HTMLButtonElement => { const element = document.createElement("button"); element.type = "button"; element.textContent = label; element.className = className; element.addEventListener("click", () => action(value)); return element; };
-      bar.append(title, text, button("Continuar", "continue", "continue"), button("Reintentar", "retry"), button("Detener", "stop", "stop"));
+      bar.append(title, text, button(labels.continue, "continue", "continue"), button(labels.retry, "retry"), button(labels.stop, "stop", "stop"));
       root.append(style, bar);
-    }, { promptMessage: message, bindingName: this.promptBindingName });
+    }, { promptMessage: message, bindingName: this.promptBindingName, labels: { title: t("text.automationPaused"), continue: t("text.continue"), retry: t("text.retry"), stop: t("text.stop") } });
   }
 }

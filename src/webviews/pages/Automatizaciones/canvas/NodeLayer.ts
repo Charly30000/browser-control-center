@@ -1,3 +1,5 @@
+import { t } from "../../../../localization";
+import { executionStateLabel } from "../../../../localization/displayLabels";
 import { html, type TemplateResult } from "lit";
 import type { AutomationNode } from "../../../../domain/automations/automation";
 import type { NodeExecutionState } from "../../../../domain/automations/executionState";
@@ -19,12 +21,12 @@ export const renderNodeLayer = (nodes: readonly AutomationNode[], selected: Read
     ${nodes.map((node) => {
       const descriptor = descriptors.find(({ type }) => type === node.type); const state = states[node.id] ?? "idle";
       const source = connection.sourceNodeId === node.id; const target = connection.targetNodeId === node.id;
-      return html`<article class=${`flow-node ${selected.has(node.id) ? "selected" : ""} ${source ? "connection-source" : ""} ${target ? "connection-target" : ""} state-${state}`} style=${`transform:translate(${node.position.x}px,${node.position.y}px)`} data-node-id=${node.id} tabindex="0" role="button" aria-pressed=${selected.has(node.id) ? "true" : "false"} aria-label=${`${descriptor?.title ?? node.type}, estado ${state}`} @keydown=${(event: KeyboardEvent) => callbacks.onNodeKeyDown(event, node.id)} @pointerdown=${(event: PointerEvent) => callbacks.onNodePointerDown(event, node.id)}>
-        <button class=${`port input-port ${target ? "connection-target" : ""}`} title="Entrada" aria-label=${`Conectar entrada de ${descriptor?.title ?? node.type}`} @keydown=${(event: KeyboardEvent) => callbacks.onInputKeyDown(event, node.id)}></button>
-        ${selected.has(node.id) ? html`<button class="node-remove" title="Eliminar nodo" aria-label="Eliminar nodo" @pointerdown=${(event: PointerEvent) => callbacks.onRemovePointerDown(event, node.id)}>×</button>` : null}
-        <header><span class="node-state" aria-label=${state}>${icons[state]}</span><strong>${descriptor?.title ?? node.type}</strong></header>
-        <small>${descriptor?.category ?? "Nodo"}</small>
-        <button class=${`port output-port ${source ? "connection-source" : ""}`} title="Arrastra para conectar" aria-label=${`Iniciar conexión desde ${descriptor?.title ?? node.type}`} @keydown=${(event: KeyboardEvent) => callbacks.onOutputKeyDown(event, node.id)} @pointerdown=${(event: PointerEvent) => callbacks.onOutputPointerDown(event, node.id)}></button>
+      return html`<article class=${`flow-node ${selected.has(node.id) ? "selected" : ""} ${source ? "connection-source" : ""} ${target ? "connection-target" : ""} state-${state}`} style=${`transform:translate(${node.position.x}px,${node.position.y}px)`} data-node-id=${node.id} tabindex="0" role="button" aria-pressed=${selected.has(node.id) ? "true" : "false"} aria-label=${t("labels.nodeState", { name: descriptor?.title ?? node.type, state: executionStateLabel(state) })} @keydown=${(event: KeyboardEvent) => callbacks.onNodeKeyDown(event, node.id)} @pointerdown=${(event: PointerEvent) => callbacks.onNodePointerDown(event, node.id)}>
+        <button class=${`port input-port ${target ? "connection-target" : ""}`} title=${t("text.input")} aria-label=${t("text.connectInputOfArg0", { arg0: descriptor?.title ?? node.type })} @keydown=${(event: KeyboardEvent) => callbacks.onInputKeyDown(event, node.id)}></button>
+        ${selected.has(node.id) ? html`<button class="node-remove" title=${t("text.deleteNode")} aria-label=${t("text.deleteNode")} @pointerdown=${(event: PointerEvent) => callbacks.onRemovePointerDown(event, node.id)}>×</button>` : null}
+        <header><span class="node-state" aria-label=${executionStateLabel(state)}>${icons[state]}</span><strong>${descriptor?.title ?? node.type}</strong></header>
+        <small>${descriptor?.category ?? t("text.node")}</small>
+        <button class=${`port output-port ${source ? "connection-source" : ""}`} title=${t("text.dragToConnect")} aria-label=${t("text.startConnectionFromArg0", { arg0: descriptor?.title ?? node.type })} @keydown=${(event: KeyboardEvent) => callbacks.onOutputKeyDown(event, node.id)} @pointerdown=${(event: PointerEvent) => callbacks.onOutputPointerDown(event, node.id)}></button>
       </article>`;
     })}
   </div>`;

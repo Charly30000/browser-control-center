@@ -3,6 +3,7 @@
 .gitignore
 .github/**
 .agents/**
+AGENTS.md
 .codex/**
 .codex-vscode-profile*/**
 .codex-vscode-extensions*/**

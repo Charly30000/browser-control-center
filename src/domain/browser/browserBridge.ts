@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type {
   CookieEntry,
   HeaderEntry,
@@ -59,7 +60,7 @@ export interface BrowserBridge {
 }
 
 export class BrowserUnavailableError extends Error {
-  public constructor(message = "El navegador seleccionado no está instalado o no está disponible.") {
+  public constructor(message = t("text.theSelectedBrowserIsNotInstalledOrIsUnavailable")) {
     super(message);
     this.name = "BrowserUnavailableError";
   }

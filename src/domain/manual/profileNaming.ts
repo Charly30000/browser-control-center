@@ -1,13 +1,16 @@
-const UNTITLED_PATTERN = /^untitled(?:-(\d+))?$/;
+import { t } from "../../localization";
+
+const UNTITLED_PATTERN = /^(.*?)(?:-(\d+))?$/;
 
 export const nextUntitledName = (existingNames: readonly string[]): string => {
+  const baseName = t("names.untitled");
   const used = new Set<number>();
   for (const name of existingNames) {
     const match = UNTITLED_PATTERN.exec(name);
-    if (match === null) {
+    if (match === null || match[1] !== baseName) {
       continue;
     }
-    const suffix = match[1];
+    const suffix = match[2];
     used.add(suffix === undefined ? 0 : Number.parseInt(suffix, 10));
   }
 
@@ -15,11 +18,11 @@ export const nextUntitledName = (existingNames: readonly string[]): string => {
   while (used.has(candidate)) {
     candidate += 1;
   }
-  return candidate === 0 ? "untitled" : `untitled-${candidate}`;
+  return candidate === 0 ? baseName : `${baseName}-${candidate}`;
 };
 
 export const makeUniqueProfileName = (requestedName: string, existingNames: readonly string[]): string => {
-  const trimmed = requestedName.trim() || "untitled";
+  const trimmed = requestedName.trim() || t("names.untitled");
   const occupied = new Set(existingNames);
   if (!occupied.has(trimmed)) {
     return trimmed;

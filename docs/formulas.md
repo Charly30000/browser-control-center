@@ -1,5 +1,7 @@
 # Fórmulas
 
+Cambiar de fórmula no pide guardar si no has editado el recurso, incluido un borrador nuevo recién abierto. Un borrador sin editar muestra **Not saved yet** y no se guarda automáticamente solo por abrir la página o marcar casillas de selección. Al editar se activa la protección Guardar/Descartar/Cancelar; tras guardar, cambiar de fórmula vuelve a ser directo. Las ediciones realizadas durante un guardado siguen pendientes.
+
 La lista **Mis fórmulas** muestra cuántas funciones tienes guardadas y destaca la que estás editando. Las casillas permiten seleccionar varias y muestran el total seleccionado para eliminarlas. El editor separa el nombre del código JavaScript y muestra el estado de guardado en su cabecera; los campos tienen más espacio para leer y escribir. **Agregar** es la acción principal de la cabecera.
 
 El interruptor **Guardado automático** está arriba del todo, antes del título. Es opcional y está activado por defecto. Guarda los cambios de la fórmula actual tras **5 segundos sin actividad**, reiniciando la espera con cada interacción. Usa las validaciones habituales de Guardar y nunca ejecuta la fórmula. Si falla, mantiene el código del editor; si se sigue editando durante un guardado, conserva esas ediciones.

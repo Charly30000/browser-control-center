@@ -75,6 +75,6 @@ describe("importación de automatizaciones", () => {
       currentDocument(),
       createAutomationDocument("empty"),
       () => "unused"
-    )).toThrow("no contiene grupos");
+    )).toThrow("does not contain any groups");
   });
 });

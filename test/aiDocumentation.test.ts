@@ -44,7 +44,7 @@ describe("documentación copiable para IA", () => {
   });
 
   it("los ejemplos de Fórmulas y Arrays pasan por sus lectores de importación", () => {
-    const formulas = new ImportExportDocumentService("browser-control-center/formulas", decodeResourceCollection(isFormulaResource, "fórmulas"));
+    const formulas = new ImportExportDocumentService("browser-control-center/formulas", decodeResourceCollection(isFormulaResource, "formulas"));
     const arrays = new ImportExportDocumentService("browser-control-center/arrays", decodeResourceCollection(isArrayResource, "arrays"));
     expect(formulas.deserialize(JSON.stringify(formulaDocumentationExample)).ok).toBe(true);
     expect(arrays.deserialize(JSON.stringify(arrayDocumentationExample)).ok).toBe(true);

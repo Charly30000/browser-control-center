@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { html, nothing, type TemplateResult } from "lit";
 import { live } from "lit/directives/live.js";
 import { repeat } from "lit/directives/repeat.js";
@@ -26,38 +27,38 @@ const valueFrom = (event: Event): string => {
 
 const checkedFrom = (event: Event): boolean => event.currentTarget instanceof HTMLInputElement && event.currentTarget.checked;
 const toggle = (checked: boolean, label: string, change: (value: boolean) => void): TemplateResult => html`<label class="session-check"><input type="checkbox" .checked=${live(checked)} @change=${(event: Event) => change(checkedFrom(event))}><span>${label}</span></label>`;
-const applyButton = (callbacks: { readonly apply?: (id: string) => void }, id: string): TemplateResult | typeof nothing => callbacks.apply === undefined ? nothing : html`<button type="button" @click=${(event: Event) => { event.stopPropagation(); callbacks.apply?.(id); }}>Aplicar</button>`;
+const applyButton = (callbacks: { readonly apply?: (id: string) => void }, id: string): TemplateResult | typeof nothing => callbacks.apply === undefined ? nothing : html`<button type="button" @click=${(event: Event) => { event.stopPropagation(); callbacks.apply?.(id); }}>${t("actions.apply")}</button>`;
 const applyAllButton = (callbacks: { readonly applyAll?: () => void }, label: string): TemplateResult | typeof nothing => callbacks.applyAll === undefined ? nothing : html`<button @click=${callbacks.applyAll}>${label}</button>`;
 
 export const renderQueryParamEditor = (entries: readonly QueryParamEntry[], callbacks: EntryEditorCallbacks<QueryParamEntry>): TemplateResult => html`
   <div class="session-editor">
     <div class="session-list">
       ${repeat(entries, (entry) => entry.id, (entry) => html`<div class="session-row query-param-row" ${reorderableRow(callbacks.reorder, entry.id)}>
-        ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || "query param")}
-        <input aria-label="Clave" placeholder="Key" .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
-        <input aria-label="Valor" placeholder="Value" .value=${live(entry.value)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
-        ${toggle(entry.enabled, "Activo", (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
-        <button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: `¿Eliminar el query param «${entry.key || "sin clave"}»?` })) callbacks.remove(entry.id); }}>Eliminar</button>
+        ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || t("labels.queryParameter"))}
+        <input aria-label=${t("text.key")} placeholder=${t("text.key")} .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
+        <input aria-label=${t("text.value")} placeholder=${t("text.value")} .value=${live(entry.value)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
+        ${toggle(entry.enabled, t("text.enabled"), (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
+        <button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: t("text.deleteQueryParameterArg0", { arg0: entry.key || t("text.noKey") }) })) callbacks.remove(entry.id); }}>${t("actions.delete")}</button>
       </div>`)}
-      ${entries.length === 0 ? html`<p class="session-empty">No hay query params.</p>` : nothing}
+      ${entries.length === 0 ? html`<p class="session-empty">${t("text.noQueryParameters")}</p>` : nothing}
     </div>
-    <div class="session-toolbar"><button @click=${callbacks.add}>+ Añadir</button></div>
+    <div class="session-toolbar"><button @click=${callbacks.add}>${t("text.add")}</button></div>
   </div>`;
 
 export const renderHeaderEditor = (entries: readonly HeaderEntry[], callbacks: EntryEditorCallbacks<HeaderEntry>): TemplateResult => html`
   <div class="session-editor">
     <div class="session-list">
       ${repeat(entries, (entry) => entry.id, (entry) => html`<div class="session-row header-row" ${reorderableRow(callbacks.reorder, entry.id)}>
-        ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || "header")}
-        <input aria-label="Clave" placeholder="Key" .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
-        <input aria-label="Valor" placeholder="Value" .value=${live(entry.value)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
-        ${toggle(entry.enabled, "Activo", (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
+        ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || t("labels.header"))}
+        <input aria-label=${t("text.key")} placeholder=${t("text.key")} .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
+        <input aria-label=${t("text.value")} placeholder=${t("text.value")} .value=${live(entry.value)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
+        ${toggle(entry.enabled, t("text.enabled"), (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
         ${applyButton(callbacks, entry.id)}
-        <button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: `¿Eliminar el header «${entry.key || "sin clave"}»?` })) callbacks.remove(entry.id); }}>Eliminar</button>
+        <button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: t("text.deleteHeaderArg0", { arg0: entry.key || t("text.noKey") }) })) callbacks.remove(entry.id); }}>${t("actions.delete")}</button>
       </div>`)}
-      ${entries.length === 0 ? html`<p class="session-empty">No hay headers.</p>` : nothing}
+      ${entries.length === 0 ? html`<p class="session-empty">${t("text.noHeaders")}</p>` : nothing}
     </div>
-    <div class="session-toolbar"><button @click=${callbacks.add}>+ Añadir</button>${applyAllButton(callbacks, "Aplicar todos")}</div>
+    <div class="session-toolbar"><button @click=${callbacks.add}>${t("text.add")}</button>${applyAllButton(callbacks, t("actions.applyAll"))}</div>
   </div>`;
 
 export const renderCookieEditor = (entries: readonly CookieEntry[], callbacks: EntryEditorCallbacks<CookieEntry>): TemplateResult => html`
@@ -66,23 +67,23 @@ export const renderCookieEditor = (entries: readonly CookieEntry[], callbacks: E
       ${repeat(entries, (cookie) => cookie.id, (cookie) => {
         const expanded = callbacks.expansion?.isOpen(cookie.id, false) ?? false;
         return html`<details class="session-details" ${reorderableRow(callbacks.reorder, cookie.id)} .open=${expanded} @toggle=${(event: Event) => callbacks.expansion?.toggle(cookie.id, false, event)}>
-        <summary class=${!expanded && callbacks.apply !== undefined ? "has-collapsed-apply" : ""}>${renderRowDragHandle(callbacks.reorder, cookie.id, cookie.name || "cookie")}<span>${cookie.name || "Cookie sin nombre"}</span><small>${cookie.domain || "Dominio pendiente"}</small><span class=${cookie.enabled ? "session-enabled" : "session-disabled"}>${cookie.enabled ? "Activa" : "Inactiva"}</span>${expanded ? nothing : applyButton(callbacks, cookie.id)}</summary>
+        <summary class=${!expanded && callbacks.apply !== undefined ? "has-collapsed-apply" : ""}>${renderRowDragHandle(callbacks.reorder, cookie.id, cookie.name || t("labels.cookieLowercase"))}<span>${cookie.name || t("text.unnamedCookie")}</span><small>${cookie.domain || t("text.domainNotSet")}</small><span class=${cookie.enabled ? "session-enabled" : "session-disabled"}>${cookie.enabled ? t("text.enabled") : t("text.disabled")}</span>${expanded ? nothing : applyButton(callbacks, cookie.id)}</summary>
         <div class="session-details-grid">
-          <label><span>Nombre</span><input .value=${live(cookie.name)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.name = valueFrom(event); })}></label>
-          <label><span>Valor</span><input .value=${live(cookie.value)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.value = valueFrom(event); })}></label>
-          <label><span>Dominio</span><input .value=${live(cookie.domain)} placeholder="example.com" @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.domain = valueFrom(event); })}></label>
-          <label><span>Path</span><input .value=${live(cookie.path)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.path = valueFrom(event); })}></label>
-          <label><span>Expira</span><input type="datetime-local" .value=${live(cookie.expires ?? "")} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.expires = valueFrom(event) || null; })}></label>
-          <label><span>SameSite</span><select .value=${live(cookie.sameSite)} @change=${(event: Event) => callbacks.update(cookie.id, (item) => { item.sameSite = valueFrom(event) as CookieEntry["sameSite"]; })}><option>Strict</option><option>Lax</option><option>None</option></select></label>
-          ${toggle(cookie.secure, "Secure", (enabled) => callbacks.update(cookie.id, (item) => { item.secure = enabled; }))}
-          ${toggle(cookie.httpOnly, "HttpOnly", (enabled) => callbacks.update(cookie.id, (item) => { item.httpOnly = enabled; }))}
-          ${toggle(cookie.enabled, "Activo", (enabled) => callbacks.update(cookie.id, (item) => { item.enabled = enabled; }))}
+          <label><span>${t("text.name")}</span><input .value=${live(cookie.name)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.name = valueFrom(event); })}></label>
+          <label><span>${t("text.value")}</span><input .value=${live(cookie.value)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.value = valueFrom(event); })}></label>
+          <label><span>${t("text.domain")}</span><input .value=${live(cookie.domain)} placeholder=${t("text.exampleCom")} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.domain = valueFrom(event); })}></label>
+          <label><span>${t("text.path")}</span><input .value=${live(cookie.path)} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.path = valueFrom(event); })}></label>
+          <label><span>${t("text.expires")}</span><input type="datetime-local" .value=${live(cookie.expires ?? "")} @input=${(event: Event) => callbacks.update(cookie.id, (item) => { item.expires = valueFrom(event) || null; })}></label>
+          <label><span>${t("text.samesite")}</span><select .value=${live(cookie.sameSite)} @change=${(event: Event) => callbacks.update(cookie.id, (item) => { item.sameSite = valueFrom(event) as CookieEntry["sameSite"]; })}><option>${t("text.strict")}</option><option>${t("text.lax")}</option><option>${t("text.none")}</option></select></label>
+          ${toggle(cookie.secure, t("labels.secure"), (enabled) => callbacks.update(cookie.id, (item) => { item.secure = enabled; }))}
+          ${toggle(cookie.httpOnly, t("labels.httpOnly"), (enabled) => callbacks.update(cookie.id, (item) => { item.httpOnly = enabled; }))}
+          ${toggle(cookie.enabled, t("text.enabled"), (enabled) => callbacks.update(cookie.id, (item) => { item.enabled = enabled; }))}
         </div>
-        <div class="session-actions">${expanded ? applyButton(callbacks, cookie.id) : nothing}<button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: `¿Eliminar la cookie «${cookie.name || "sin nombre"}»?` })) callbacks.remove(cookie.id); }}>Eliminar</button></div>
+        <div class="session-actions">${expanded ? applyButton(callbacks, cookie.id) : nothing}<button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: t("text.deleteCookieArg0", { arg0: cookie.name || t("text.unnamed") }) })) callbacks.remove(cookie.id); }}>${t("actions.delete")}</button></div>
       </details>`; })}
-      ${entries.length === 0 ? html`<p class="session-empty">No hay cookies.</p>` : nothing}
+      ${entries.length === 0 ? html`<p class="session-empty">${t("text.noCookies")}</p>` : nothing}
     </div>
-    <div class="session-toolbar"><button @click=${callbacks.add}>+ Añadir</button>${applyAllButton(callbacks, "Aplicar todas")}</div>
+    <div class="session-toolbar"><button @click=${callbacks.add}>${t("text.add")}</button>${applyAllButton(callbacks, t("actions.applyAll"))}</div>
   </div>`;
 
 export const renderStorageEditor = (entries: readonly StorageEntry[], callbacks: EntryEditorCallbacks<StorageEntry>): TemplateResult => html`
@@ -91,17 +92,17 @@ export const renderStorageEditor = (entries: readonly StorageEntry[], callbacks:
       ${repeat(entries, (entry) => entry.id, (entry) => {
         const validation = parseStorageValue(entry.valueType, entry.value);
         return html`<div class="session-row storage-entry-row" ${reorderableRow(callbacks.reorder, entry.id)}>
-          ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || "entrada de storage")}
-          <input aria-label="Clave" placeholder="Key" .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
-          <select aria-label="Tipo" .value=${live(entry.valueType)} @change=${(event: Event) => callbacks.update(entry.id, (item) => { item.valueType = valueFrom(event) as StorageValueType; if (item.valueType === "null") item.value = "null"; })}><option value="string">string</option><option value="number">number</option><option value="boolean">boolean</option><option value="json">JSON</option><option value="null">null</option></select>
-          <input aria-label="Valor" placeholder="Value" .value=${live(entry.value)} ?disabled=${entry.valueType === "null"} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
-          ${toggle(entry.enabled, "Activo", (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
+          ${renderRowDragHandle(callbacks.reorder, entry.id, entry.key || t("text.storageEntry"))}
+          <input aria-label=${t("text.key")} placeholder=${t("text.key")} .value=${live(entry.key)} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.key = valueFrom(event); })}>
+          <select aria-label=${t("text.type")} .value=${live(entry.valueType)} @change=${(event: Event) => callbacks.update(entry.id, (item) => { item.valueType = valueFrom(event) as StorageValueType; if (item.valueType === "null") item.value = "null"; })}><option value="string">${t("text.string")}</option><option value="number">${t("text.number")}</option><option value="boolean">${t("text.boolean")}</option><option value="json">${t("text.json")}</option><option value="null">${t("text.null")}</option></select>
+          <input aria-label=${t("text.value")} placeholder=${t("text.value")} .value=${live(entry.value)} ?disabled=${entry.valueType === "null"} @input=${(event: Event) => callbacks.update(entry.id, (item) => { item.value = valueFrom(event); })}>
+          ${toggle(entry.enabled, t("text.enabled"), (enabled) => callbacks.update(entry.id, (item) => { item.enabled = enabled; }))}
           ${applyButton(callbacks, entry.id)}
-          <button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: `¿Eliminar la entrada «${entry.key || "sin clave"}»?` })) callbacks.remove(entry.id); }}>Eliminar</button>
+          <button class="danger" @click=${async () => { if (await callbacks.confirmDeletion({ question: t("text.deleteEntryArg0", { arg0: entry.key || t("text.noKey") }) })) callbacks.remove(entry.id); }}>${t("actions.delete")}</button>
           ${validation.ok ? nothing : html`<p class="session-validation">${validation.error}</p>`}
         </div>`;
       })}
-      ${entries.length === 0 ? html`<p class="session-empty">No hay valores definidos.</p>` : nothing}
+      ${entries.length === 0 ? html`<p class="session-empty">${t("text.noValuesDefined")}</p>` : nothing}
     </div>
-    <div class="session-toolbar"><button @click=${callbacks.add}>+ Añadir</button>${applyAllButton(callbacks, "Aplicar todos")}</div>
+    <div class="session-toolbar"><button @click=${callbacks.add}>${t("text.add")}</button>${applyAllButton(callbacks, t("actions.applyAll"))}</div>
   </div>`;

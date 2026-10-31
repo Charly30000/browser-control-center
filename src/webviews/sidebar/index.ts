@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { LitElement, html } from "lit";
 import type { BrowserLifecycleState } from "../../domain/browser/browserBridge";
 import type { BrowserProviderId, BrowserProviderState } from "../../domain/browser/browserProvider";
@@ -6,12 +7,12 @@ import { pageCatalog } from "../pages/pageCatalog";
 import { vscodeApi } from "../vscodeApi";
 import "./sidebar.css";
 
-const providerLabels: Record<BrowserProviderState, string> = { missing: "No disponible", installing: "Instalando", ready: "Preparado", corrupted: "Dañado", incompatible: "Incompatible" };
-const lifecycleLabels: Record<BrowserLifecycleState, string> = { stopped: "Detenido", starting: "Iniciando", running: "En ejecución", stopping: "Deteniendo", crashed: "Cerrado inesperadamente" };
+const providerLabels: Record<BrowserProviderState, string> = { missing: t("text.unavailable"), installing: t("text.installing"), ready: t("text.ready"), corrupted: t("text.corrupted"), incompatible: t("text.incompatible") };
+const lifecycleLabels: Record<BrowserLifecycleState, string> = { stopped: t("text.stopped"), starting: t("text.starting"), running: t("text.running"), stopping: t("text.stopping"), crashed: t("text.closedUnexpectedly") };
 
 class SidebarApp extends LitElement {
   private providerId: BrowserProviderId = "managed-chromium";
-  private providerName = "Chromium administrado";
+  private providerName = t("text.managedChromium");
   private providerState: BrowserProviderState = "missing";
   private lifecycle: BrowserLifecycleState = "stopped";
 
@@ -21,15 +22,15 @@ class SidebarApp extends LitElement {
 
   protected override render() {
     return html`<main class="sidebar-shell">
-      <nav class="page-navigation" aria-label="Áreas de Browser Control">${pageCatalog.map((page) => html`
-        <button class=${page.available ? "page-button active" : "page-button"} aria-disabled=${page.available ? "false" : "true"} title=${page.available ? `Abrir ${page.title}` : `${page.title}: próximamente`} @click=${() => this.openPage(page.id)}>
-          <span>${page.title}</span>${page.available ? null : html`<small>Próximamente</small>`}
+      <nav class="page-navigation" aria-label=${t("text.browserControlAreas")}>${pageCatalog.map((page) => html`
+        <button class=${page.available ? "page-button active" : "page-button"} aria-disabled=${page.available ? "false" : "true"} title=${page.available ? t("text.openArg0", { arg0: page.title }) : t("text.arg0ComingSoon", { arg0: page.title })} @click=${() => this.openPage(page.id)}>
+          <span>${page.title}</span>${page.available ? null : html`<small>${t("text.comingSoon")}</small>`}
         </button>`)}</nav>
-      <section class="browser-status" aria-label="Estado del navegador" data-provider=${this.providerId}>
-        <h2>Navegador</h2>
+      <section class="browser-status" aria-label=${t("text.browserStatus")} data-provider=${this.providerId}>
+        <h2>${t("text.browser")}</h2>
         <p class=${this.providerState}><span class="status-dot" aria-hidden="true"></span>${this.providerName} · ${providerLabels[this.providerState]}</p>
         <p class="runtime-state">${lifecycleLabels[this.lifecycle]}</p>
-        <button class="manage-button" @click=${() => this.post({ type: "sidebar.manageBrowser" })}>Gestionar navegador</button>
+        <button class="manage-button" @click=${() => this.post({ type: "sidebar.manageBrowser" })}>${t("navigation.manageBrowser")}</button>
       </section>
     </main>`;
   }

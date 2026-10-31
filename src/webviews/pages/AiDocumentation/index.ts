@@ -1,3 +1,4 @@
+import { t } from "../../../localization";
 import { LitElement, html } from "lit";
 import { live } from "lit/directives/live.js";
 import { AI_DOCUMENTATION_AREAS, getAiDocumentation, getAllAiDocumentation, type AiDocumentationArea } from "../../documentation/aiDocumentation";
@@ -15,22 +16,22 @@ class AiDocumentationApp extends LitElement {
 
   protected override render() {
     return html`<main class="ai-doc-page">
-      <header class="page-header"><div><h1>Documentación para IA</h1>
-        <p>Copia esta guía en tu chat para pedir ayuda con la aplicación o generar JSON que puedas pegar en ella.</p>
+      <header class="page-header"><div><h1>${t("navigation.aiDocumentation")}</h1>
+        <p>${t("text.copyThisGuideIntoYourChatToGetHelpUsingTheApplicationOrGenerateJSONYouCan")}</p>
       </div></header>
-      <section class="ai-doc-controls" aria-label="Opciones de documentación">
-        <label>Documentación
-          <select aria-label="Sección de documentación" .value=${live(this.scope)} @change=${this.changeScope}>
-            <option value="all">Toda la aplicación</option>
+      <section class="ai-doc-controls" aria-label=${t("text.documentationOptions")}>
+        <label>${t("text.documentation")}
+          <select aria-label=${t("text.documentationSection")} .value=${live(this.scope)} @change=${this.changeScope}>
+            <option value="all">${t("text.entireApplication")}</option>
             ${Object.entries(AI_DOCUMENTATION_AREAS).map(([area, title]) => html`<option value=${area}>${title}</option>`)}
           </select>
         </label>
-        <button type="button" @click=${this.selectAll}>Seleccionar todo</button>
-        <button type="button" class="primary" @click=${this.copy}>Copiar documentación</button>
+        <button type="button" @click=${this.selectAll}>${t("text.selectAll")}</button>
+        <button type="button" class="primary" @click=${this.copy}>${t("text.copyDocumentation")}</button>
       </section>
-      <p class="ai-doc-hint">Incluye instrucciones de uso, opciones, formatos y ejemplos JSON. Para adaptar un elemento existente, añade también su documento de Ver JSON a tu chat.</p>
+      <p class="ai-doc-hint">${t("text.includesUsageInstructionsOptionsFormatsAndJSONExamplesToAdaptAnExistingItemAlsoAddItsView")}</p>
       <p class="ai-doc-status" role="status" aria-live="polite">${this.copyMessage}</p>
-      <textarea class="ai-doc-content" aria-label="Documentación para IA copiable" readonly spellcheck="false" .value=${this.content}></textarea>
+      <textarea class="ai-doc-content" aria-label=${t("text.copyableAIDocumentation")} readonly spellcheck="false" .value=${this.content}></textarea>
     </main>`;
   }
 
@@ -54,10 +55,10 @@ class AiDocumentationApp extends LitElement {
     const content = this.content;
     try {
       await navigator.clipboard.writeText(content);
-      this.copyMessage = "Documentación copiada. Ya puedes pegarla en tu chat.";
+      this.copyMessage = t("text.documentationCopiedYouCanNowPasteItIntoYourChat");
     } catch {
       this.selectAll();
-      this.copyMessage = document.execCommand("copy") ? "Documentación copiada." : "Texto seleccionado; usa Ctrl+C o Cmd+C para copiarlo.";
+      this.copyMessage = document.execCommand("copy") ? t("text.documentationCopied") : t("text.textSelectedUseCtrlCOrCmdCToCopyIt");
     }
     this.requestUpdate();
   };

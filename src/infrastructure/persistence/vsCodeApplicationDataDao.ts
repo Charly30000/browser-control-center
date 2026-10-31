@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import type {
   ApplicationDataDao,
@@ -54,18 +55,24 @@ const isBrowserPreferences = (value: unknown): value is BrowserPreferences =>
 const isNotFound = (error: unknown): boolean =>
   error instanceof vscode.FileSystemError && error.code === "FileNotFound";
 
-class FileEntityDataDao<T extends { readonly id: string }> implements EntityDataDao<T> {
+class FileEntityDataDao<T extends { readonly id: string; readonly schemaVersion: number }> implements EntityDataDao<T> {
   public constructor(
     private readonly directory: vscode.Uri,
     private readonly codec: DataCodec<T>,
     private readonly entityLabel: string
   ) {}
 
+  public async exists(id: string): Promise<boolean> {
+    try { return ((await vscode.workspace.fs.stat(this.entityUri(id))).type & vscode.FileType.File) !== 0; }
+    catch (error: unknown) { if (isNotFound(error)) return false; throw error; }
+  }
+
   public async load(id: string): Promise<T | null> {
     try {
       const serialized = await readUtf8(this.entityUri(id));
       const result = this.codec.deserialize(serialized);
-      if (!result.ok) throw new Error(`No se pudo cargar ${this.entityLabel} ${id}: ${result.error}`);
+      if (!result.ok) throw new Error(t("text.couldNotLoadArg0Arg1Arg2", { arg0: this.entityLabel, arg1: id, arg2: result.error }));
+      await persistUpgrade(this.entityUri(id), serialized, result.value, this.codec);
       return result.value;
     } catch (error: unknown) {
       if (isNotFound(error)) return null;
@@ -83,18 +90,20 @@ class FileEntityDataDao<T extends { readonly id: string }> implements EntityData
   }
 
   private entityUri(id: string): vscode.Uri {
-    if (!SAFE_ID.test(id)) throw new Error(`El identificador de ${this.entityLabel} contiene caracteres no permitidos.`);
+    if (!SAFE_ID.test(id)) throw new Error(t("text.theArg0IdentifierContainsInvalidCharacters", { arg0: this.entityLabel }));
     return vscode.Uri.joinPath(this.directory, `${id}.json`);
   }
 }
 
-class FileSingletonDataDao<T> implements SingletonDataDao<T> {
+class FileSingletonDataDao<T extends { readonly schemaVersion: number }> implements SingletonDataDao<T> {
   public constructor(private readonly target: vscode.Uri, private readonly codec: DataCodec<T>) {}
 
   public async load(): Promise<T | null> {
     try {
-      const result = this.codec.deserialize(await readUtf8(this.target));
+      const serialized = await readUtf8(this.target);
+      const result = this.codec.deserialize(serialized);
       if (!result.ok) throw new Error(result.error);
+      await persistUpgrade(this.target, serialized, result.value, this.codec);
       return result.value;
     } catch (error: unknown) {
       if (isNotFound(error)) return null;
@@ -139,6 +148,13 @@ const writeUtf8Atomically = async (target: vscode.Uri, serialized: string): Prom
   await vscode.workspace.fs.rename(temporary, target, { overwrite: true });
 };
 
+const persistUpgrade = async <T extends { readonly schemaVersion: number }>(target: vscode.Uri, original: string, value: T, codec: DataCodec<T>): Promise<void> => {
+  const previous: unknown = JSON.parse(original);
+  if (isRecord(previous) && typeof previous.schemaVersion === "number" && previous.schemaVersion < value.schemaVersion) {
+    await writeUtf8Atomically(target, codec.serialize(value));
+  }
+};
+
 export class VsCodeApplicationDataDao implements ApplicationDataDao {
   private readonly directories: readonly vscode.Uri[];
   public readonly profiles: EntityDataDao<ManualProfile>;
@@ -156,11 +172,11 @@ export class VsCodeApplicationDataDao implements ApplicationDataDao {
     const arraysDirectory = vscode.Uri.joinPath(storageUri, "arrays");
     const automationsDirectory = vscode.Uri.joinPath(storageUri, "automations");
     this.directories = [profilesDirectory, formulasDirectory, arraysDirectory, automationsDirectory];
-    this.profiles = new FileEntityDataDao(profilesDirectory, { serialize: serializeProfile, deserialize: deserializeProfile }, "perfil");
+    this.profiles = new FileEntityDataDao(profilesDirectory, { serialize: serializeProfile, deserialize: deserializeProfile }, t("labels.profile"));
     this.profileMetadata = new MementoStateDataDao(state, PROFILE_METADATA_KEY, isProfileMetadata, EMPTY_PROFILE_METADATA);
-    this.formulas = new FileEntityDataDao<FormulaResource>(formulasDirectory, formulaCodec, "recurso");
+    this.formulas = new FileEntityDataDao<FormulaResource>(formulasDirectory, formulaCodec, t("labels.resource"));
     this.formulaMetadata = new MementoStateDataDao(state, FORMULA_METADATA_KEY, isResourceMetadata, EMPTY_RESOURCE_METADATA);
-    this.arrays = new FileEntityDataDao<ArrayResource>(arraysDirectory, arrayResourceCodec, "recurso");
+    this.arrays = new FileEntityDataDao<ArrayResource>(arraysDirectory, arrayResourceCodec, t("labels.resource"));
     this.arrayMetadata = new MementoStateDataDao(state, ARRAY_METADATA_KEY, isResourceMetadata, EMPTY_RESOURCE_METADATA);
     this.automations = new FileSingletonDataDao(vscode.Uri.joinPath(automationsDirectory, "automation.json"), {
       serialize: serializeAutomation,

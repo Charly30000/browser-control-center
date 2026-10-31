@@ -1,3 +1,4 @@
+import { t } from "../../../../localization";
 import { LitElement, html } from "lit";
 import type { NodeDescriptor } from "../../../../application/automations/nodeRegistry";
 import type { AutomationEdge, AutomationNode, Point } from "../../../../domain/automations/automation";
@@ -50,7 +51,7 @@ export class FlowCanvas extends LitElement {
     const selectionRect = this.selectionEnd === null
       ? null
       : normalizeRect(worldToScreen(this.startWorld, this.viewport), worldToScreen(this.selectionEnd, this.viewport));
-    return html`<div class="flow-canvas" tabindex="0" role="application" aria-label="Editor visual de automatización" @keydown=${this.onKeyDown} @keyup=${this.onKeyUp} @wheel=${this.onWheel} @pointerdown=${this.onCanvasPointerDown}>
+    return html`<div class="flow-canvas" tabindex="0" role="application" aria-label=${t("text.visualAutomationEditor")} @keydown=${this.onKeyDown} @keyup=${this.onKeyUp} @wheel=${this.onWheel} @pointerdown=${this.onCanvasPointerDown}>
       <div class="canvas-grid" style=${`transform:translate(${this.viewport.pan.x}px,${this.viewport.pan.y}px) scale(${this.viewport.zoom})`}>
         ${renderEdgeLayer(this._nodes, this._edges, pending, this.selectedEdgeId, { onSelect: this.onEdgePointerDown, onRemove: this.onEdgeRemovePointerDown, onKeyDown: this.onEdgeKeyDown })}
         ${renderNodeLayer(
@@ -63,9 +64,9 @@ export class FlowCanvas extends LitElement {
         )}
       </div>
       ${selectionRect === null ? null : html`<div class="selection-rectangle" style=${`left:${selectionRect.x}px;top:${selectionRect.y}px;width:${selectionRect.width}px;height:${selectionRect.height}px`}></div>`}
-      <div class="canvas-help">Arrastra una card para moverla · Arrastra desde su salida para conectarla · Arrastra el fondo para seleccionar varias</div>
-      ${selected.size === 0 ? null : html`<div class="selection-count">${selected.size} ${selected.size === 1 ? "nodo seleccionado" : "nodos seleccionados"}</div>`}
-      <div class="canvas-controls"><button title="Deshacer" aria-label="Deshacer" @click=${this.undo}>↶</button><button title="Rehacer" aria-label="Rehacer" @click=${this.redo}>↷</button><button title="Alejar" aria-label="Alejar" @click=${() => this.zoomBy(1 / 1.2)}>−</button><button title="Restablecer zoom" aria-label="Restablecer zoom" @click=${this.resetViewport}>100%</button><button title="Acercar" aria-label="Acercar" @click=${() => this.zoomBy(1.2)}>+</button><span aria-live="polite">${Math.round(this.viewport.zoom * 100)}%</span></div>
+      <div class="canvas-help">${t("text.dragACardToMoveItDragFromItsOutputToConnectItDragTheBackgroundTo")}</div>
+      ${selected.size === 0 ? null : html`<div class="selection-count">${selected.size} ${selected.size === 1 ? t("text.selectedNode") : t("text.selectedNodes")}</div>`}
+      <div class="canvas-controls"><button title=${t("text.undo")} aria-label=${t("text.undo")} @click=${this.undo}>↶</button><button title=${t("text.redo")} aria-label=${t("text.redo")} @click=${this.redo}>↷</button><button title=${t("text.zoomOut")} aria-label=${t("text.zoomOut")} @click=${() => this.zoomBy(1 / 1.2)}>−</button><button title=${t("text.resetZoom")} aria-label=${t("text.resetZoom")} @click=${this.resetViewport}>100%</button><button title=${t("text.zoomIn")} aria-label=${t("text.zoomIn")} @click=${() => this.zoomBy(1.2)}>+</button><span aria-live="polite">${Math.round(this.viewport.zoom * 100)}%</span></div>
     </div>`;
   }
 

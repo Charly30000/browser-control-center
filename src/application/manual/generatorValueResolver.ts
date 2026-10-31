@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { ArrayResourceService } from "../arrays/arrayResourceService";
 import type { FormulaExecutionService } from "../formulas/formulaExecutionService";
 import type { FormulaService } from "../formulas/formulaService";
@@ -18,16 +19,16 @@ export class GeneratorValueResolver {
 
   public async resolve(binding: GeneratorBinding): Promise<Result<JsonValue | undefined>> {
     if (binding.generatorType === "formula") {
-      if (binding.resourceId === null) return failure("Selecciona una fórmula.");
+      if (binding.resourceId === null) return failure(t("text.selectAFormula"));
       const formula = (await this.formulas.getAll()).find(({ id }) => id === binding.resourceId);
-      if (formula === undefined) return failure("La fórmula seleccionada ya no existe.");
+      if (formula === undefined) return failure(t("text.theSelectedFormulaNoLongerExists"));
       const result = await this.formulaExecution.execute(formula);
       return result.ok ? success(result.value.value) : result;
     }
     if (binding.generatorType === "array") {
-      if (binding.resourceId === null) return failure("Selecciona un array.");
+      if (binding.resourceId === null) return failure(t("text.selectAnArray"));
       const resource = (await this.arrays.getAll()).find(({ id }) => id === binding.resourceId);
-      if (resource === undefined) return failure("El array seleccionado ya no existe.");
+      if (resource === undefined) return failure(t("text.theSelectedArrayNoLongerExists"));
       return success(this.arrayGenerator.pick(resource.items));
     }
     const result = generateValue(binding.generatorType, binding);

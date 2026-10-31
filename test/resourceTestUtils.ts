@@ -3,6 +3,7 @@ import type { GlobalResource } from "../src/domain/resources/globalResource";
 
 export class InMemoryResourceDao<T extends GlobalResource> implements ResourceDataDao<T> {
   public readonly values = new Map<string, T>();
+  public exists(id: string): Promise<boolean> { return Promise.resolve(this.values.has(id)); }
   public load(id: string): Promise<T | null> { return Promise.resolve(structuredClone(this.values.get(id) ?? null)); }
   public save(resource: T): Promise<void> { this.values.set(resource.id, structuredClone(resource)); return Promise.resolve(); }
   public delete(id: string): Promise<void> { this.values.delete(id); return Promise.resolve(); }

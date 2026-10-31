@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import type { BrowserSelectionService } from "../../application/browser/browserSelectionService";
 import type { BrowserActionsService } from "../../application/manual/browserActionsService";
@@ -26,13 +27,13 @@ export class BrowserManagementPanel implements vscode.Disposable {
 
   public open(): void {
     if (this.panel !== null) { this.panel.reveal(vscode.ViewColumn.One); return; }
-    const panel = vscode.window.createWebviewPanel("browserControl.browserManagement", "Gestionar navegador", vscode.ViewColumn.One, {
+    const panel = vscode.window.createWebviewPanel("browserControl.browserManagement", t("navigation.manageBrowser"), vscode.ViewColumn.One, {
       enableScripts: true,
       retainContextWhenHidden: true,
       localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist")]
     });
     this.panel = panel;
-    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "browserManagement", "Gestionar navegador");
+    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "browserManagement", t("navigation.manageBrowser"));
     panel.onDidDispose(() => { this.panel = null; });
     panel.webview.onDidReceiveMessage((value: unknown) => {
       if (!isBrowserManagementMessage(value)) return;
@@ -55,32 +56,32 @@ export class BrowserManagementPanel implements vscode.Disposable {
         }
         await this.selection.select(message.providerId);
         const selected = (await this.selection.inspectProviders()).find(({ id }) => id === message.providerId);
-        await this.notice(selected?.state === "ready" ? "success" : "warning", `${selected?.displayName ?? "Navegador"} seleccionado. ${selected?.detail ?? ""}`.trim());
+        await this.notice(selected?.state === "ready" ? "success" : "warning", t("text.arg0SelectedArg1", { arg0: selected?.displayName ?? t("text.browser"), arg1: selected?.detail ?? "" }).trim());
       } else if (message.type === "browserManagement.verify") {
         const selectedId = this.selection.getSelectedProviderId();
         const result = (await this.selection.inspectProviders(true)).find(({ id }) => id === selectedId);
-        if (result === undefined) throw new Error("No se encontró el navegador seleccionado.");
+        if (result === undefined) throw new Error(t("text.theSelectedBrowserWasNotFound"));
         await this.notice(result.state === "ready" ? "success" : "error", result.detail);
       } else if (message.type === "browserManagement.install") {
-        await this.install("Instalando Chromium");
-        await this.notice("success", "Chromium se ha instalado y verificado correctamente.");
+        await this.install(t("text.installingChromium"));
+        await this.notice("success", t("text.chromiumWasInstalledAndVerifiedSuccessfully"));
       } else if (message.type === "browserManagement.reinstall") {
         const stopped = await this.browser.stop(true);
         if (!stopped.ok) throw new Error(stopped.error);
         await this.binaries.remove();
-        await this.install("Reinstalando Chromium");
-        await this.notice("success", "Chromium se ha reinstalado y verificado correctamente.");
+        await this.install(t("text.reinstallingChromium"));
+        await this.notice("success", t("text.chromiumWasReinstalledAndVerifiedSuccessfully"));
       } else {
-        const answer = await vscode.window.showWarningMessage("¿Eliminar la instalación administrada de Chromium?", { modal: true, detail: "Los perfiles, fórmulas, arrays y la instalación personal de Chrome no se eliminarán." }, "Eliminar Chromium");
-        if (answer === "Eliminar Chromium") {
+        const answer = await vscode.window.showWarningMessage(t("text.deleteTheManagedChromiumInstallation"), { modal: true, detail: t("text.profilesFormulasArraysAndYourPersonalChromeInstallationWillBePreserved") }, t("text.deleteChromium"));
+        if (answer === t("text.deleteChromium")) {
           const stopped = await this.browser.stop(true);
           if (!stopped.ok) throw new Error(stopped.error);
           await this.binaries.remove();
-          await this.notice("success", "La instalación administrada de Chromium se ha eliminado.");
+          await this.notice("success", t("text.theManagedChromiumInstallationWasDeleted"));
         }
       }
     } catch (error: unknown) {
-      await this.notice("error", error instanceof Error ? error.message : "La operación ha fallado.");
+      await this.notice("error", error instanceof Error ? error.message : t("text.theOperationFailed"));
     } finally {
       this.busy = false;
       this.progress = "";

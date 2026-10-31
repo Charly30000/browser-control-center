@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { LitElement, html } from "lit";
 import "./unsavedChangesDialog.css";
 
@@ -5,7 +6,7 @@ export type UnsavedChangesChoice = "save" | "discard" | "cancel";
 
 export class UnsavedChangesDialog extends LitElement {
   public static override properties = { message: { type: String } };
-  public message = "Hay cambios sin guardar.";
+  public message = t("text.youHaveUnsavedChanges");
   private previousFocus: HTMLElement | null = null;
 
   public override createRenderRoot(): this { return this; }
@@ -27,12 +28,12 @@ export class UnsavedChangesDialog extends LitElement {
   protected override render() {
     return html`<div class="unsaved-backdrop" @keydown=${this.onKeyDown}>
       <section class="unsaved-dialog" role="dialog" aria-modal="true" aria-labelledby="unsaved-title" aria-describedby="unsaved-message">
-        <h2 id="unsaved-title">Cambios sin guardar</h2>
+        <h2 id="unsaved-title">${t("saveState.dirty")}</h2>
         <p id="unsaved-message">${this.message}</p>
         <footer>
-          <button type="button" @click=${() => this.choose("cancel")}>Cancelar</button>
-          <button type="button" @click=${() => this.choose("discard")}>Descartar</button>
-          <button type="button" class="primary unsaved-save" @click=${() => this.choose("save")}>Guardar</button>
+          <button type="button" @click=${() => this.choose("cancel")}>${t("actions.cancel")}</button>
+          <button type="button" @click=${() => this.choose("discard")}>${t("actions.discard")}</button>
+          <button type="button" class="primary unsaved-save" @click=${() => this.choose("save")}>${t("actions.save")}</button>
         </footer>
       </section>
     </div>`;

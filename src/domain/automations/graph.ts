@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { AutomationEdge, AutomationNode } from "./automation";
 import { failure, success, type Result } from "../../shared/result";
 
@@ -6,7 +7,7 @@ export const topologicalOrder = (nodes: readonly AutomationNode[], edges: readon
   const incoming = new Map(nodes.map((node) => [node.id, 0]));
   const outgoing = new Map(nodes.map((node) => [node.id, [] as string[]]));
   for (const edge of edges) {
-    if (!byId.has(edge.sourceNodeId) || !byId.has(edge.targetNodeId)) return failure("Una conexión referencia un nodo inexistente.");
+    if (!byId.has(edge.sourceNodeId) || !byId.has(edge.targetNodeId)) return failure(t("text.aConnectionReferencesANodeThatDoesNotExist"));
     incoming.set(edge.targetNodeId, (incoming.get(edge.targetNodeId) ?? 0) + 1);
     outgoing.get(edge.sourceNodeId)?.push(edge.targetNodeId);
   }
@@ -24,7 +25,7 @@ export const topologicalOrder = (nodes: readonly AutomationNode[], edges: readon
       if (next === 0 && target !== undefined) { ready.push(target); ready.sort(compare); }
     }
   }
-  return ordered.length === nodes.length ? success(ordered) : failure("El proceso contiene un ciclo.");
+  return ordered.length === nodes.length ? success(ordered) : failure(t("text.theProcessContainsACycle"));
 };
 
 export const predecessorIds = (nodeId: string, edges: readonly AutomationEdge[]): readonly string[] =>

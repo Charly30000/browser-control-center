@@ -1,14 +1,15 @@
+import { t } from "../../localization";
 import * as vscode from "vscode";
 import type { ArrayResourceService } from "../../application/arrays/arrayResourceService";
-import { ImportExportDocumentService } from "../../application/importExport/importExportDocumentService";
+import { ImportExportDocumentService, decodeResourceCollection } from "../../application/importExport/importExportDocumentService";
 import { ManualProfileBundleService } from "../../application/importExport/manualProfileBundleService";
 import type { FormulaService } from "../../application/formulas/formulaService";
 import type { BrowserActionsService } from "../../application/manual/browserActionsService";
 import type { ManualProfileService, ManualProfileState } from "../../application/manual/manualProfileService";
 import { createManualProfileBundle, MANUAL_PROFILE_BUNDLE_VERSION, type ManualPortableResources, type ManualProfileBundle } from "../../domain/importExport/manualProfileBundle";
 import type { ManualProfile } from "../../domain/manual/manualProfile";
-import { isArrayResource } from "../../infrastructure/persistence/arrayResourceSerializer";
-import { isFormulaResource } from "../../infrastructure/persistence/formulaSerializer";
+import { isArrayResource, arrayResourceCodec } from "../../infrastructure/persistence/arrayResourceSerializer";
+import { isFormulaResource, formulaCodec } from "../../infrastructure/persistence/formulaSerializer";
 import { deserializeProfile, isManualProfile } from "../../infrastructure/persistence/profileSerializer";
 import { failure, success, type Result } from "../../shared/result";
 import {
@@ -24,15 +25,16 @@ import type { BrowserAutomationLogger } from "../logging/browserAutomationLogger
 
 const decodeManualBundle = (value: unknown): Result<ManualProfileBundle> => {
   if (isManualProfile(value)) return success(createManualProfileBundle(value));
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return failure("El paquete Manual no tiene una estructura válida.");
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return failure(t("text.theManualBundleHasAnInvalidStructure"));
   const bundle = value as Record<string, unknown>;
-  if (bundle.bundleVersion !== MANUAL_PROFILE_BUNDLE_VERSION) return failure(`Versión de paquete Manual no compatible. Se esperaba ${MANUAL_PROFILE_BUNDLE_VERSION}.`);
-  if (!isManualProfile(bundle.profile)) return failure("El perfil del paquete Manual no es válido.");
-  if (!Array.isArray(bundle.formulas) || !bundle.formulas.every(isFormulaResource)) return failure("Las fórmulas del paquete Manual no son válidas.");
-  if (!Array.isArray(bundle.arrays) || !bundle.arrays.every(isArrayResource)) return failure("Los arrays del paquete Manual no son válidos.");
-  if (new Set(bundle.formulas.map(({ id }) => id)).size !== bundle.formulas.length) return failure("El paquete Manual contiene IDs de fórmulas duplicados.");
-  if (new Set(bundle.arrays.map(({ id }) => id)).size !== bundle.arrays.length) return failure("El paquete Manual contiene IDs de arrays duplicados.");
-  return success({ bundleVersion: MANUAL_PROFILE_BUNDLE_VERSION, profile: bundle.profile, formulas: bundle.formulas, arrays: bundle.arrays });
+  if (bundle.bundleVersion !== MANUAL_PROFILE_BUNDLE_VERSION) return failure(t("text.unsupportedManualBundleVersionExpectedArg0", { arg0: MANUAL_PROFILE_BUNDLE_VERSION }));
+  const profile = deserializeProfile(JSON.stringify(bundle.profile) ?? "null");
+  if (!profile.ok) return profile;
+  const formulas = decodeResourceCollection(isFormulaResource, t("navigation.formulas"), formulaCodec)(bundle.formulas);
+  if (!formulas.ok) return formulas;
+  const arrays = decodeResourceCollection(isArrayResource, t("navigation.arrays"), arrayResourceCodec)(bundle.arrays);
+  if (!arrays.ok) return arrays;
+  return success({ bundleVersion: MANUAL_PROFILE_BUNDLE_VERSION, profile: profile.value, formulas: formulas.value, arrays: arrays.value });
 };
 
 const decodeLegacyManualBundle = (serialized: string): Result<ManualProfileBundle> => {
@@ -72,7 +74,7 @@ export class ManualPanelManager implements vscode.Disposable {
 
     const panel = vscode.window.createWebviewPanel(
       "browserControl.manual",
-      "Manual Browser",
+      t("text.manualBrowser"),
       vscode.ViewColumn.One,
       {
         enableScripts: true,
@@ -81,10 +83,10 @@ export class ManualPanelManager implements vscode.Disposable {
       }
     );
     this.panel = panel;
-    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "manual", "Manual Browser");
+    panel.webview.html = createWebviewHtml(panel.webview, this.extensionUri, "manual", t("text.manualBrowser"));
     const messageSubscription = panel.webview.onDidReceiveMessage((message: unknown) => {
       if (!isManualToExtensionMessage(message)) {
-        void this.sendNotice("error", "Se recibió un mensaje no válido desde la vista Manual.");
+        void this.sendNotice("error", t("text.anInvalidMessageWasReceivedFromTheManualView"));
         return;
       }
       void this.handleMessage(message);
@@ -111,7 +113,7 @@ export class ManualPanelManager implements vscode.Disposable {
     );
     try {
       const browserAction = this.browserActionDescription(message);
-      if (browserAction !== null) this.logger.info(`[Manual] [INICIO] ${browserAction}`);
+      if (browserAction !== null) this.logger.info(t("logs.manualStart", { action: browserAction }));
       switch (message.type) {
         case "ui.confirmDestructiveAction": {
           const confirmed = await confirmDestructiveAction(message.confirmation);
@@ -122,6 +124,7 @@ export class ManualPanelManager implements vscode.Disposable {
           await this.sendState(await this.profileService.getInitialState());
           break;
         case "manual.new":
+          await this.profileService.refreshCatalog();
           await this.sendState(this.profileService.createDraft());
           break;
         case "manual.select":
@@ -129,16 +132,16 @@ export class ManualPanelManager implements vscode.Disposable {
           break;
         case "manual.save":
           await this.sendState(await this.saveFromEditor(message.profile, message.resources), message.requestId);
-          await this.sendNotice("success", "Perfil guardado.");
+          await this.sendNotice("success", t("text.profileSaved"));
           break;
         case "manual.delete": {
           const confirmed = await confirmDestructiveAction({
-            question: `¿Quieres eliminar el perfil «${message.name}»?`,
-            detail: "Esta acción elimina el perfil guardado o descarta el borrador actual."
+            question: t("text.deleteProfileArg0", { arg0: message.name }),
+            detail: t("text.thisDeletesTheSavedProfileOrDiscardsTheCurrentDraft")
           });
           if (confirmed) {
             await this.sendState(await this.profileService.delete(message.id));
-            await this.sendNotice("success", "Perfil eliminado.");
+            await this.sendNotice("success", t("text.profileDeleted"));
           } else await this.post({ type: "manual.operationCanceled" });
           break;
         }
@@ -151,9 +154,9 @@ export class ManualPanelManager implements vscode.Disposable {
         case "manual.applyJson": {
           const parsed = this.documents.deserialize(message.serialized);
           if (!parsed.ok) throw new Error(parsed.error);
-          if (parsed.value.data.profile.id !== message.currentId) throw new Error("El ID del perfil no se puede cambiar desde el editor JSON.");
+          if (parsed.value.data.profile.id !== message.currentId) throw new Error(t("text.theProfileIDCannotBeChangedInTheJSONEditor"));
           await this.post({ type: "manual.jsonApplied", bundle: parsed.value.data });
-          await this.sendNotice("success", "JSON validado y cargado como cambios sin guardar.");
+          await this.sendNotice("success", t("text.jsonValidatedAndLoadedAsUnsavedChanges"));
           break;
         }
         case "manual.import":
@@ -161,39 +164,39 @@ export class ManualPanelManager implements vscode.Disposable {
           break;
         case "browser.open": {
           const result = await this.browserActions.open(message.profile);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "URL abierta." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? t("text.urlOpened") : result.error);
           break;
         }
         case "browser.start": {
           const result = await this.browserActions.start(message.profile);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Navegador iniciado con una sesión limpia." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? t("text.browserStartedWithACleanSession") : result.error);
           break;
         }
         case "browser.restart": {
           const result = await this.browserActions.restart(message.profile);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Navegador reiniciado con una sesión limpia." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? t("text.browserRestartedWithACleanSession") : result.error);
           break;
         }
         case "browser.stop": {
           const result = await this.browserActions.stop(message.force);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Navegador detenido." : result.error);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? t("text.browserStopped") : result.error);
           break;
         }
         case "browser.selectPage": {
           const result = await this.browserActions.selectPage(message.pageId);
           if (!result.ok) await this.sendNotice("warning", result.error);
-          else this.logger.info("[Manual] [OK] Pestaña seleccionada.");
+          else this.logger.info(t("text.manualOKTabSelected"));
           break;
         }
         case "browser.closePage": {
           const result = await this.browserActions.closePage(message.pageId);
           if (!result.ok) await this.sendNotice("warning", result.error);
-          else this.logger.info("[Manual] [OK] Pestaña cerrada.");
+          else this.logger.info(t("text.manualOKTabClosed"));
           break;
         }
         case "browser.apply": {
           const result = await this.browserActions.apply(message.profile, message.target, message.rowId);
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Configuración aplicada." : result.error, revealOutputOnFailure);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? t("text.configurationApplied") : result.error, revealOutputOnFailure);
           break;
         }
         case "browser.syncOverrides": {
@@ -204,14 +207,14 @@ export class ManualPanelManager implements vscode.Disposable {
         }
         case "browser.resetGenerators": {
           const result = await this.browserActions.resetGenerators();
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Generadores reseteados." : result.error, revealOutputOnFailure);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? t("text.generatorsReset") : result.error, revealOutputOnFailure);
           break;
         }
         case "browser.selectElement": {
           const result = await this.browserActions.selectElement();
           if (result.ok) {
             await this.post({ type: "browser.elementSelected", bindingId: message.bindingId, selector: result.value });
-            this.logger.info("[Manual] [OK] Elemento seleccionado.");
+            this.logger.info(t("text.manualOKElementSelected"));
           } else {
             await this.sendNotice("warning", result.error, revealOutputOnFailure);
           }
@@ -219,15 +222,15 @@ export class ManualPanelManager implements vscode.Disposable {
         }
         case "browser.previewGenerator": {
           const binding = message.profile.generatorBindings.find(({ id }) => id === message.bindingId);
-          if (binding === undefined) { await this.sendNotice("warning", "El generador ya no existe.", revealOutputOnFailure); break; }
+          if (binding === undefined) { await this.sendNotice("warning", t("text.theGeneratorNoLongerExists"), revealOutputOnFailure); break; }
           const result = await this.browserActions.previewGenerator(binding);
           if (result.ok) await this.post({ type: "browser.generatorPreview", bindingId: binding.id, value: result.value });
-          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? "Muestra generada." : result.error, revealOutputOnFailure);
+          await this.sendNotice(result.ok ? "success" : "warning", result.ok ? t("text.sampleGenerated") : result.error, revealOutputOnFailure);
           break;
         }
       }
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : "Se ha producido un error inesperado.";
+      const errorMessage = error instanceof Error ? error.message : t("text.anUnexpectedErrorOccurred");
       this.logger.error(`[Manual] [ERROR] ${errorMessage}`, error);
       if (revealOutputOnFailure) this.logger.show();
       if (message.type === "manual.save" && message.requestId !== undefined) {
@@ -241,11 +244,11 @@ export class ManualPanelManager implements vscode.Disposable {
     const exported = await this.files.write(this.documents.serialize(await this.portableBundle(profile, resources)), {
       suggestedName: profile.name,
       suffix: ".manual-profile.json",
-      filterName: "Perfil Manual",
-      saveLabel: "Exportar perfil"
+      filterName: t("text.manualProfile"),
+      saveLabel: t("text.exportProfile")
     });
     if (!exported) return;
-    await this.sendNotice("success", "Perfil exportado.");
+    await this.sendNotice("success", t("text.profileExported"));
   }
 
   private portableBundle(profile: ManualProfile, resources: ManualPortableResources | null): Promise<ManualProfileBundle> {
@@ -254,7 +257,7 @@ export class ManualPanelManager implements vscode.Disposable {
   }
 
   private async importProfile(): Promise<void> {
-    const contents = await this.files.read({ filterName: "Perfil Manual", openLabel: "Importar perfil" });
+    const contents = await this.files.read({ filterName: t("text.manualProfile"), openLabel: t("text.importProfile") });
     if (contents === null) { await this.post({ type: "manual.operationCanceled" }); return; }
     const parsed = this.documents.deserialize(contents);
     if (!parsed.ok) {
@@ -264,7 +267,7 @@ export class ManualPanelManager implements vscode.Disposable {
     const profile = await this.portableResources.resolve(parsed.value.data);
     this.onPortableResourcesChanged();
     await this.sendState(await this.profileService.import(profile));
-    await this.sendNotice("success", "Perfil importado.");
+    await this.sendNotice("success", t("text.profileImported"));
   }
 
   private async saveFromEditor(profile: ManualProfile, resources: ManualPortableResources | null): Promise<ManualProfileState> {
@@ -289,8 +292,8 @@ export class ManualPanelManager implements vscode.Disposable {
   }
 
   private async loadResourceCatalogs() {
-    const [arrays] = await Promise.all([this.arrayService.getAll()]);
-    return { formulas: this.formulaService.getSummaries(), arrays };
+    const [arrays, formulas] = await Promise.all([this.arrayService.getAll(), this.formulaService.getSummaries()]);
+    return { formulas, arrays };
   }
 
   private async sendNotice(tone: "info" | "success" | "warning" | "error", message: string, revealOutputOnFailure = true): Promise<void> {
@@ -304,29 +307,29 @@ export class ManualPanelManager implements vscode.Disposable {
 
   private browserActionDescription(message: ManualToExtensionMessage): string | null {
     switch (message.type) {
-      case "browser.open": return "Abriendo la URL del perfil.";
-      case "browser.start": return "Iniciando una sesión limpia del navegador.";
-      case "browser.restart": return "Reiniciando el navegador con una sesión limpia.";
-      case "browser.stop": return message.force ? "Deteniendo el navegador a la fuerza." : "Deteniendo el navegador.";
-      case "browser.selectPage": return "Cambiando la pestaña activa.";
-      case "browser.closePage": return "Cerrando una pestaña.";
-      case "browser.apply": return `Aplicando ${this.actionTargetLabel(message.target)}.`;
-      case "browser.syncOverrides": return "Sincronizando request overrides.";
-      case "browser.resetGenerators": return "Reseteando los valores aplicados a campos.";
-      case "browser.selectElement": return "Esperando la selección de un elemento en el navegador.";
-      case "browser.previewGenerator": return "Generando una muestra.";
+      case "browser.open": return t("text.openingTheProfileURL");
+      case "browser.start": return t("text.startingACleanBrowserSession");
+      case "browser.restart": return t("text.restartingTheBrowserWithACleanSession");
+      case "browser.stop": return message.force ? t("text.forceStoppingTheBrowser") : t("text.stoppingTheBrowser");
+      case "browser.selectPage": return t("text.changingTheActiveTab");
+      case "browser.closePage": return t("text.closingATab");
+      case "browser.apply": return t("text.applyingArg0", { arg0: this.actionTargetLabel(message.target) });
+      case "browser.syncOverrides": return t("text.synchronizingRequestOverrides");
+      case "browser.resetGenerators": return t("text.resettingTheValuesAppliedToFields");
+      case "browser.selectElement": return t("text.waitingForAnElementSelectionInTheBrowser");
+      case "browser.previewGenerator": return t("text.generatingASample");
       default: return null;
     }
   }
 
   private actionTargetLabel(target: "headers" | "cookies" | "localStorage" | "sessionStorage" | "overrides" | "generators"): string {
     switch (target) {
-      case "headers": return "headers";
-      case "cookies": return "cookies";
-      case "localStorage": return "localStorage";
-      case "sessionStorage": return "sessionStorage";
-      case "overrides": return "request overrides";
-      case "generators": return "campos y generadores";
+      case "headers": return t("labels.headers");
+      case "cookies": return t("labels.cookies");
+      case "localStorage": return t("labels.localStorage");
+      case "sessionStorage": return t("labels.sessionStorage");
+      case "overrides": return t("labels.requestOverrides");
+      case "generators": return t("labels.fieldsAndGenerators");
     }
   }
 

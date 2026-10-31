@@ -1,3 +1,4 @@
+import { t } from "../localization";
 import { join } from "node:path";
 import * as vscode from "vscode";
 import { ArrayResourceService } from "../application/arrays/arrayResourceService";
@@ -50,7 +51,7 @@ export const createApplicationServices = (context: vscode.ExtensionContext): App
   const profileService = new ManualProfileService(dataDao.profiles, dataDao.profileMetadata);
   const formulaService = new FormulaService(dataDao.formulas, dataDao.formulaMetadata);
   const arrayService = new ArrayResourceService(dataDao.arrays, dataDao.arrayMetadata);
-  const logger = new BrowserAutomationLogger(vscode.window.createOutputChannel("Browser Automation", "log"));
+  const logger = new BrowserAutomationLogger(vscode.window.createOutputChannel(t("text.browserAutomation"), "log"));
   const browserRoot = join(context.globalStorageUri.fsPath, "browser");
   const runtime = new PlaywrightRuntimeLoader(join(browserRoot, "binaries"));
   const browserBinaries = new BrowserBinaryManager(browserRoot, runtime, logger);

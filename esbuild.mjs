@@ -1,6 +1,11 @@
 import * as esbuild from "esbuild";
+import { generateLocalization } from "./src/localization/generate.mjs";
 
 const watch = process.argv.includes("--watch");
+const localizationPlugin = {
+  name: "localization",
+  setup(build) { build.onStart(() => { generateLocalization(); }); }
+};
 
 const extensionOptions = {
   entryPoints: { extension: "src/extension/activate.ts" },
@@ -11,7 +16,8 @@ const extensionOptions = {
   external: ["vscode", "playwright-core"],
   outdir: "dist",
   sourcemap: true,
-  logLevel: "info"
+  logLevel: "info",
+  plugins: [localizationPlugin]
 };
 
 const webviewOptions = {
@@ -30,7 +36,8 @@ const webviewOptions = {
   target: "es2022",
   outdir: "dist",
   sourcemap: true,
-  logLevel: "info"
+  logLevel: "info",
+  plugins: [localizationPlugin]
 };
 
 if (watch) {

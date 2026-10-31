@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 const SAFE_IMPORTED_ID = /^[a-zA-Z0-9-]+$/;
 const suffixPattern = /^(.*?)(?:-(\d+))?$/;
 
@@ -21,7 +22,7 @@ export const resolveImportedId = (requestedId: string, occupiedIds: ReadonlySet<
     : requestedId;
 
 const uniqueName = (requestedName: string, occupiedNames: readonly string[], forceSuffix: boolean): string => {
-  const trimmed = requestedName.trim() || "importado";
+  const trimmed = requestedName.trim() || t("labels.imported");
   const occupied = new Set(occupiedNames.map(normalized));
   if (!forceSuffix && !occupied.has(normalized(trimmed))) return trimmed;
   const base = suffixPattern.exec(trimmed)?.[1]?.trim() || trimmed;

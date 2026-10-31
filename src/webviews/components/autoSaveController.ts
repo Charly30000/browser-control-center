@@ -8,7 +8,7 @@ interface AutoSaveOptions {
 }
 
 const activityEvents = ["input", "change", "click", "keydown", "pointerdown", "dragstart", "dragend", "drop"] as const;
-const interactiveElements = 'input, textarea, select, button, a[href], summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="switch"], [role="application"], [draggable="true"]';
+const interactiveElements = 'input, textarea, select, button, a[href], summary, [contenteditable]:not([contenteditable="false"]), [role="button"], [role="switch"], [role="application"], [role="group"][tabindex="0"], [draggable="true"]';
 
 /** Comparte la espera por inactividad, sin ejecutar acciones de navegador ni de prueba. */
 export class AutoSaveController implements ReactiveController {

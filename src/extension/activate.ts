@@ -1,10 +1,13 @@
 import * as vscode from "vscode";
-import { createApplicationServices } from "./compositionRoot";
-import { SidebarProvider } from "./sidebar/sidebarProvider";
+import { initializeLocale } from "../localization";
 
 let shutdown: (() => Promise<void>) | null = null;
 
 export const activate = async (context: vscode.ExtensionContext): Promise<void> => {
+  initializeLocale(vscode.env.language);
+  const [{ createApplicationServices }, { SidebarProvider }] = await Promise.all([
+    import("./compositionRoot"), import("./sidebar/sidebarProvider")
+  ]);
   const services = createApplicationServices(context);
   shutdown = async () => {
     await services.browserActions.stop(true).catch(() => undefined);

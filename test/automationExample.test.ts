@@ -14,7 +14,7 @@ describe("ejemplo completo de automatizaciones", () => {
 
     expect(group.processes).toHaveLength(dedicatedTypes.length + 3);
     expect(group.processes[0]?.viewport).toMatchObject({ preset: "custom", width: 390, height: 844, hasTouch: true, isMobile: true });
-    expect(group.processes[1]?.variables).toEqual({ initialName: "Ada", expectedGreeting: "Hola, Ada" });
+    expect(group.processes[1]?.variables).toEqual({ initialName: "Ada", expectedGreeting: "Hello, Ada" });
     dedicatedTypes.forEach((type, index) => expect(group.processes[index + 2]?.nodes.some((node) => node.type === type)).toBe(true));
     expect(concatenated?.viewport).toMatchObject({ width: 390, height: 844 });
     expect(concatenated?.variables.initialName).toBe("Ada");
@@ -48,7 +48,7 @@ describe("ejemplo completo de automatizaciones", () => {
   it("incluye capturas de respuesta, campo, texto visible, atributo y JSON del DOM", () => {
     let sequence = 0;
     const group = createCompleteAutomationExample(() => `example-${sequence += 1}`);
-    const dedicated = group.processes.find(({ name }) => name === "17 · Guardar dato");
+    const dedicated = group.processes.find(({ name }) => name === "17 · Save Data");
     const captures = dedicated?.nodes.filter(({ type }) => type === "capture-value").map(({ config }) => config);
     expect(captures).toEqual(expect.arrayContaining([
       expect.objectContaining({ path: "body.item.id", outputVariable: "itemId" }),

@@ -155,7 +155,7 @@ describe("ProcessRunner", () => {
     const logger = recordingLogger();
     const snapshots: string[] = []; const result = await new ProcessRunner(sessions, registry, generators, logger).run("group", process, new ExecutionControl(), (snapshot) => snapshots.push(snapshot.state));
     expect(result.success).toBe(true); expect(calls).toEqual(["navigate", "click"]); expect(session.close).toHaveBeenCalledWith(false); expect(snapshots).toContain("success");
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("[OK] Proceso completado correctamente"));
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("[OK] Process completed successfully"));
   });
 
   it("fuerza el cierre al superar el timeout", async () => {
@@ -165,8 +165,8 @@ describe("ProcessRunner", () => {
     const logger = recordingLogger();
     const result = await new ProcessRunner(sessions, registry, generators, logger).run("group", process, new ExecutionControl(), () => undefined);
     expect(result.success).toBe(false); expect(session.close).toHaveBeenCalledWith(true);
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("[ERROR] El nodo superó el timeout"), expect.any(Error));
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("[ERROR] Proceso finalizado con errores"));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("[ERROR] The node exceeded"), expect.any(Error));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("[ERROR] Process finished with errors"));
   });
 
   it("cancela el nodo activo", async () => {
@@ -196,8 +196,8 @@ describe("ProcessRunner", () => {
     const coordinator = new AutomationExecutionCoordinator(runner, { onProcess: () => undefined, onGroup: (summary) => summaries.push(summary.completed) }, logger);
     await coordinator.runGroup(group);
     expect(created).toHaveLength(2); expect(summaries.at(-1)).toBe(2);
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("[Segundo] [OK] Proceso completado correctamente"));
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("[ERROR] Grupo completado con 1 proceso(s) fallido(s)"));
+    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("[Segundo] [OK] Process completed successfully"));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("[ERROR] Group completed with 1 failed process(es)"));
   });
 
   it("continúa el grupo si no se puede crear la sesión de un proceso", async () => {
@@ -216,7 +216,7 @@ describe("ProcessRunner", () => {
     await coordinator.runGroup(group);
 
     expect(attempts).toBe(2);
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("No se pudo preparar el navegador"), expect.any(Error));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining("Could not prepare the browser"), expect.any(Error));
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("[Segundo] [OK]"));
   });
 

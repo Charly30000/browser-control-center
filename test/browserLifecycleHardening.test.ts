@@ -7,7 +7,7 @@ import { defaultViewport } from "../src/domain/manual/manualProfile";
 import { BrowserLifecycleManager } from "../src/infrastructure/browser/browserLifecycleManager";
 import type { PlaywrightRuntime, PlaywrightRuntimeProvider } from "../src/infrastructure/browser/playwrightRuntime";
 
-const configuration = { providerId: "managed-chromium" as const, displayName: "Chromium administrado", engine: "chromium" as const, executablePath: "C:\\managed\\chrome.exe", channel: null };
+const configuration = { providerId: "managed-chromium" as const, displayName: "Managed Chromium", engine: "chromium" as const, executablePath: "C:\\managed\\chrome.exe", channel: null };
 
 describe("hardening del ciclo de navegador", () => {
   const roots: string[] = [];

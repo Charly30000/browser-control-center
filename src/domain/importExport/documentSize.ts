@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 export const MAX_DOCUMENT_BYTES = 100 * 1024 * 1024;
 export const DOCUMENT_SIZE_WARNING_BYTES = Math.floor(MAX_DOCUMENT_BYTES * 0.8);
 
@@ -28,4 +29,4 @@ export const formatBytes = (bytes: number): string => {
 };
 
 export const documentSizeLimitMessage = (bytes: number): string =>
-  `El documento ocupa ${formatBytes(bytes)} y supera el límite de ${formatBytes(MAX_DOCUMENT_BYTES)}.`;
+  t("text.theDocumentUsesArg0ExceedingTheArg1Limit", { arg0: formatBytes(bytes), arg1: formatBytes(MAX_DOCUMENT_BYTES) });

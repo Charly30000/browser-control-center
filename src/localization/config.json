@@ -1,0 +1,7 @@
+{
+  "defaultLocale": "en",
+  "fallbackLocale": "en",
+  "locales": {
+    "en": "locales/en.json"
+  }
+}

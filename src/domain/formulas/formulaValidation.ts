@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { FormulaResource } from "./formula";
 import { failure, success, type Result } from "../../shared/result";
 
@@ -5,13 +6,13 @@ const generateDeclaration = /\b(?:async\s+)?function\s+generate\s*\(\s*\)\s*\{/;
 const parameterizedGenerate = /\b(?:async\s+)?function\s+generate\s*\(([^)]*)\)/;
 
 export const validateFormula = (formula: FormulaResource): Result<FormulaResource> => {
-  if (formula.name.trim() === "") return failure("El nombre de la fórmula es obligatorio.");
+  if (formula.name.trim() === "") return failure(t("text.theFormulaNameIsRequired"));
   const declaration = parameterizedGenerate.exec(formula.code);
   if (declaration !== null && (declaration[1] ?? "").trim() !== "") {
-    return failure("La función generate no puede recibir parámetros.");
+    return failure(t("text.theGenerateFunctionCannotAcceptParameters"));
   }
   if (!generateDeclaration.test(formula.code)) {
-    return failure("El código debe declarar function generate() sin parámetros.");
+    return failure(t("text.theCodeMustDeclareFunctionGenerateWithNoParameters"));
   }
   return success(formula);
 };

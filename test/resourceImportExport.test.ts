@@ -66,13 +66,13 @@ describe("importación y exportación de recursos", () => {
 
     const parsed = formulaDocuments().deserialize(serialized);
     expect(parsed.ok).toBe(false);
-    if (!parsed.ok) expect(parsed.error).toContain("ID duplicado");
+    if (!parsed.ok) expect(parsed.error).toContain("duplicate ID");
   });
 });
 
 const formulaDocuments = () => new ImportExportDocumentService(
   "browser-control-center/formulas",
-  decodeResourceCollection(isFormulaResource, "fórmulas")
+  decodeResourceCollection(isFormulaResource, "formulas")
 );
 
 const resolve = (existing: readonly FormulaResource[], imported: readonly FormulaResource[]) =>

@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { failure, success, type Result } from "../../shared/result";
 import type { QueryParamEntry } from "./manualProfile";
 
@@ -12,7 +13,7 @@ export const buildUrlWithQueryParams = (baseUrl: string, entries: readonly Query
     }
     return success(url.toString());
   } catch {
-    return failure("La URL no es válida.");
+    return failure(t("text.theURLIsInvalid"));
   }
 };
 
@@ -31,6 +32,6 @@ export const queryParamsFromUrl = (
     url.search = "";
     return success({ baseUrl: url.toString(), entries });
   } catch {
-    return failure("La URL no es válida.");
+    return failure(t("text.theURLIsInvalid"));
   }
 };

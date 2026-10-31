@@ -16,7 +16,7 @@ const serviceFor = (execution: () => Promise<unknown>): PlaywrightFormulaExecuti
   const browser = { newContext: vi.fn(() => Promise.resolve(context)), close: vi.fn(() => Promise.resolve()) };
   const chromium = { launchServer: vi.fn(() => Promise.resolve(server)), connect: vi.fn(() => Promise.resolve(browser)) };
   const runtime: PlaywrightRuntimeProvider = { load: () => Promise.resolve({ chromium } as unknown as PlaywrightRuntime) };
-  const selection = { resolveLaunchConfiguration: () => Promise.resolve({ providerId: "managed-chromium" as const, displayName: "Chromium administrado", engine: "chromium" as const, executablePath: "C:\\managed\\chrome.exe", channel: null }) };
+  const selection = { resolveLaunchConfiguration: () => Promise.resolve({ providerId: "managed-chromium" as const, displayName: "Managed Chromium", engine: "chromium" as const, executablePath: "C:\\managed\\chrome.exe", channel: null }) };
   return new PlaywrightFormulaExecutionService(selection, runtime, silentLogger, 100);
 };
 
@@ -39,6 +39,6 @@ describe("resultados de fórmulas", () => {
   it("rechaza retornos que no pertenecen al modelo JSON", async () => {
     const result = await serviceFor(() => Promise.resolve(1n)).execute(createFormula("formula", "Prueba"));
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("valor JSON");
+    if (!result.ok) expect(result.error).toContain("JSON value");
   });
 });

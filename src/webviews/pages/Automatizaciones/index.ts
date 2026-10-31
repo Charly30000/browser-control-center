@@ -1,3 +1,5 @@
+import { t } from "../../../localization";
+import { viewportPresetLabel } from "../../../localization/displayLabels";
 import { LitElement, html, nothing } from "lit";
 import { live } from "lit/directives/live.js";
 import type { NodeDescriptor } from "../../../application/automations/nodeRegistry";
@@ -79,7 +81,7 @@ class AutomationsApp extends LitElement {
 
   protected override render() {
     const document = this.document;
-    if (document === null) return html`<main class="automations-shell loading">Cargando automatizaciones…</main>`;
+    if (document === null) return html`<main class="automations-shell loading">${t("text.loadingAutomations")}</main>`;
     const group = this.selectedGroup(); const process = this.selectedProcess(); const selectedNode = this.selectedNode(); const descriptor = selectedNode === null ? null : this.descriptors.find(({ type }) => type === selectedNode.type) ?? null;
     const isCompleteExample = process?.nodes.some(({ type, config }) => type === "navigate" && config.url === AUTOMATION_EXAMPLE_URL) === true;
     const processState = process === null ? undefined : this.processStates[process.id]; const nodeStates = Object.fromEntries((processState?.nodes ?? []).map(({ nodeId, state }) => [nodeId, state])) as Record<string, NodeExecutionState>;
@@ -102,37 +104,37 @@ class AutomationsApp extends LitElement {
     };
     return html`<main class="automations-shell">
       ${renderAutoSaveControl(isAutoSaveEnabled(document.preferences), this.toggleAutoSave)}
-      <header class="automation-header"><div><h1>Automatizaciones</h1><p>Procesos visuales ejecutados en sesiones limpias e independientes del navegador seleccionado.</p></div><div class="toolbar">
-        <button class="primary" @click=${this.newGroup}>Nuevo grupo</button><button @click=${this.addExample}>Añadir ejemplo</button><button @click=${() => this.guardTransition(() => this.post({ type: "automation.import" }), "¿Guardar la automatización antes de importar?")}>Importar</button><button @click=${this.exportSelection}>Exportar</button><button @click=${this.viewJson}>Ver JSON</button>
-        ${this.copiedProcess !== null && group !== null ? html`<button @click=${() => this.pasteProcess(group.id)}>Pegar proceso</button>` : nothing}
-        <button class="primary" ?disabled=${this.saves.pending} @click=${this.save}>Guardar</button><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span>
+      <header class="automation-header"><div><h1>${t("navigation.automations")}</h1><p>${t("text.visualProcessesRunInCleanIndependentSessionsOfTheSelectedBrowser")}</p></div><div class="toolbar">
+        <button class="primary" @click=${this.newGroup}>${t("text.newGroup")}</button><button @click=${this.addExample}>${t("text.addExample")}</button><button @click=${() => this.guardTransition(() => this.post({ type: "automation.import" }), t("text.saveTheAutomationBeforeImporting"))}>${t("actions.import")}</button><button @click=${this.exportSelection}>${t("actions.export")}</button><button @click=${this.viewJson}>${t("actions.viewJson")}</button>
+        ${this.copiedProcess !== null && group !== null ? html`<button @click=${() => this.pasteProcess(group.id)}>${t("text.pasteProcess")}</button>` : nothing}
+        <button class="primary" ?disabled=${this.saves.pending} @click=${this.save}>${t("actions.save")}</button><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? t("saveState.saving") : dirty ? t("saveState.dirty") : t("saveState.saved")}</span>
       </div></header>
       <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
-      ${waitingNode === undefined ? nothing : html`<section class="waiting-banner"><strong>Esperando acción del usuario</strong><span>Completa CAPTCHA, 2FA u OAuth en el navegador.</span><button class="primary" @click=${() => this.post({ type: "automation.continueUser", nodeId: waitingNode.nodeId })}>Continuar</button><button @click=${() => this.post({ type: "automation.retryUser", nodeId: waitingNode.nodeId })}>Reintentar</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: false })}>Detener</button></section>`}
+      ${waitingNode === undefined ? nothing : html`<section class="waiting-banner"><strong>${t("text.waitingForUserAction")}</strong><span>${t("text.completeCAPTCHA2FAOrOAuthInTheBrowser")}</span><button class="primary" @click=${() => this.post({ type: "automation.continueUser", nodeId: waitingNode.nodeId })}>${t("text.continue")}</button><button @click=${() => this.post({ type: "automation.retryUser", nodeId: waitingNode.nodeId })}>${t("text.retry")}</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: false })}>${t("text.stop")}</button></section>`}
       <div class="automation-layout">
         ${renderAutomationTree(document, this.selectedGroupId, this.selectedProcessId, this.selectionKind, this.processStates, this.groupStates, callbacks)}
         <section class="workspace">
-          ${process === null ? html`<div class="workspace-empty"><h2>Selecciona o crea un proceso</h2></div>` : html`
+          ${process === null ? html`<div class="workspace-empty"><h2>${t("text.selectOrCreateAProcess")}</h2></div>` : html`
             <div class="process-toolbar">
               <div class="process-identity">
-                <label>Nombre del grupo<input .value=${live(group?.name ?? "")} title=${group?.name ?? ""} @input=${(event: Event) => { if (group) this.renameGroup(group.id, inputValue(event)); }}></label>
-                <label>Nombre del proceso<input .value=${live(process.name)} title=${process.name} @input=${(event: Event) => { if (group) this.renameProcess(group.id, process.id, inputValue(event)); }}></label>
+                <label>${t("text.groupName")}<input .value=${live(group?.name ?? "")} title=${group?.name ?? ""} @input=${(event: Event) => { if (group) this.renameGroup(group.id, inputValue(event)); }}></label>
+                <label>${t("text.processName")}<input .value=${live(process.name)} title=${process.name} @input=${(event: Event) => { if (group) this.renameProcess(group.id, process.id, inputValue(event)); }}></label>
               </div>
               <div class="process-execution-actions">
-              <button class="primary" @click=${() => group && this.post({ type: "automation.runProcess", groupId: group.id, processId: process.id, document })}>▶ Run</button>
-              <button @click=${() => this.post({ type: "automation.pause" })}>Pausar</button><button @click=${() => this.post({ type: "automation.resume" })}>Continuar</button>
-              <button @click=${() => this.post({ type: "automation.stop", force: false })}>Stop</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: true })}>Force stop</button>
+              <button class="primary" @click=${() => group && this.post({ type: "automation.runProcess", groupId: group.id, processId: process.id, document })}>${t("text.run")}</button>
+              <button @click=${() => this.post({ type: "automation.pause" })}>${t("text.pause")}</button><button @click=${() => this.post({ type: "automation.resume" })}>${t("text.continue")}</button>
+              <button @click=${() => this.post({ type: "automation.stop", force: false })}>${t("text.stop")}</button><button class="danger" @click=${() => this.post({ type: "automation.stop", force: true })}>${t("text.forceStop")}</button>
               </div>
             </div>
-            <details class="process-settings"><summary>Viewport y variables iniciales</summary><div>
-              <label class="variables-field"><span>Variables JSON</span><textarea rows="3" .value=${live(JSON.stringify(process.variables, null, 2))} @change=${(event: Event) => this.updateVariables(inputValue(event))}></textarea></label>
+            <details class="process-settings"><summary>${t("text.viewportAndInitialVariables")}</summary><div>
+              <label class="variables-field"><span>${t("text.jsonVariables")}</span><textarea rows="3" .value=${live(JSON.stringify(process.variables, null, 2))} @change=${(event: Event) => this.updateVariables(inputValue(event))}></textarea></label>
               <div class="viewport-fields">
-                <label><span>Preset</span><select .value=${live(process.viewport.preset)} @change=${(event: Event) => this.updateViewportPreset(controlValue(event) as ViewportPresetId)}>${["desktop", "laptop", "tabletPortrait", "tabletLandscape", "mobilePortrait", "mobileLandscape", "custom"].map((preset) => html`<option value=${preset} .selected=${preset === process.viewport.preset}>${preset}</option>`)}</select></label>
-                <label><span>Ancho</span><input type="number" min="1" .value=${live(String(process.viewport.width))} @change=${(event: Event) => this.updateViewportNumber("width", controlValue(event))}></label>
-                <label><span>Alto</span><input type="number" min="1" .value=${live(String(process.viewport.height))} @change=${(event: Event) => this.updateViewportNumber("height", controlValue(event))}></label>
-                <label><span>Escala</span><input type="number" min="0.1" step="0.1" .value=${live(String(process.viewport.deviceScaleFactor))} @change=${(event: Event) => this.updateViewportNumber("deviceScaleFactor", controlValue(event))}></label>
-                <label class="check-field"><input type="checkbox" .checked=${live(process.viewport.hasTouch)} @change=${(event: Event) => this.updateProcess((draft) => { draft.viewport = { ...draft.viewport, preset: "custom", hasTouch: checkedValue(event) }; })}> Táctil</label>
-                <label class="check-field"><input type="checkbox" .checked=${live(process.viewport.isMobile)} @change=${(event: Event) => this.updateProcess((draft) => { draft.viewport = { ...draft.viewport, preset: "custom", isMobile: checkedValue(event) }; })}> Móvil</label>
+                <label><span>${t("text.preset")}</span><select .value=${live(process.viewport.preset)} @change=${(event: Event) => this.updateViewportPreset(controlValue(event) as ViewportPresetId)}>${(["desktop", "laptop", "tabletPortrait", "tabletLandscape", "mobilePortrait", "mobileLandscape", "custom"] as const).map((preset) => html`<option value=${preset} .selected=${preset === process.viewport.preset}>${viewportPresetLabel(preset)}</option>`)}</select></label>
+                <label><span>${t("text.width")}</span><input type="number" min="1" .value=${live(String(process.viewport.width))} @change=${(event: Event) => this.updateViewportNumber("width", controlValue(event))}></label>
+                <label><span>${t("text.height")}</span><input type="number" min="1" .value=${live(String(process.viewport.height))} @change=${(event: Event) => this.updateViewportNumber("height", controlValue(event))}></label>
+                <label><span>${t("text.scale")}</span><input type="number" min="0.1" step="0.1" .value=${live(String(process.viewport.deviceScaleFactor))} @change=${(event: Event) => this.updateViewportNumber("deviceScaleFactor", controlValue(event))}></label>
+                <label class="check-field"><input type="checkbox" .checked=${live(process.viewport.hasTouch)} @change=${(event: Event) => this.updateProcess((draft) => { draft.viewport = { ...draft.viewport, preset: "custom", hasTouch: checkedValue(event) }; })}> ${t("text.touch")}</label>
+                <label class="check-field"><input type="checkbox" .checked=${live(process.viewport.isMobile)} @change=${(event: Event) => this.updateProcess((draft) => { draft.viewport = { ...draft.viewport, preset: "custom", isMobile: checkedValue(event) }; })}> ${t("text.mobile")}</label>
               </div>
             </div></details>
             ${isCompleteExample ? renderExampleGuide(process.name) : nothing}
@@ -154,7 +156,7 @@ class AutomationsApp extends LitElement {
     </main>
     ${this.jsonDocument === null ? nothing : html`<json-document-editor
       .value=${this.jsonDocument}
-      .heading=${this.jsonScope?.kind === "process" ? `JSON del flujo ${process?.name ?? "seleccionado"}` : `JSON del grupo ${group?.name ?? "seleccionado"}`}
+      .heading=${this.jsonScope?.kind === "process" ? t("text.jsonForFlowArg0", { arg0: process?.name ?? t("text.selected") }) : t("text.jsonForGroupArg0", { arg0: group?.name ?? t("text.selected") })}
       .errorMessage=${this.notice.tone === "error" ? this.notice.message : ""}
       @json-editor-change=${this.changeJson}
       @json-editor-close=${this.closeJsonEditor}
@@ -213,7 +215,7 @@ class AutomationsApp extends LitElement {
     else if (message.type === "automation.nodeValidation") { if (message.requestId === this.validationRequestId && this.selectedNodeIds.includes(message.nodeId)) this.nodeValidationError = message.error; }
     else if (message.type === "automation.elementSelected") {
       this.updateNode(message.nodeId, (node) => { node.config[message.fieldKey] = message.selector; });
-      this.notice = { tone: "success", message: "Selector capturado desde el navegador." };
+      this.notice = { tone: "success", message: t("text.selectorCapturedFromTheBrowser") };
     }
     else if (message.type === "automation.notice") {
       this.notice = { tone: message.tone, message: message.message };
@@ -254,13 +256,13 @@ class AutomationsApp extends LitElement {
 
   private readonly exportSelection = (): void => {
     const selected = this.selectedJsonDocument();
-    if (selected === null) { this.notice = { tone: "warning", message: "Selecciona un grupo o un flujo para exportarlo." }; this.requestUpdate(); return; }
+    if (selected === null) { this.notice = { tone: "warning", message: t("text.selectAGroupOrFlowToExport") }; this.requestUpdate(); return; }
     this.post({ type: "automation.export", document: selected.document });
   };
 
   private readonly viewJson = (): void => {
     const selected = this.selectedJsonDocument();
-    if (selected === null) { this.notice = { tone: "warning", message: "Selecciona un grupo o un flujo para ver su JSON." }; this.requestUpdate(); return; }
+    if (selected === null) { this.notice = { tone: "warning", message: t("text.selectAGroupOrFlowToViewItsJSON") }; this.requestUpdate(); return; }
     this.jsonScope = selected.scope;
     this.post({ type: "automation.viewJson", document: selected.document, scope: selected.scope });
   };
@@ -310,7 +312,7 @@ class AutomationsApp extends LitElement {
     }
     this.document = draft;
     this.autoSave.activity();
-    if (size.shouldWarn) this.notice = { tone: "warning", message: `La automatización ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` };
+    if (size.shouldWarn) this.notice = { tone: "warning", message: t("text.theAutomationUsesArg0OfArg1", { arg0: formatBytes(size.bytes), arg1: formatBytes(MAX_DOCUMENT_BYTES) }) };
     this.requestUpdate();
   }
   private readonly save = (): void => {
@@ -346,7 +348,7 @@ class AutomationsApp extends LitElement {
   private selectedGroup(): AutomationGroup | null { return this.document?.groups.find(({ id }) => id === this.selectedGroupId) ?? null; }
   private selectedProcess(): AutomationProcess | null { return this.selectedGroup()?.processes.find(({ id }) => id === this.selectedProcessId) ?? null; }
   private selectedNode(): AutomationNode | null { const process = this.selectedProcess(); return this.selectedNodeIds.length === 1 ? process?.nodes.find(({ id }) => id === this.selectedNodeIds[0]) ?? null : null; }
-  private readonly newGroup = (): void => { const group = createAutomationGroup(crypto.randomUUID(), `Grupo ${(this.document?.groups.length ?? 0) + 1}`); this.mutate((draft) => draft.groups.push(group)); this.selectedGroupId = group.id; this.selectedProcessId = null; this.selectionKind = "group"; };
+  private readonly newGroup = (): void => { const group = createAutomationGroup(crypto.randomUUID(), t("text.groupArg0", { arg0: (this.document?.groups.length ?? 0) + 1 })); this.mutate((draft) => draft.groups.push(group)); this.selectedGroupId = group.id; this.selectedProcessId = null; this.selectionKind = "group"; };
   private readonly addExample = (): void => {
     const group = createCompleteAutomationExample(() => crypto.randomUUID());
     this.mutate((draft) => draft.groups.push(group));
@@ -354,7 +356,7 @@ class AutomationsApp extends LitElement {
     this.selectedProcessId = group.processes[0]?.id ?? null;
     this.selectionKind = "group";
     this.selectedNodeIds = [];
-    this.notice = { tone: "success", message: "Ejemplo completo añadido. Guárdalo o ejecútalo para verlo funcionar sin conexión a Internet." };
+    this.notice = { tone: "success", message: t("text.completeExampleAddedSaveOrRunItToSeeItWorkOffline") };
     this.requestUpdate();
   };
   private renameGroup(groupId: string, name: string): void { this.mutate((draft) => { const group = draft.groups.find(({ id }) => id === groupId); if (group !== undefined) group.name = name; }); }
@@ -364,14 +366,14 @@ class AutomationsApp extends LitElement {
   private async removeGroup(groupId: string): Promise<void> {
     const group = this.document?.groups.find(({ id }) => id === groupId);
     if (group === undefined || !(await this.confirmations.confirm({
-      question: `¿Eliminar el grupo «${group.name}»?`,
-      detail: `También se eliminarán sus ${group.processes.length} ${group.processes.length === 1 ? "proceso" : "procesos"}. Esta acción no se puede deshacer desde el editor.`
+      question: t("text.deleteGroupArg0", { arg0: group.name }),
+      detail: t("text.itsArg0Arg1WillAlsoBeDeletedThisActionCannotBeUndoneFromTheEditor", { arg0: group.processes.length, arg1: group.processes.length === 1 ? t("text.process2") : t("text.processes") })
     }))) return;
     this.mutate((draft) => { draft.groups = draft.groups.filter(({ id }) => id !== groupId); });
     if (this.selectedGroupId === groupId) { const first = this.document?.groups[0]; this.selectedGroupId = first?.id ?? null; this.selectedProcessId = first?.processes[0]?.id ?? null; this.selectionKind = "group"; this.selectedNodeIds = []; }
   }
   private addProcess(groupId: string): void {
-    const process = createAutomationProcess(crypto.randomUUID(), "Nuevo proceso");
+    const process = createAutomationProcess(crypto.randomUUID(), t("text.newProcess"));
     this.mutate((draft) => {
       const group = draft.groups.find(({ id }) => id === groupId);
       if (group !== undefined) { group.processes.push(process); group.expanded = true; }
@@ -402,9 +404,9 @@ class AutomationsApp extends LitElement {
       void this.updateComplete.then(() => this.querySelector<HTMLElement>(".process-row.selected")?.scrollIntoView({ block: "nearest" }));
     }
   }
-  private duplicateProcess(groupId: string, processId: string): void { const source = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId); if (source === undefined) return; const copy = cloneProcess(source, `${source.name} copia`); this.mutate((draft) => draft.groups.find(({ id }) => id === groupId)?.processes.push(copy)); this.selectedProcessId = copy.id; this.selectionKind = "process"; }
-  private copyProcess(groupId: string, processId: string): void { const source = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId); if (source !== undefined) { this.copiedProcess = structuredClone(source); this.notice = { tone: "info", message: "Proceso copiado. Selecciona un grupo y pulsa Pegar proceso." }; this.requestUpdate(); } }
-  private pasteProcess(groupId: string): void { if (this.copiedProcess === null) return; const copy = cloneProcess(this.copiedProcess, `${this.copiedProcess.name} copia`); this.mutate((draft) => draft.groups.find(({ id }) => id === groupId)?.processes.push(copy)); this.selectedProcessId = copy.id; this.selectionKind = "process"; }
+  private duplicateProcess(groupId: string, processId: string): void { const source = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId); if (source === undefined) return; const copy = cloneProcess(source, t("names.processCopy", { name: source.name })); this.mutate((draft) => draft.groups.find(({ id }) => id === groupId)?.processes.push(copy)); this.selectedProcessId = copy.id; this.selectionKind = "process"; }
+  private copyProcess(groupId: string, processId: string): void { const source = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId); if (source !== undefined) { this.copiedProcess = structuredClone(source); this.notice = { tone: "info", message: t("text.processCopiedSelectAGroupAndClickPasteProcess") }; this.requestUpdate(); } }
+  private pasteProcess(groupId: string): void { if (this.copiedProcess === null) return; const copy = cloneProcess(this.copiedProcess, t("names.processCopy", { name: this.copiedProcess.name })); this.mutate((draft) => draft.groups.find(({ id }) => id === groupId)?.processes.push(copy)); this.selectedProcessId = copy.id; this.selectionKind = "process"; }
   private moveProcess(sourceGroupId: string, processId: string, targetGroupId: string): void {
     if (this.document?.groups.find(({ id }) => id === sourceGroupId)?.processes.some(({ id }) => id === processId)) this.placeProcess(processId, targetGroupId);
   }
@@ -422,16 +424,16 @@ class AutomationsApp extends LitElement {
   private async removeProcess(groupId: string, processId: string): Promise<void> {
     const process = this.document?.groups.find(({ id }) => id === groupId)?.processes.find(({ id }) => id === processId);
     if (process === undefined || !(await this.confirmations.confirm({
-      question: `¿Eliminar el proceso «${process.name}»?`,
-      detail: `Se eliminarán sus ${process.nodes.length} ${process.nodes.length === 1 ? "nodo" : "nodos"} y todas sus conexiones. Esta acción no se puede deshacer desde el editor.`
+      question: t("text.deleteProcessArg0", { arg0: process.name }),
+      detail: t("text.itsArg0Arg1AndAllTheirConnectionsWillBeDeletedThisActionCannotBeUndoneFromThe", { arg0: process.nodes.length, arg1: process.nodes.length === 1 ? t("text.node2") : t("text.nodes2") })
     }))) return;
     this.mutate((draft) => { const group = draft.groups.find(({ id }) => id === groupId); if (group) group.processes = group.processes.filter(({ id }) => id !== processId); });
     if (this.selectedProcessId === processId) this.selectedProcessId = this.selectedGroup()?.processes[0]?.id ?? null;
   }
   private updateProcess(change: (process: AutomationProcess) => void): void { const id = this.selectedProcessId; this.mutate((document) => { for (const group of document.groups) { const process = group.processes.find((item) => item.id === id); if (process) { change(process); return; } } }); }
-  private updateVariables(raw: string): void { try { const parsed: unknown = JSON.parse(raw); if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error(); this.updateProcess((process) => { process.variables = parsed as Record<string, JsonValue>; }); this.notice = { tone: "success", message: "Variables iniciales actualizadas." }; } catch { this.notice = { tone: "error", message: "Las variables deben ser un objeto JSON." }; } this.requestUpdate(); }
+  private updateVariables(raw: string): void { try { const parsed: unknown = JSON.parse(raw); if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error(); this.updateProcess((process) => { process.variables = parsed as Record<string, JsonValue>; }); this.notice = { tone: "success", message: t("text.initialVariablesUpdated") }; } catch { this.notice = { tone: "error", message: t("text.variablesMustBeAJSONObject") }; } this.requestUpdate(); }
   private updateViewportPreset(preset: ViewportPresetId): void { this.updateProcess((process) => { if (preset === "custom") process.viewport = { ...process.viewport, preset }; else process.viewport = { preset, ...VIEWPORT_PRESETS[preset] }; }); }
-  private updateViewportNumber(field: "width" | "height" | "deviceScaleFactor", raw: string): void { const value = Number(raw); if (!Number.isFinite(value) || value <= 0) { this.notice = { tone: "error", message: "Las medidas del viewport deben ser números mayores que cero." }; this.requestUpdate(); return; } this.updateProcess((process) => { process.viewport = { ...process.viewport, preset: "custom", [field]: value }; }); }
+  private updateViewportNumber(field: "width" | "height" | "deviceScaleFactor", raw: string): void { const value = Number(raw); if (!Number.isFinite(value) || value <= 0) { this.notice = { tone: "error", message: t("text.viewportDimensionsMustBeNumbersGreaterThanZero") }; this.requestUpdate(); return; } this.updateProcess((process) => { process.viewport = { ...process.viewport, preset: "custom", [field]: value }; }); }
   private addNode(type: AutomationNodeType): void { const process = this.selectedProcess(); if (process === null) return; const node = createAutomationNode(crypto.randomUUID(), type, { ...NEW_NODE_POSITION }); this.updateProcess((draft) => draft.nodes.push(node)); this.selectedNodeIds = [node.id]; this.validateNode(node.id); }
   private updateNode(id: string, change: (node: AutomationNode) => void): void { this.updateProcess((process) => { const node = process.nodes.find((item) => item.id === id); if (node) change(node); }); this.validateNode(id); }
   private readonly onFlowChange = (event: CustomEvent<{ nodes: readonly AutomationNode[]; edges: readonly AutomationEdge[] }>): void => { this.updateProcess((process) => { process.nodes = [...structuredClone(event.detail.nodes)]; process.edges = [...structuredClone(event.detail.edges)]; }); };

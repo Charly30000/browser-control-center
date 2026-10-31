@@ -1,0 +1,12 @@
+{
+  "extension.displayName": "Browser Control Center",
+  "extension.description": "Control your browser, prepare test data and automate web workflows from VS Code.",
+  "commands.openManual": "Browser Control: Open Manual",
+  "commands.openFormulas": "Browser Control: Open Formulas",
+  "commands.openArrays": "Browser Control: Open Arrays",
+  "commands.openAutomations": "Browser Control: Open Automations",
+  "commands.openAiDocumentation": "Browser Control: Open AI Documentation",
+  "commands.manageBrowser": "Browser Control: Manage browser",
+  "views.browserControl": "Browser Control",
+  "views.sidebar": "Browser control"
+}

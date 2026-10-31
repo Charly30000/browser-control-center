@@ -1,3 +1,4 @@
+import { t } from "../../../localization";
 import { LitElement, html, nothing } from "lit";
 import type { FormulaResource } from "../../../domain/formulas/formula";
 import { assessDocumentSize, documentSizeLimitMessage, formatBytes, MAX_DOCUMENT_BYTES } from "../../../domain/importExport/documentSize";
@@ -26,6 +27,7 @@ const fieldValue = (event: Event): string => {
 class FormulasApp extends LitElement {
   private resource: FormulaResource | null = null;
   private savedResource: FormulaResource | null = null;
+  private baselineResource: FormulaResource | null = null;
   private resources: readonly GlobalResourceSummary[] = [];
   private selectedIds = new Set<string>();
   private notice: { tone: NoticeTone; message: string } = { tone: "info", message: "" };
@@ -47,43 +49,43 @@ class FormulasApp extends LitElement {
   public override disconnectedCallback(): void { window.removeEventListener("message", this.onMessage); super.disconnectedCallback(); }
 
   protected override render() {
-    if (this.resource === null) return html`<main class="resource-shell loading">Cargando fórmulas…</main>`;
-    const dirty = isResourceDirty(this.resource, this.savedResource);
+    if (this.resource === null) return html`<main class="resource-shell loading">${t("text.loadingFormulas")}</main>`;
+    const dirty = this.hasUnsavedChanges();
     return html`
       <main class="resource-shell formulas-page">
         ${renderAutoSaveControl(isAutoSaveEnabled(this.resource.preferences), this.toggleAutoSave)}
         <header class="page-header">
-          <div class="page-title"><span class="resource-icon">${renderSectionIcon("formulas")}</span><div><h1>Fórmulas</h1><p>Funciones JavaScript reutilizables ejecutadas en el navegador seleccionado, en modo headless y aislado.</p></div></div>
+          <div class="page-title"><span class="resource-icon">${renderSectionIcon("formulas")}</span><div><h1>${t("navigation.formulas")}</h1><p>${t("text.reusableJavaScriptFunctionsRunInTheSelectedBrowserInAnIsolatedHeadlessSession")}</p></div></div>
           <div class="toolbar">
-            <button class="primary" @click=${() => this.guardTransition(() => this.post({ type: "formula.new" }), "¿Guardar la fórmula antes de crear otra?")}>Agregar</button>
-            <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "formula.deleteSelected", ids: [...this.selectedIds] }), "¿Guardar la fórmula actual antes de eliminar la selección?")}>Eliminar seleccionadas</button>
-            <button title="Carga una fórmula de ejemplo sin ejecutarla" @click=${() => this.guardTransition(() => this.post({ type: "formula.generateExample" }), "¿Guardar la fórmula antes de cargar el ejemplo?")}>Generar ejemplo</button>
-            <button @click=${() => this.guardTransition(() => this.post({ type: "formula.import" }), "¿Guardar la fórmula antes de importar?")}>Importar</button>
+            <button class="primary" @click=${() => this.guardTransition(() => this.post({ type: "formula.new" }), t("text.saveTheFormulaBeforeCreatingAnotherOne"))}>${t("text.add2")}</button>
+            <button class="danger" @click=${() => this.guardTransition(() => this.post({ type: "formula.deleteSelected", ids: [...this.selectedIds] }), t("text.saveTheCurrentFormulaBeforeDeletingTheSelection"))}>${t("text.deleteSelected")}</button>
+            <button title=${t("text.loadAnExampleFormulaWithoutRunningIt")} @click=${() => this.guardTransition(() => this.post({ type: "formula.generateExample" }), t("text.saveTheFormulaBeforeLoadingTheExample"))}>${t("text.generateExample")}</button>
+            <button @click=${() => this.guardTransition(() => this.post({ type: "formula.import" }), t("text.saveTheFormulaBeforeImporting"))}>${t("actions.import")}</button>
           </div>
         </header>
         <status-notice .tone=${this.notice.tone} .message=${this.notice.message}></status-notice>
         <div class="resource-layout">
           <aside class="resource-list">
-            <header class="resource-section-header"><div><h2>Mis fórmulas</h2><p>Funciones guardadas</p></div><span class="resource-count" aria-label=${`${this.resources.length} fórmulas guardadas`}>${this.resources.length}</span></header>
-            ${this.resources.length === 0 ? html`<p class="empty-list">No hay fórmulas guardadas.</p>` : html`
+            <header class="resource-section-header"><div><h2>${t("text.myFormulas")}</h2><p>${t("text.savedFunctions")}</p></div><span class="resource-count" aria-label=${t("text.arg0SavedFormulas", { arg0: this.resources.length })}>${this.resources.length}</span></header>
+            ${this.resources.length === 0 ? html`<p class="empty-list">${t("text.noSavedFormulas")}</p>` : html`
               <ul>${this.resources.map((item) => html`<li class=${item.id === this.resource?.id ? "resource-item current" : "resource-item"}>
-                <input type="checkbox" aria-label=${`Seleccionar ${item.name}`} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
-                <button class="resource-name" title=${item.name} aria-current=${item.id === this.resource?.id ? "true" : nothing} @click=${() => this.guardTransition(() => this.post({ type: "formula.select", id: item.id }), "¿Guardar la fórmula antes de cambiar de selección?")}><span class="resource-item-icon">${renderSectionIcon("formulas")}</span><span class="resource-item-title">${item.name}</span></button>
+                <input type="checkbox" aria-label=${t("text.selectArg0", { arg0: item.name })} .checked=${this.selectedIds.has(item.id)} @change=${(event: Event) => this.toggleSelection(item.id, event)}>
+                <button class="resource-name" title=${item.name} aria-current=${item.id === this.resource?.id ? "true" : nothing} @click=${() => this.guardTransition(() => this.post({ type: "formula.select", id: item.id }), t("text.saveTheFormulaBeforeChangingTheSelection"))}><span class="resource-item-icon">${renderSectionIcon("formulas")}</span><span class="resource-item-title">${item.name}</span></button>
               </li>`)}</ul>
             `}
-            ${this.selectedIds.size === 0 ? nothing : html`<p class="selection-summary">${this.selectedIds.size} ${this.selectedIds.size === 1 ? "fórmula seleccionada" : "fórmulas seleccionadas"}</p>`}
+            ${this.selectedIds.size === 0 ? nothing : html`<p class="selection-summary">${this.selectedIds.size} ${this.selectedIds.size === 1 ? t("text.selectedFormula") : t("text.selectedFormulas")}</p>`}
           </aside>
           <section class="resource-editor">
-            <header class="resource-section-header editor-header"><div><h2>Editor de la fórmula</h2><p>Genera datos con tu función JavaScript</p></div><div class="editor-header-meta"><span class="resource-type">JavaScript</span><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? "Guardando…" : dirty ? "Cambios sin guardar" : "Guardado"}</span></div></header>
+            <header class="resource-section-header editor-header"><div><h2>${t("text.formulaEditor")}</h2><p>${t("text.generateDataWithYourJavaScriptFunction")}</p></div><div class="editor-header-meta"><span class="resource-type">${t("text.javascript")}</span><span class=${dirty ? "dirty-state dirty" : "dirty-state"} role="status">${this.saves.pending ? t("saveState.saving") : dirty ? t("saveState.dirty") : this.savedResource === null ? t("saveState.new") : t("saveState.saved")}</span></div></header>
             <div class="editor-content">
-              <label class="resource-name-field"><span>Nombre de la fórmula</span><input .value=${this.resource.name} @input=${(event: Event) => this.change((resource) => { resource.name = fieldValue(event); })}></label>
-              <label class="resource-code-field"><span>Código — contrato: function generate() sin parámetros</span><textarea class="code-editor" spellcheck="false" .value=${this.resource.code} @input=${this.changeCode}></textarea></label>
-              <p class="execution-note">Probar ejecuta la fórmula sin red ni acceso a Node/VS Code y aplica un timeout duro de 2 segundos.</p>
+              <label class="resource-name-field"><span>${t("text.formulaName")}</span><input .value=${this.resource.name} @input=${(event: Event) => this.change((resource) => { resource.name = fieldValue(event); })}></label>
+              <label class="resource-code-field"><span>${t("text.codeContractFunctionGenerateWithNoParameters")}</span><textarea class="code-editor" spellcheck="false" .value=${this.resource.code} @input=${this.changeCode}></textarea></label>
+              <p class="execution-note">${t("text.testRunsTheFormulaWithoutNetworkOrNodeVSCodeAccessWithAStrict2SecondTimeout")}</p>
               <div class="editor-actions">
-                <button @click=${() => this.post({ type: "formula.test", resource: this.resource! })}>Probar</button>
-                <button class="primary" ?disabled=${this.saves.pending} @click=${this.save}>Guardar</button>
-                <button @click=${() => this.post({ type: "formula.export", resource: this.resource! })}>Exportar</button>
-                <button @click=${() => this.post({ type: "formula.viewJson", resource: this.resource! })}>Ver JSON</button>
+                <button @click=${() => this.post({ type: "formula.test", resource: this.resource! })}>${t("text.test")}</button>
+                <button class="primary" ?disabled=${this.saves.pending} @click=${this.save}>${t("actions.save")}</button>
+                <button @click=${() => this.post({ type: "formula.export", resource: this.resource! })}>${t("actions.export")}</button>
+                <button @click=${() => this.post({ type: "formula.viewJson", resource: this.resource! })}>${t("actions.viewJson")}</button>
               </div>
               ${this.notice.message ? html`<div class=${this.notice.tone === "error" ? "result-panel error" : this.notice.tone === "success" ? "result-panel success" : "result-panel"}>${this.notice.message}</div>` : nothing}
             </div>
@@ -92,7 +94,7 @@ class FormulasApp extends LitElement {
       </main>
       ${this.jsonDocument === null ? nothing : html`<json-document-editor
         .value=${this.jsonDocument}
-        .heading=${`JSON de ${this.resource.name}`}
+        .heading=${t("text.jsonForArg0", { arg0: this.resource.name })}
         .errorMessage=${this.notice.tone === "error" ? this.notice.message : ""}
         @json-editor-change=${this.changeJson}
         @json-editor-close=${this.closeJsonEditor}
@@ -108,6 +110,7 @@ class FormulasApp extends LitElement {
       this.saves.reset();
       this.changingResource = false;
       this.resource = structuredClone(event.data.state.resource);
+      this.baselineResource = structuredClone(event.data.state.resource);
       this.savedResource = event.data.state.savedResource === null ? null : structuredClone(event.data.state.savedResource);
       this.resources = event.data.state.resources;
       this.selectedIds = new Set([...this.selectedIds].filter((id) => this.resources.some((resource) => resource.id === id)));
@@ -123,6 +126,7 @@ class FormulasApp extends LitElement {
       if (submitted === null || this.resource?.id !== saved.id) return;
       this.resource = reconcileSavedResource(this.resource, submitted, saved);
       this.savedResource = structuredClone(event.data.state.savedResource);
+      this.baselineResource = structuredClone(saved);
       this.resources = event.data.state.resources;
       if (this.awaitingSaveTransition) {
         if (this.hasUnsavedChanges()) this.save();
@@ -186,7 +190,7 @@ class FormulasApp extends LitElement {
     this.requestUpdate();
   };
 
-  private hasUnsavedChanges(): boolean { return this.resource !== null && isResourceDirty(this.resource, this.savedResource); }
+  private hasUnsavedChanges(): boolean { return this.resource !== null && isResourceDirty(this.resource, this.baselineResource); }
 
   private readonly toggleAutoSave = (): void => {
     this.change((resource) => { resource.preferences = { ...resource.preferences, autoSaveEnabled: !isAutoSaveEnabled(resource.preferences) }; });
@@ -220,7 +224,7 @@ class FormulasApp extends LitElement {
     } else {
       this.change((resource) => { resource.code = candidate; });
       this.notice = size.shouldWarn
-        ? { tone: "warning", message: `La fórmula ocupa ${formatBytes(size.bytes)} de ${formatBytes(MAX_DOCUMENT_BYTES)}.` }
+        ? { tone: "warning", message: t("text.theFormulaUsesArg0OfArg1", { arg0: formatBytes(size.bytes), arg1: formatBytes(MAX_DOCUMENT_BYTES) }) }
         : { tone: "info", message: "" };
     }
     this.requestUpdate();

@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { randomUUID } from "node:crypto";
 import type { Page } from "playwright-core";
 import type { BrowserPageSnapshot } from "../../domain/browser/browserBridge";
@@ -21,7 +22,7 @@ export class BrowserPageRegistry {
       if (current !== undefined) this.unregister(current);
       this.onDidChange();
     };
-    const record: PageRecord = { id, page, title: "Nueva pestaña", refresh, close };
+    const record: PageRecord = { id, page, title: t("text.newTab"), refresh, close };
     this.records.set(id, record);
     this.activePageId = id;
     page.on("domcontentloaded", refresh);
@@ -49,7 +50,7 @@ export class BrowserPageRegistry {
 
   public async select(id: string): Promise<void> {
     const record = this.records.get(id);
-    if (record === undefined) throw new Error("La pestaña seleccionada ya no existe.");
+    if (record === undefined) throw new Error(t("text.theSelectedTabNoLongerExists"));
     await record.page.bringToFront();
     this.activePageId = id;
     await this.refresh(record);
@@ -57,7 +58,7 @@ export class BrowserPageRegistry {
 
   public async close(id: string): Promise<void> {
     const record = this.records.get(id);
-    if (record === undefined) throw new Error("La pestaña seleccionada ya no existe.");
+    if (record === undefined) throw new Error(t("text.theSelectedTabNoLongerExists"));
     await record.page.close();
   }
 
@@ -96,7 +97,7 @@ export class BrowserPageRegistry {
   }
 
   private async refresh(record: PageRecord): Promise<void> {
-    try { record.title = await record.page.title() || "Sin título"; } catch { record.title = "Pestaña cerrada"; }
+    try { record.title = await record.page.title() || t("text.untitled"); } catch { record.title = t("text.tabClosed"); }
     this.onDidChange();
   }
 }

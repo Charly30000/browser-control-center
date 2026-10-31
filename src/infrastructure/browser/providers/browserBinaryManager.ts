@@ -1,3 +1,4 @@
+import { t } from "../../../localization";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -47,7 +48,7 @@ export class NodeBrowserProcessRunner implements BrowserProcessRunner {
       child.once("error", reject);
       child.once("exit", (code) => code === 0
         ? resolvePromise()
-        : reject(new Error(`La instalación de Chromium terminó con código ${code ?? "desconocido"}.`)));
+        : reject(new Error(t("text.chromiumInstallationExitedWithCodeArg0", { arg0: code ?? "desconocido" }))));
     });
   }
 }
@@ -77,17 +78,17 @@ export class BrowserBinaryManager {
 
   public async inspect(): Promise<BrowserInstallationSnapshot> {
     const descriptor = await this.descriptor();
-    if (this.operation !== null) return this.snapshot("installing", descriptor, null, null, "Chromium se está instalando.");
+    if (this.operation !== null) return this.snapshot("installing", descriptor, null, null, t("text.chromiumIsBeingInstalled"));
     const manifest = await this.readManifest();
-    if (manifest === null) return this.snapshot("missing", descriptor, null, null, "Chromium no está instalado.");
+    if (manifest === null) return this.snapshot("missing", descriptor, null, null, t("text.chromiumIsNotInstalled"));
     if (manifest.playwrightVersion !== descriptor.playwrightVersion || manifest.requiredRevision !== descriptor.requiredRevision) {
-      return this.snapshot("incompatible", descriptor, manifest.browserVersion, manifest.executablePath, "La instalación pertenece a otra versión de Playwright.");
+      return this.snapshot("incompatible", descriptor, manifest.browserVersion, manifest.executablePath, t("text.theInstallationBelongsToAnotherPlaywrightVersion"));
     }
     try {
       await access(manifest.executablePath);
-      return this.snapshot("ready", descriptor, manifest.browserVersion, manifest.executablePath, "Chromium está instalado y verificado.");
+      return this.snapshot("ready", descriptor, manifest.browserVersion, manifest.executablePath, t("text.chromiumIsInstalledAndVerified"));
     } catch {
-      return this.snapshot("corrupted", descriptor, manifest.browserVersion, manifest.executablePath, "No se encuentra el ejecutable registrado.");
+      return this.snapshot("corrupted", descriptor, manifest.browserVersion, manifest.executablePath, t("text.theRegisteredExecutableWasNotFound"));
     }
   }
 
@@ -110,11 +111,11 @@ export class BrowserBinaryManager {
       };
       await this.writeManifest(manifest);
       this.emit();
-      this.logger.info(`Chromium ${browserVersion} verificado en ${executablePath}.`);
-      return this.snapshot("ready", descriptor, browserVersion, executablePath, "Chromium está instalado y verificado.");
+      this.logger.info(t("text.chromiumArg0VerifiedAtArg1", { arg0: browserVersion, arg1: executablePath }));
+      return this.snapshot("ready", descriptor, browserVersion, executablePath, t("text.chromiumIsInstalledAndVerified"));
     } catch (error: unknown) {
-      this.logger.error("La verificación de Chromium ha fallado.", error);
-      return this.snapshot("corrupted", descriptor, null, executablePath, error instanceof Error ? error.message : "La verificación ha fallado.");
+      this.logger.error(t("text.chromiumVerificationFailed"), error);
+      return this.snapshot("corrupted", descriptor, null, executablePath, error instanceof Error ? error.message : t("text.verificationFailed"));
     }
   }
 
@@ -133,13 +134,13 @@ export class BrowserBinaryManager {
       rm(this.manifestPath, { force: true })
     ]);
     this.emit();
-    this.logger.info("Instalación administrada de Chromium eliminada.");
+    this.logger.info(t("text.managedChromiumInstallationDeleted"));
   }
 
   public async requireExecutablePath(): Promise<string> {
     const snapshot = await this.inspect();
     if (snapshot.state !== "ready" || snapshot.executablePath === null) {
-      throw new Error(snapshot.state === "missing" ? "Instala Chromium desde Gestionar navegador." : `Chromium no está disponible: ${snapshot.detail}`);
+      throw new Error(snapshot.state === "missing" ? t("text.installChromiumFromManageBrowser") : t("text.chromiumIsUnavailableArg0", { arg0: snapshot.detail }));
     }
     return snapshot.executablePath;
   }
@@ -154,14 +155,14 @@ export class BrowserBinaryManager {
       PLAYWRIGHT_SKIP_BROWSER_GC: "1"
     };
     if (process.versions.electron !== undefined) environment.ELECTRON_RUN_AS_NODE = "1";
-    this.logger.info(`Instalando Chromium en ${this.binariesPath}.`);
-    onProgress({ message: "Descargando Chromium…" });
+    this.logger.info(t("text.installingChromiumAtArg0", { arg0: this.binariesPath }));
+    onProgress({ message: t("text.downloadingChromium") });
     await this.runner.run(cliPath, ["install", "chromium"], environment, (text) => {
       const clean = text.trim();
       if (clean !== "") this.logger.debug(clean);
       const match = /(?:^|\s)(\d{1,3})%(?:\s|$)/.exec(clean);
       const percentage = match?.[1] === undefined ? undefined : Number(match[1]);
-      onProgress(percentage === undefined ? { message: clean || "Instalando Chromium…" } : { message: clean, percentage });
+      onProgress(percentage === undefined ? { message: clean || t("text.installingChromium2") } : { message: clean, percentage });
     });
     const verified = await this.verify();
     if (verified.state !== "ready") throw new Error(verified.detail);
@@ -174,7 +175,7 @@ export class BrowserBinaryManager {
     const browsers = JSON.parse(await readFile(this.resolvePackageFile("browsers.json"), "utf8")) as BrowserDescriptorFile;
     const chromium = browsers.browsers?.find(({ name }) => name === "chromium");
     if (typeof packageJson.version !== "string" || typeof chromium?.revision !== "string") {
-      throw new Error("No se pudo determinar la versión requerida de Chromium.");
+      throw new Error(t("text.couldNotDetermineTheRequiredChromiumVersion"));
     }
     return { playwrightVersion: packageJson.version, requiredRevision: chromium.revision };
   }
@@ -211,7 +212,7 @@ export class BrowserBinaryManager {
     const resolvedTarget = resolve(target);
     const child = relative(root, resolvedTarget);
     if (!isAbsolute(root) || child === "" || child.startsWith(`..${sep}`) || child === ".." || isAbsolute(child)) {
-      throw new Error("Se rechazó una ruta de borrado fuera del almacenamiento administrado.");
+      throw new Error(t("text.aDeletionPathOutsideManagedStorageWasRejected"));
     }
   }
 }

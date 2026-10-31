@@ -31,7 +31,7 @@ const repository = <T extends FormulaResource | ArrayResource>(initial: readonly
 };
 
 const profileWithResources = (formulaId: string, arrayId: string) => {
-  const profile = createEmptyManualProfile("profile-1", "Perfil");
+  const profile = createEmptyManualProfile("profile-1", "Profile");
   const formulaBinding = createGeneratorBinding("binding-formula");
   formulaBinding.generatorType = "formula";
   formulaBinding.resourceId = formulaId;

@@ -8,7 +8,7 @@ describe("NodeRegistry de automatizaciones", () => {
   it("registra todos los nodos iniciales con metadatos para paleta e inspector", () => {
     expect(registry.descriptors().map(({ type }) => type)).toEqual(AUTOMATION_NODE_TYPES);
     expect(registry.descriptors().every(({ title, category, inspectorFields }) => title !== "" && category !== "" && Array.isArray(inspectorFields))).toBe(true);
-    expect(registry.descriptors().find(({ type }) => type === "fill")).toMatchObject({ title: "Campo", availableInPalette: true });
+    expect(registry.descriptors().find(({ type }) => type === "fill")).toMatchObject({ title: "Field", availableInPalette: true });
     expect(registry.descriptors().find(({ type }) => type === "generate-value")?.availableInPalette).toBe(false);
   });
 

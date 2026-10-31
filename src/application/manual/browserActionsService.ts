@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import type { BrowserBridge, BrowserSessionSnapshot, ResolvedInputBinding } from "../../domain/browser/browserBridge";
 import { buildUrlWithQueryParams } from "../../domain/manual/queryParams";
 import { parseStorageValue } from "../../domain/manual/storageValue";
@@ -56,7 +57,7 @@ export class BrowserActionsService {
   public async previewGenerator(binding: GeneratorBinding): Promise<Result<string>> {
     const result = await this.generators.resolve(binding);
     if (!result.ok) return result;
-    return success(result.value === undefined ? "Sin resultado" : JSON.stringify(result.value) ?? "Sin resultado");
+    return success(result.value === undefined ? t("text.noResult") : JSON.stringify(result.value) ?? t("text.noResult"));
   }
 
   public async selectElement(): Promise<Result<string>> {
@@ -73,7 +74,7 @@ export class BrowserActionsService {
       try {
         const value = await this.generators.resolve(binding);
         if (!value.ok) throw new Error(value.error);
-        if (value.value === undefined) throw new Error("El generador no devolvió ningún valor.");
+        if (value.value === undefined) throw new Error(t("text.theGeneratorDidNotReturnAValue"));
         const resolved: ResolvedInputBinding = {
           selector: binding.selector, propertyKind: binding.propertyKind, propertyName: binding.propertyName,
           value: value.value, inputMode: binding.inputMode, delayMs: binding.delayMs
@@ -81,16 +82,16 @@ export class BrowserActionsService {
         await this.browser.applyInputBindings([resolved]);
         applied += 1;
       } catch (error: unknown) {
-        errors.push(`Campo «${binding.selector || "sin selector"}»: ${error instanceof Error ? error.message : "No se pudo aplicar."}`);
+        errors.push(t("text.fieldArg0Arg1", { arg0: binding.selector || t("text.noSelector"), arg1: error instanceof Error ? error.message : t("text.couldNotApply") }));
       }
     }
-    return errors.length === 0 ? success(undefined) : failure(`Aplicados ${applied} de ${bindings.length} campos; ${errors.length} fallidos.\n${errors.join("\n")}`);
+    return errors.length === 0 ? success(undefined) : failure(t("text.appliedArg0OfArg1FieldsArg2FailedArg3", { arg0: applied, arg1: bindings.length, arg2: errors.length, arg3: errors.join("\n") }));
   }
 
   private async applyStorage(profile: ManualProfile, field: "localStorage" | "sessionStorage", scope: "local" | "session", rowId: string | null): Promise<Result<void>> {
     const entries = this.select(profile[field], rowId);
     const invalid = entries.find((entry) => !parseStorageValue(entry.valueType, entry.value).ok);
-    if (invalid !== undefined) return failure(`El valor de storage para «${invalid.key || "sin clave"}» no es válido.`);
+    if (invalid !== undefined) return failure(t("text.theStorageValueForArg0IsInvalid", { arg0: invalid.key || t("text.noKey") }));
     return this.execute(() => this.browser.applyStorage(scope, entries));
   }
 
@@ -100,11 +101,11 @@ export class BrowserActionsService {
 
   private async execute(action: () => Promise<void>): Promise<Result<void>> {
     try { await action(); return success(undefined); }
-    catch (error: unknown) { return failure(error instanceof Error ? error.message : "La acción de navegador ha fallado."); }
+    catch (error: unknown) { return failure(error instanceof Error ? error.message : t("text.theBrowserActionFailed")); }
   }
 
   private async executeValue<T>(action: () => Promise<T>): Promise<Result<T>> {
     try { return success(await action()); }
-    catch (error: unknown) { return failure(error instanceof Error ? error.message : "La acción de navegador ha fallado."); }
+    catch (error: unknown) { return failure(error instanceof Error ? error.message : t("text.theBrowserActionFailed")); }
   }
 }

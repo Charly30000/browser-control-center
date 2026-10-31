@@ -1,9 +1,10 @@
+import { t } from "../../localization";
 export class ExecutionCancelledError extends Error {
-  public constructor(message = "Ejecución cancelada.") { super(message); this.name = "ExecutionCancelledError"; }
+  public constructor(message = t("text.executionCancelled")) { super(message); this.name = "ExecutionCancelledError"; }
 }
 
 export class ExecutionTimeoutError extends Error {
-  public constructor(public readonly timeoutMs: number) { super(`El nodo superó el timeout de ${timeoutMs} ms.`); this.name = "ExecutionTimeoutError"; }
+  public constructor(public readonly timeoutMs: number) { super(t("text.theNodeExceededTheArg0MsTimeout", { arg0: timeoutMs })); this.name = "ExecutionTimeoutError"; }
 }
 
 export class ExecutionControl {

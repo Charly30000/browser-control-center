@@ -1,3 +1,4 @@
+import { t } from "../../../localization";
 import type { BrowserProvider } from "../../../application/browser/browserProvider";
 import type { BrowserLaunchConfiguration, BrowserProviderSnapshot } from "../../../domain/browser/browserProvider";
 import type { BrowserBinaryManager } from "./browserBinaryManager";
@@ -11,7 +12,7 @@ export class ManagedChromiumProvider implements BrowserProvider {
     const snapshot = await this.binaries.inspect();
     return {
       id: this.id,
-      displayName: "Chromium administrado",
+      displayName: t("text.managedChromium"),
       state: snapshot.state,
       browserVersion: snapshot.browserVersion,
       executablePath: snapshot.executablePath,
@@ -23,7 +24,7 @@ export class ManagedChromiumProvider implements BrowserProvider {
   public async resolveLaunchConfiguration(): Promise<BrowserLaunchConfiguration> {
     return {
       providerId: this.id,
-      displayName: "Chromium administrado",
+      displayName: t("text.managedChromium"),
       engine: "chromium",
       executablePath: await this.binaries.requireExecutablePath(),
       channel: null

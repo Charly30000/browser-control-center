@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { arraysDocumentation } from "./arrays";
 import { automationsDocumentation } from "./automations";
 import { formulasDocumentation } from "./formulas";
@@ -6,7 +7,7 @@ import { manualDocumentation } from "./manual";
 export type AiDocumentationArea = "manual" | "formulas" | "arrays" | "automations";
 
 export const AI_DOCUMENTATION_AREAS: Readonly<Record<AiDocumentationArea, string>> = {
-  manual: "Manual", formulas: "Fórmulas", arrays: "Arrays", automations: "Automatizaciones"
+  manual: t("navigation.manual"), formulas: t("navigation.formulas"), arrays: t("navigation.arrays"), automations: t("navigation.automations")
 };
 
 const documentation: Readonly<Record<AiDocumentationArea, () => string>> = {

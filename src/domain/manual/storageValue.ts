@@ -1,3 +1,4 @@
+import { t } from "../../localization";
 import { failure, success, type Result } from "../../shared/result";
 import type { StorageValueType } from "./manualProfile";
 
@@ -25,25 +26,25 @@ export const parseStorageValue = (type: StorageValueType, rawValue: string): Res
       return success(rawValue);
     case "number": {
       if (rawValue.trim() === "") {
-        return failure("El valor numérico no puede estar vacío.");
+        return failure(t("text.theNumericValueCannotBeEmpty"));
       }
       const parsed = Number(rawValue);
-      return Number.isFinite(parsed) ? success(parsed) : failure("El número no es válido.");
+      return Number.isFinite(parsed) ? success(parsed) : failure(t("text.theNumberIsInvalid"));
     }
     case "boolean":
       if (rawValue === "true") return success(true);
       if (rawValue === "false") return success(false);
-      return failure("El booleano debe ser true o false.");
+      return failure(t("text.theBooleanMustBeTrueOrFalse"));
     case "json":
       try {
         const parsed: unknown = JSON.parse(rawValue);
-        return isJsonValue(parsed) ? success(parsed) : failure("El JSON contiene un valor no compatible.");
+        return isJsonValue(parsed) ? success(parsed) : failure(t("text.theJSONContainsAnUnsupportedValue"));
       } catch {
-        return failure("El JSON no es válido.");
+        return failure(t("text.theJSONIsInvalid"));
       }
     case "null":
       return rawValue.trim() === "" || rawValue.trim() === "null"
         ? success(null)
-        : failure("El tipo null solo admite un valor vacío o null.");
+        : failure(t("text.theNullTypeOnlyAcceptsAnEmptyValueOrNull"));
   }
 };

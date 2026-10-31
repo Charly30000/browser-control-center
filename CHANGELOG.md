@@ -2,6 +2,16 @@
 
 ## Sin publicar
 
+- Manage Browser muestra correctamente el navegador activo al abrirse y mantiene el selector sincronizado con la selección confirmada.
+
+- Manual, Fórmulas, Arrays y Automatizaciones comparten migraciones secuenciales de esquema, aplicadas antes de validar y guardadas atómicamente al leer archivos antiguos. Los catálogos retiran referencias a archivos inexistentes y reparan su selección. La evolución de formatos queda documentada y exigida en AGENTS.md.
+
+- Arrays y Fórmulas solo piden guardar al cambiar de recurso cuando hay ediciones reales; los borradores sin editar no se guardan automáticamente y muestran Not saved yet. Automatizaciones permite seleccionar un proceso desde toda su tarjeta y con Enter/Espacio, conservando las acciones de sus controles.
+
+- El sistema de traducciones se agrupa en `src/localization/`, con un JSON por idioma y un registro central en `config.json`. La preparación genera los archivos de VS Code y las importaciones; los idiomas registrados se resuelven desde el idioma del editor, con respaldo configurable.
+
+- La interfaz, los comandos, avisos, ejemplos y documentación para IA pasan a inglés con un catálogo JSON compartido preparado para futuros idiomas. El README presenta primero inglés y después castellano; los documentos y datos del usuario conservan su identidad y formato.
+
 - El guardado automático queda activado por defecto en Manual, Arrays, Fórmulas y Automatizaciones cuando el documento no tiene preferencia; se respetan las desactivaciones guardadas por el usuario.
 
 - Las casillas de Manual, Arrays, Fórmulas y Automatizaciones unifican su aspecto con un tamaño de 20 px, bordes redondeados y una marca más visible, con foco de teclado y soporte de alto contraste.
